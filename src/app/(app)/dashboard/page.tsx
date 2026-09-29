@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { trpc } from "@/trpc/react";
-import { RemindersCard } from "@/components/dashboard/reminders-card";
+import { MissingStatementsCard } from "@/components/dashboard/missing-statements-card";
+import { TasksSnapshot } from "@/components/dashboard/tasks-snapshot";
 import { NetWorthSnapshot } from "@/components/dashboard/net-worth-snapshot";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 
@@ -30,7 +31,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <RemindersCard />
+      <MissingStatementsCard />
+      <TasksSnapshot />
       <NetWorthSnapshot />
     </>
   );

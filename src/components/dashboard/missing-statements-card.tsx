@@ -27,20 +27,21 @@ function lastMonthName() {
 /**
  * A full-width alert banner (not a card) for each account missing last
  * month's statement — stays up from the 1st of the month until that
- * account has a transaction dated last month (`dashboard.reminders` is
- * pure date-math re-evaluated on every load, so there's no dismissed/seen
- * state to track: it simply stops being true once imported).
+ * account has a transaction dated last month (`dashboard.missingStatements`
+ * is pure date-math re-evaluated on every load, so there's no dismissed/seen
+ * state to track: it simply stops being true once imported). Named apart
+ * from "Reminders" (recurring Tasks) — same word, unrelated concepts.
  */
-export function RemindersCard() {
-  const { data: reminders } = trpc.dashboard.reminders.useQuery();
+export function MissingStatementsCard() {
+  const { data: missingStatements } = trpc.dashboard.missingStatements.useQuery();
 
-  if (!reminders || reminders.length === 0) return null;
+  if (!missingStatements || missingStatements.length === 0) return null;
 
   const month = lastMonthName();
 
   return (
     <div className="mb-5 flex flex-col gap-3">
-      {reminders.map((r) => (
+      {missingStatements.map((r) => (
         <div
           key={r.accountId}
           className="flex flex-wrap items-center gap-3 rounded-[14px] border border-warn/30 bg-warn/10 px-5 py-3.5"

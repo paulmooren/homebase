@@ -173,7 +173,7 @@ export const dashboardRouter = createTRPCRouter({
     };
   }),
 
-  reminders: householdProcedure.query(async ({ ctx }) => {
+  missingStatements: householdProcedure.query(async ({ ctx }) => {
     const { startOfThisMonth, startOfLastMonth } = lastMonthRange();
 
     const accounts = await ctx.prisma.financialAccount.findMany({
