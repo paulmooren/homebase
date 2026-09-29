@@ -136,9 +136,11 @@ export const dashboardRouter = createTRPCRouter({
     }),
 
   summary: householdProcedure.query(async ({ ctx }) => {
-    // Totals are a whole-household aggregate (net worth is combined wealth),
-    // but the account list returned to the client must stay visibility-
-    // filtered, or a partner's personal account leaks into the payload.
+    // Net worth is shared/joint wealth, not "everyone's personal money added
+    // together" — only shared accounts (ownerId null) count toward the
+    // totals. The account list returned to the client is separately
+    // visibility-filtered to shared + the viewer's own accounts, so a
+    // partner's personal account never leaks into the payload either way.
     const allAccounts = await ctx.prisma.financialAccount.findMany({
       where: { householdId: ctx.householdId },
     });
@@ -146,6 +148,7 @@ export const dashboardRouter = createTRPCRouter({
     let totalAssets = 0;
     let totalLiabilities = 0;
     for (const account of allAccounts) {
+      if (account.ownerId !== null) continue;
       const balance = Number(account.balance);
       if ((ASSET_ACCOUNT_TYPES as readonly string[]).includes(account.type)) {
         totalAssets += balance;

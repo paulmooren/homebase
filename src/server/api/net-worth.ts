@@ -41,7 +41,7 @@ function dateKey(date: Date) {
 export async function recomputeNetWorthSnapshot(prisma: PrismaClient, householdId: string) {
   const accounts = await prisma.financialAccount.findMany({
     where: { householdId },
-    select: { id: true, type: true, startingBalance: true },
+    select: { id: true, type: true, startingBalance: true, ownerId: true },
   });
 
   if (accounts.length === 0) {
@@ -64,9 +64,13 @@ export async function recomputeNetWorthSnapshot(prisma: PrismaClient, householdI
   const snapshots = new Map<string, { totalAssets: number; totalLiabilities: number }>();
 
   function totalsFromRunningBalance() {
+    // Net worth reflects shared/joint wealth only — a personal account's
+    // balance is still tracked (below) and shown on that owner's own
+    // account page, it just doesn't count toward the household total.
     let totalAssets = 0;
     let totalLiabilities = 0;
     for (const a of accounts) {
+      if (a.ownerId !== null) continue;
       const balance = runningBalance.get(a.id) ?? 0;
       if ((ASSET_ACCOUNT_TYPES as readonly string[]).includes(a.type)) totalAssets += balance;
       else totalLiabilities += balance;
