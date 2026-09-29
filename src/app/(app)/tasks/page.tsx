@@ -9,12 +9,7 @@ import { TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon } from "@/co
 
 const FREQUENCIES = Object.keys(RECURRING_FREQUENCY_LABELS) as RecurringFrequency[];
 
-const COL_DATE = "w-[100px] shrink-0";
-const COL_RECURRENCE = "w-[112px] shrink-0";
-const COL_ASSIGNEE = "w-[128px] shrink-0";
-const COL_ACTIONS = "flex w-[72px] shrink-0 items-center justify-end gap-3";
-
-/** Shared text size for every task property, so title/date/recurrence/assignee all read at the same scale. */
+/** Shared text size for a task's title, so it reads at a consistent scale everywhere. */
 const CELL_TEXT = "text-[14px]";
 
 type Task = {
@@ -35,13 +30,6 @@ type FormValues = {
   ownerId: string | null;
 };
 
-function ownerLabel(ownerId: string | null, members: Member[], currentUserId: string) {
-  if (ownerId === null) return "Shared";
-  if (ownerId === currentUserId) return "You";
-  const member = members.find((m) => m.user.id === ownerId);
-  return member?.user.name || member?.user.email || "Household member";
-}
-
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -61,119 +49,170 @@ export default function TasksPage() {
   const toggleComplete = trpc.task.toggleComplete.useMutation({ onSuccess: invalidate });
   const deleteTask = trpc.task.delete.useMutation({ onSuccess: invalidate });
 
-  const [adding, setAdding] = useState(false);
-
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
-  const showAssignee = members.length > 1;
 
   const today = startOfToday();
   const all = (tasks ?? []) as Task[];
 
-  const completed = all.filter((t) => !t.frequency && t.completedAt);
-  const active = all.filter((t) => t.frequency || !t.completedAt);
-  const overdue = active.filter((t) => t.dueDate && new Date(t.dueDate) < today);
-  const upcoming = active.filter((t) => !(t.dueDate && new Date(t.dueDate) < today));
+  // Two lists, split on the one thing that actually distinguishes them: does
+  // it repeat. A one-off task's checkbox stays checked once done; a reminder
+  // never "finishes" — completing it just rolls the due date forward (see
+  // task.ts toggleComplete), so it has no Completed section of its own.
+  const adHoc = all.filter((t) => !t.frequency);
+  const reminders = all.filter((t) => !!t.frequency);
 
-  function handleAdd(values: FormValues) {
-    createTask.mutate(
-      { ...values, dueDate: values.dueDate ?? undefined, frequency: values.frequency ?? undefined },
-      { onSuccess: () => setAdding(false) },
-    );
-  }
+  const adHocCompleted = adHoc.filter((t) => t.completedAt);
+  const adHocActive = adHoc.filter((t) => !t.completedAt);
+  const adHocOverdue = adHocActive.filter((t) => t.dueDate && new Date(t.dueDate) < today);
+  const adHocUpcoming = adHocActive.filter((t) => !(t.dueDate && new Date(t.dueDate) < today));
+
+  const reminderOverdue = reminders.filter((t) => t.dueDate && new Date(t.dueDate) < today);
+  const reminderUpcoming = reminders.filter((t) => !(t.dueDate && new Date(t.dueDate) < today));
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
-        <h1 className="px-6 pt-6 pb-4 text-[15px] font-semibold">Tasks</h1>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <TaskColumn
+        title="Tasks"
+        emptyLabel="Nothing here yet — add one below."
+        overdue={adHocOverdue}
+        upcoming={adHocUpcoming}
+        completed={adHocCompleted}
+        members={members}
+        currentUserId={currentUserId}
+        onToggle={(id) => toggleComplete.mutate({ id })}
+        onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
+        onDelete={(id) => deleteTask.mutate({ id })}
+        addRow={(onDone) => (
+          <InlineTaskRow
+            members={members}
+            currentUserId={currentUserId}
+            kind="task"
+            onSubmit={(values) => createTask.mutate(values, { onSuccess: onDone })}
+            onCancel={onDone}
+          />
+        )}
+        addLabel="New task"
+      />
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[640px]">
-            <TaskTableHeader showAssignee={showAssignee} />
-
-            {overdue.length === 0 && upcoming.length === 0 && !adding && (
-              <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">
-                Nothing here yet — add one below.
-              </p>
-            )}
-
-            {overdue.length > 0 && (
-              <TaskGroup
-                title="Overdue"
-                titleClass="text-critical"
-                tasks={overdue}
-                members={members}
-                currentUserId={currentUserId}
-                onToggle={(id) => toggleComplete.mutate({ id })}
-                onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
-                onDelete={(id) => deleteTask.mutate({ id })}
-              />
-            )}
-
-            {upcoming.length > 0 && (
-              <TaskGroup
-                tasks={upcoming}
-                members={members}
-                currentUserId={currentUserId}
-                onToggle={(id) => toggleComplete.mutate({ id })}
-                onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
-                onDelete={(id) => deleteTask.mutate({ id })}
-              />
-            )}
-
-            {adding ? (
-              <InlineTaskRow
-                members={members}
-                currentUserId={currentUserId}
-                onSubmit={handleAdd}
-                onCancel={() => setAdding(false)}
-              />
-            ) : (
-              <button
-                onClick={() => setAdding(true)}
-                className="flex w-full items-center gap-3 border-b border-border-soft px-6 py-3 text-left text-text-faint transition-colors last:border-b-0 hover:text-text"
-              >
-                <span className="block h-2.5 w-2.5 shrink-0">
-                  <PlusIcon />
-                </span>
-                <span className={CELL_TEXT}>New task</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {completed.length > 0 && (
-        <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
-          <div className="overflow-x-auto">
-            <div className="min-w-[640px]">
-              <TaskTableHeader label="Completed" showAssignee={showAssignee} />
-              <TaskGroup
-                tasks={completed}
-                members={members}
-                currentUserId={currentUserId}
-                onToggle={(id) => toggleComplete.mutate({ id })}
-                onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
-                onDelete={(id) => deleteTask.mutate({ id })}
-              />
-            </div>
-          </div>
-        </section>
-      )}
+      <TaskColumn
+        title="Reminders"
+        emptyLabel="Nothing recurring yet — add one below."
+        overdue={reminderOverdue}
+        upcoming={reminderUpcoming}
+        completed={[]}
+        members={members}
+        currentUserId={currentUserId}
+        onToggle={(id) => toggleComplete.mutate({ id })}
+        onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
+        onDelete={(id) => deleteTask.mutate({ id })}
+        addRow={(onDone) => (
+          <InlineTaskRow
+            members={members}
+            currentUserId={currentUserId}
+            kind="reminder"
+            onSubmit={(values) => createTask.mutate(values, { onSuccess: onDone })}
+            onCancel={onDone}
+          />
+        )}
+        addLabel="New reminder"
+      />
     </div>
   );
 }
 
-function TaskTableHeader({ label, showAssignee }: { label?: string; showAssignee: boolean }) {
+function TaskColumn({
+  title,
+  emptyLabel,
+  overdue,
+  upcoming,
+  completed,
+  members,
+  currentUserId,
+  onToggle,
+  onUpdate,
+  onDelete,
+  addRow,
+  addLabel,
+}: {
+  title: string;
+  emptyLabel: string;
+  overdue: Task[];
+  upcoming: Task[];
+  completed: Task[];
+  members: Member[];
+  currentUserId: string;
+  onToggle: (id: string) => void;
+  onUpdate: (id: string, values: Partial<FormValues>) => void;
+  onDelete: (id: string) => void;
+  addRow: (onDone: () => void) => React.ReactNode;
+  addLabel: string;
+}) {
+  const [adding, setAdding] = useState(false);
+
   return (
-    <div className="flex items-center gap-4 px-6 py-2.5 text-[10.5px] font-semibold tracking-[0.08em] text-text-faint uppercase">
-      <span className="block h-5 w-5 shrink-0" />
-      <div className="min-w-0 flex-1">{label}</div>
-      <div className={COL_DATE}>Due date</div>
-      <div className={COL_RECURRENCE}>Recurrence</div>
-      {showAssignee && <div className={COL_ASSIGNEE}>Assigned to</div>}
-      <div className={COL_ACTIONS} />
-    </div>
+    <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+      <h1 className="px-6 pt-6 pb-4 text-[15px] font-semibold">{title}</h1>
+
+      {overdue.length === 0 && upcoming.length === 0 && !adding && (
+        <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">{emptyLabel}</p>
+      )}
+
+      {overdue.length > 0 && (
+        <TaskGroup
+          title="Overdue"
+          titleClass="text-critical"
+          tasks={overdue}
+          members={members}
+          currentUserId={currentUserId}
+          isOverdue
+          onToggle={onToggle}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      )}
+
+      {upcoming.length > 0 && (
+        <TaskGroup
+          tasks={upcoming}
+          members={members}
+          currentUserId={currentUserId}
+          isOverdue={false}
+          onToggle={onToggle}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      )}
+
+      {adding ? (
+        addRow(() => setAdding(false))
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="flex w-full items-center gap-3 border-b border-border-soft px-6 py-3 text-left text-text-faint transition-colors last:border-b-0 hover:text-text"
+        >
+          <span className="block h-2.5 w-2.5 shrink-0">
+            <PlusIcon />
+          </span>
+          <span className={CELL_TEXT}>{addLabel}</span>
+        </button>
+      )}
+
+      {completed.length > 0 && (
+        <div className="border-t border-border-soft">
+          <TaskGroup
+            title="Completed"
+            tasks={completed}
+            members={members}
+            currentUserId={currentUserId}
+            isOverdue={false}
+            onToggle={onToggle}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -183,6 +222,7 @@ function TaskGroup({
   tasks,
   members,
   currentUserId,
+  isOverdue,
   onToggle,
   onUpdate,
   onDelete,
@@ -192,6 +232,7 @@ function TaskGroup({
   tasks: Task[];
   members: Member[];
   currentUserId: string;
+  isOverdue: boolean;
   onToggle: (id: string) => void;
   onUpdate: (id: string, values: Partial<FormValues>) => void;
   onDelete: (id: string) => void;
@@ -211,7 +252,7 @@ function TaskGroup({
           task={task}
           members={members}
           currentUserId={currentUserId}
-          isOverdue={title === "Overdue"}
+          isOverdue={isOverdue}
           onToggle={() => onToggle(task.id)}
           onUpdate={(values) => onUpdate(task.id, values)}
           onDelete={() => onDelete(task.id)}
@@ -238,14 +279,17 @@ function TaskRow({
   onUpdate: (values: Partial<FormValues>) => void;
   onDelete: () => void;
 }) {
+  // A reminder (has a frequency) never "finishes" — toggling it just
+  // reschedules the due date forward, so it never shows checked/done.
   const isDone = !task.frequency && !!task.completedAt;
+  const lastDone = task.frequency && task.completedAt ? formatDate(task.completedAt) : null;
 
   return (
-    <div className="flex items-center gap-4 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
+    <div className="flex items-start gap-3 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
       <button
         onClick={onToggle}
         aria-label={isDone ? "Mark as not done" : "Mark as done"}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
           isDone
             ? "border-good bg-good text-white"
             : "border-border text-transparent hover:border-good hover:text-good"
@@ -256,55 +300,56 @@ function TaskRow({
         </span>
       </button>
 
-      <TitleCell
-        title={task.title}
-        isDone={isDone}
-        onCommit={(title) => onUpdate({ title })}
-      />
+      <div className="min-w-0 flex-1">
+        <TitleCell title={task.title} isDone={isDone} onCommit={(title) => onUpdate({ title })} />
 
-      <DateCell
-        width={COL_DATE}
-        value={task.dueDate}
-        isCritical={isOverdue && !isDone}
-        onCommit={(dueDate) => onUpdate({ dueDate })}
-      />
-
-      <div className={COL_RECURRENCE}>
-        <InlineSelect
-          value={task.frequency ?? ""}
-          onChange={(v) => onUpdate({ frequency: (v || null) as RecurringFrequency | null })}
-          options={[
-            { value: "", label: "One-off" },
-            ...FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] })),
-          ]}
-        />
-      </div>
-
-      {members.length > 1 && (
-        <div className={COL_ASSIGNEE}>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px]">
+          <DateCell
+            value={task.dueDate}
+            isCritical={isOverdue && !isDone}
+            onCommit={(dueDate) => onUpdate({ dueDate })}
+          />
+          <span className="text-text-faint">·</span>
           <InlineSelect
-            value={task.ownerId ?? ""}
-            onChange={(v) => onUpdate({ ownerId: v || null })}
+            value={task.frequency ?? ""}
+            onChange={(v) => onUpdate({ frequency: (v || null) as RecurringFrequency | null })}
             options={[
-              { value: "", label: "Shared" },
-              ...members.map((m) => ({
-                value: m.user.id,
-                label: m.user.id === currentUserId ? "You" : m.user.name || m.user.email,
-              })),
+              { value: "", label: "One-off" },
+              ...FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] })),
             ]}
           />
+          {members.length > 1 && (
+            <>
+              <span className="text-text-faint">·</span>
+              <InlineSelect
+                value={task.ownerId ?? ""}
+                onChange={(v) => onUpdate({ ownerId: v || null })}
+                options={[
+                  { value: "", label: "Shared" },
+                  ...members.map((m) => ({
+                    value: m.user.id,
+                    label: m.user.id === currentUserId ? "You" : m.user.name || m.user.email,
+                  })),
+                ]}
+              />
+            </>
+          )}
+          {lastDone && (
+            <>
+              <span className="text-text-faint">·</span>
+              <span className="text-text-faint">Last done {lastDone}</span>
+            </>
+          )}
         </div>
-      )}
-
-      <div className={COL_ACTIONS}>
-        <button
-          onClick={onDelete}
-          aria-label={`Delete ${task.title}`}
-          className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
-        >
-          <TrashIcon />
-        </button>
       </div>
+
+      <button
+        onClick={onDelete}
+        aria-label={`Delete ${task.title}`}
+        className="mt-0.5 h-4 w-4 shrink-0 text-text-muted hover:text-critical"
+      >
+        <TrashIcon />
+      </button>
     </div>
   );
 }
@@ -345,7 +390,7 @@ function TitleCell({
           const trimmed = draft.trim();
           if (trimmed && trimmed !== title) onCommit(trimmed);
         }}
-        className={`min-w-0 flex-1 rounded-md border border-accent bg-surface px-1.5 -mx-1.5 py-0.5 -my-0.5 ${CELL_TEXT} font-medium text-text outline-none`}
+        className={`w-full rounded-md border border-accent bg-surface px-1.5 -mx-1.5 py-0.5 -my-0.5 ${CELL_TEXT} font-medium text-text outline-none`}
       />
     );
   }
@@ -358,7 +403,7 @@ function TitleCell({
         cancelledRef.current = false;
         setEditing(true);
       }}
-      className={`min-w-0 flex-1 cursor-pointer truncate text-left ${CELL_TEXT} font-medium ${
+      className={`block w-full cursor-pointer truncate text-left ${CELL_TEXT} font-medium ${
         isDone ? "text-text-faint line-through" : ""
       }`}
     >
@@ -368,12 +413,10 @@ function TitleCell({
 }
 
 function DateCell({
-  width,
   value,
   isCritical,
   onCommit,
 }: {
-  width: string;
   value: string | Date | null;
   isCritical: boolean;
   onCommit: (date: Date | null) => void;
@@ -392,7 +435,7 @@ function DateCell({
           setEditing(false);
           onCommit(e.target.value ? new Date(e.target.value) : null);
         }}
-        className={`${width} rounded-md border border-accent bg-surface px-1.5 py-0.5 ${CELL_TEXT} text-text outline-none`}
+        className="w-[130px] rounded-md border border-accent bg-surface px-1.5 py-0.5 text-[12px] text-text outline-none"
       />
     );
   }
@@ -401,11 +444,11 @@ function DateCell({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className={`${width} cursor-pointer truncate text-left ${CELL_TEXT} ${
+      className={`cursor-pointer whitespace-nowrap text-left ${
         isCritical && value ? "font-medium text-critical" : "text-text-muted"
       }`}
     >
-      {value ? formatDate(value) : "—"}
+      {value ? formatDate(value) : "No due date"}
     </button>
   );
 }
@@ -413,21 +456,23 @@ function DateCell({
 function InlineTaskRow({
   members,
   currentUserId,
+  kind,
   onSubmit,
   onCancel,
 }: {
   members: Member[];
   currentUserId: string;
+  kind: "task" | "reminder";
   onSubmit: (values: FormValues) => void;
   onCancel: () => void;
 }) {
-  const [frequency, setFrequency] = useState<RecurringFrequency | "">("");
+  const [frequency, setFrequency] = useState<RecurringFrequency>("YEARLY");
   const [ownerId, setOwnerId] = useState(currentUserId);
   const multiMember = members.length > 1;
 
   return (
     <form
-      className="flex items-center gap-4 border-b border-border-soft bg-surface px-6 py-2.5 last:border-b-0"
+      className="flex flex-col gap-2 border-b border-border-soft bg-surface-2 px-6 py-3 last:border-b-0"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
@@ -435,36 +480,33 @@ function InlineTaskRow({
         onSubmit({
           title: String(form.get("title")),
           dueDate: dueDateRaw ? new Date(dueDateRaw) : null,
-          frequency: frequency || null,
+          frequency: kind === "reminder" ? frequency : null,
           ownerId: multiMember ? ownerId || null : currentUserId,
         });
       }}
     >
-      <span className="block h-5 w-5 shrink-0" />
       <input
         name="title"
         required
         autoFocus
-        placeholder="Task title"
-        className={`min-w-0 flex-1 bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:text-text-faint`}
+        placeholder={kind === "reminder" ? "Reminder title" : "Task title"}
+        className={`w-full bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:text-text-faint`}
       />
-      <input
-        name="dueDate"
-        type="date"
-        className={`${COL_DATE} rounded-md border border-border bg-surface px-2 py-1 ${CELL_TEXT} text-text outline-none focus:border-accent`}
-      />
-      <div className={COL_RECURRENCE}>
-        <InlineSelect
-          value={frequency}
-          onChange={(v) => setFrequency(v as RecurringFrequency | "")}
-          options={[
-            { value: "", label: "One-off" },
-            ...FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] })),
-          ]}
+      <div className="flex flex-wrap items-center gap-2.5 text-[12px]">
+        <input
+          name="dueDate"
+          type="date"
+          required={kind === "reminder"}
+          className="w-[142px] rounded-md border border-border bg-surface px-2 py-1 text-text outline-none focus:border-accent"
         />
-      </div>
-      {multiMember && (
-        <div className={COL_ASSIGNEE}>
+        {kind === "reminder" && (
+          <InlineSelect
+            value={frequency}
+            onChange={(v) => setFrequency(v as RecurringFrequency)}
+            options={FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] }))}
+          />
+        )}
+        {multiMember && (
           <InlineSelect
             value={ownerId}
             onChange={setOwnerId}
@@ -476,20 +518,20 @@ function InlineTaskRow({
               })),
             ]}
           />
+        )}
+        <div className="ml-auto flex items-center gap-3">
+          <button type="submit" aria-label="Save" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+            <CheckIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Cancel"
+            className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
+          >
+            <CloseIcon />
+          </button>
         </div>
-      )}
-      <div className={COL_ACTIONS}>
-        <button type="submit" aria-label="Save" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
-          <CheckIcon />
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label="Cancel"
-          className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
-        >
-          <CloseIcon />
-        </button>
       </div>
     </form>
   );
@@ -524,9 +566,7 @@ function InlineSelect({
           </option>
         ))}
       </select>
-      <span
-        className={`pointer-events-none flex items-center gap-0.5 truncate ${CELL_TEXT} text-text-muted transition-colors peer-focus:text-text`}
-      >
+      <span className="pointer-events-none flex items-center gap-0.5 whitespace-nowrap text-text-muted transition-colors peer-focus:text-text">
         {currentLabel}
         <span className="block h-3 w-3 shrink-0">
           <ChevronDownIcon />
