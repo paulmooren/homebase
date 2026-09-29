@@ -23,12 +23,13 @@ function startOfToday() {
 
 /**
  * "What needs my attention" — tasks/reminders assigned to me or shared
- * (never another member's), that have a due date (an undated someday-task
- * isn't time-sensitive enough to earn dashboard space). Every overdue item,
- * uncapped — hiding one would defeat the point — plus the next 5 upcoming.
- * Checkbox is interactive (same toggleComplete as the Tasks page: reschedules
- * a recurring reminder, permanently completes a one-off task); everything
- * else (editing, assignee, recurrence) stays on the Tasks page.
+ * (never another member's). Every overdue item, uncapped — hiding one would
+ * defeat the point — then the next 5 upcoming by due date, then anything
+ * with no due date at all (undated items aren't dropped, just deprioritized
+ * below anything with a real deadline). Checkbox is interactive (same
+ * toggleComplete as the Tasks page: reschedules a recurring reminder,
+ * permanently completes a one-off task); everything else (editing, assignee,
+ * recurrence) stays on the Tasks page.
  */
 export function TasksSnapshot() {
   const utils = trpc.useUtils();
@@ -46,19 +47,21 @@ export function TasksSnapshot() {
   const relevant = (tasks as Task[]).filter(
     (t) =>
       (t.ownerId === null || t.ownerId === currentUserId) &&
-      (t.frequency || !t.completedAt) &&
-      t.dueDate,
+      (t.frequency || !t.completedAt),
   );
+
+  const dated = relevant.filter((t) => t.dueDate);
+  const undated = relevant.filter((t) => !t.dueDate);
 
   const byDueDate = (a: Task, b: Task) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
 
-  const overdue = relevant.filter((t) => new Date(t.dueDate!) < today).sort(byDueDate);
-  const upcoming = relevant
+  const overdue = dated.filter((t) => new Date(t.dueDate!) < today).sort(byDueDate);
+  const upcoming = dated
     .filter((t) => new Date(t.dueDate!) >= today)
     .sort(byDueDate)
     .slice(0, 5);
 
-  if (overdue.length === 0 && upcoming.length === 0) return null;
+  if (overdue.length === 0 && upcoming.length === 0 && undated.length === 0) return null;
 
   return (
     <section className="mb-5 rounded-[20px] border border-border-soft bg-surface p-6">
@@ -77,6 +80,14 @@ export function TasksSnapshot() {
         />
       ))}
       {upcoming.map((task) => (
+        <TaskSnapshotRow
+          key={task.id}
+          task={task}
+          overdue={false}
+          onToggle={() => toggleComplete.mutate({ id: task.id })}
+        />
+      ))}
+      {undated.map((task) => (
         <TaskSnapshotRow
           key={task.id}
           task={task}
@@ -122,7 +133,7 @@ function TaskSnapshotRow({
         {task.title}
       </span>
       <span className={`shrink-0 text-[12px] ${overdue && !isDone ? "font-medium text-critical" : "text-text-muted"}`}>
-        {formatDate(task.dueDate!)}
+        {task.dueDate ? formatDate(task.dueDate) : "No due date"}
       </span>
     </div>
   );
