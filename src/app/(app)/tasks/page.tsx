@@ -423,17 +423,30 @@ function DateCell({
 }) {
   const [editing, setEditing] = useState(false);
   const isoValue = value ? new Date(value).toISOString().slice(0, 10) : "";
+  const [draft, setDraft] = useState(isoValue);
 
   if (editing) {
     return (
       <input
         autoFocus
         type="date"
-        defaultValue={isoValue}
-        onBlur={() => setEditing(false)}
-        onChange={(e) => {
+        value={draft}
+        // A native date input fires onChange for every partial keystroke
+        // (typing "2027" fires change after "2", "20", "202"...), so it only
+        // tracks the draft here — committing there would cut the year short
+        // and save a bogus date. The actual commit waits for blur, when the
+        // value is either complete or the browser's own picker was used.
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setDraft(isoValue);
+            setEditing(false);
+          }
+        }}
+        onBlur={() => {
           setEditing(false);
-          onCommit(e.target.value ? new Date(e.target.value) : null);
+          if (draft !== isoValue) onCommit(draft ? new Date(draft) : null);
         }}
         className="w-[130px] rounded-md border border-accent bg-surface px-1.5 py-0.5 text-[12px] text-text outline-none"
       />
@@ -443,7 +456,10 @@ function DateCell({
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      onClick={() => {
+        setDraft(isoValue);
+        setEditing(true);
+      }}
       className={`cursor-pointer whitespace-nowrap text-left ${
         isCritical && value ? "font-medium text-critical" : "text-text-muted"
       }`}
