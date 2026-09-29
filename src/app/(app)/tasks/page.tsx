@@ -472,7 +472,7 @@ function InlineTaskRow({
 
   return (
     <form
-      className="flex flex-col gap-2 border-b border-border-soft bg-surface-2 px-6 py-3 last:border-b-0"
+      className="flex flex-col gap-2 border-b border-border-soft bg-surface px-6 py-3 last:border-b-0"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
