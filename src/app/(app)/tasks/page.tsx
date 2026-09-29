@@ -422,31 +422,33 @@ function DateCell({
   onCommit: (date: Date | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const isoValue = value ? new Date(value).toISOString().slice(0, 10) : "";
-  const [draft, setDraft] = useState(isoValue);
 
   if (editing) {
     return (
       <input
+        ref={inputRef}
         autoFocus
         type="date"
-        value={draft}
-        // A native date input fires onChange for every partial keystroke
-        // (typing "2027" fires change after "2", "20", "202"...), so it only
-        // tracks the draft here — committing there would cut the year short
-        // and save a bogus date. The actual commit waits for blur, when the
-        // value is either complete or the browser's own picker was used.
-        onChange={(e) => setDraft(e.target.value)}
+        // Deliberately uncontrolled (defaultValue, not value+onChange): a
+        // native date input manages its own per-segment (day/month/year)
+        // typing state internally, and React re-asserting `.value` on every
+        // keystroke fights that, causing the field to behave as if a
+        // single digit already completed the year. Reading the value once,
+        // on blur, sidesteps the conflict entirely.
+        defaultValue={isoValue}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
-            setDraft(isoValue);
-            setEditing(false);
+            e.currentTarget.value = isoValue;
+            e.currentTarget.blur();
           }
         }}
-        onBlur={() => {
+        onBlur={(e) => {
           setEditing(false);
-          if (draft !== isoValue) onCommit(draft ? new Date(draft) : null);
+          const next = e.target.value;
+          if (next !== isoValue) onCommit(next ? new Date(next) : null);
         }}
         className="w-[130px] rounded-md border border-accent bg-surface px-1.5 py-0.5 text-[12px] text-text outline-none"
       />
@@ -456,10 +458,7 @@ function DateCell({
   return (
     <button
       type="button"
-      onClick={() => {
-        setDraft(isoValue);
-        setEditing(true);
-      }}
+      onClick={() => setEditing(true)}
       className={`cursor-pointer whitespace-nowrap text-left ${
         isCritical && value ? "font-medium text-critical" : "text-text-muted"
       }`}
