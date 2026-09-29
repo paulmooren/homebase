@@ -1,6 +1,21 @@
-import { signInWithEmail } from "./actions";
+import Link from "next/link";
 
-export default function SignInPage() {
+import { signInWithGoogle, signInWithPassword } from "./actions";
+
+const ERROR_MESSAGES: Record<string, string> = {
+  CredentialsSignin: "Incorrect email or password.",
+  OAuthAccountNotLinked:
+    "That email is already registered a different way — try signing in with Google or a password, whichever you used before.",
+};
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const errorMessage = error ? (ERROR_MESSAGES[error] ?? "Something went wrong. Please try again.") : null;
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-[380px] rounded-[20px] border border-border-soft bg-surface p-8">
@@ -13,13 +28,36 @@ export default function SignInPage() {
         <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
           Sign in
         </p>
-        <h1 className="mb-2 font-serif text-[26px]">Welcome to Kontor</h1>
-        <p className="mb-6 text-[13.5px] leading-relaxed text-text-muted">
-          Enter your email address — we&apos;ll send you a sign-in link, no
-          password needed.
-        </p>
+        <h1 className="mb-6 font-serif text-[26px]">Welcome to Kontor</h1>
 
-        <form action={signInWithEmail} className="flex flex-col gap-3">
+        {errorMessage && (
+          <p className="mb-4 rounded-lg border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
+            {errorMessage}
+          </p>
+        )}
+
+        <form action={signInWithGoogle}>
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface-2 py-2.5 text-[14px] font-semibold text-text transition-colors hover:bg-surface-hover"
+          >
+            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]">
+              <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3.01h3.87c2.27-2.09 3.58-5.17 3.58-8.83Z" />
+              <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.87-3.01c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A11.99 11.99 0 0 0 12 24Z" />
+              <path fill="#FBBC05" d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.27A11.99 11.99 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4-3.11Z" />
+              <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A11.99 11.99 0 0 0 1.27 6.61l4 3.11C6.22 6.86 8.87 4.75 12 4.75Z" />
+            </svg>
+            Continue with Google
+          </button>
+        </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border-soft" />
+          <span className="text-[11px] font-medium uppercase tracking-wide text-text-faint">or</span>
+          <div className="h-px flex-1 bg-border-soft" />
+        </div>
+
+        <form action={signInWithPassword} className="flex flex-col gap-3">
           <input
             type="email"
             name="email"
@@ -27,13 +65,27 @@ export default function SignInPage() {
             placeholder="you@example.com"
             className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
+          <input
+            type="password"
+            name="password"
+            required
+            placeholder="Password"
+            className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
+          />
           <button
             type="submit"
             className="w-full rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink transition-opacity hover:opacity-90"
           >
-            Send sign-in link
+            Sign in
           </button>
         </form>
+
+        <p className="mt-5 text-center text-[13px] text-text-muted">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="font-semibold text-accent hover:underline">
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   );

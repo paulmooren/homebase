@@ -45,13 +45,14 @@ model User {
   id                  String    @id @default(cuid())
   email               String    @unique
   name                String?
+  password            String?
   emailVerified       DateTime?
   image               String?
   createdAt           DateTime  @default(now())
   onboardedAt         DateTime?
   shareRecurringItems Boolean   @default(true)
 
-  oauthAccounts       OAuthAccount[]
+  accounts            Account[]
   sessions            Session[]
   householdMember     HouseholdMember?
   ownedAccounts       FinancialAccount[] @relation("FinancialAccountOwner")
@@ -112,8 +113,9 @@ model HouseholdInvite {
 }
 
 // Auth.js adapter models (kept to the standard shape @auth/prisma-adapter expects).
-// Named OAuthAccount here so it doesn't collide with the finance-domain FinancialAccount.
-model OAuthAccount {
+// Must be named Account — @auth/prisma-adapter hard-codes `prisma.account`.
+// Doesn't collide with the finance-domain FinancialAccount: distinct model names.
+model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String

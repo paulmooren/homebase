@@ -1,12 +1,12 @@
-// Dev-only backdoor that seeds a session directly via Prisma, bypassing
-// Resend, for local testing without sending real email. Household-aware:
-// pass an invite code as the second arg to auto-join an existing household,
-// for spinning up a two-person test household without a real invite flow.
+// Dev-only backdoor that mints a signed session JWT directly, bypassing
+// Google/password sign-in, for local testing. Household-aware: pass an
+// invite code as the second arg to auto-join an existing household, for
+// spinning up a two-person test household without a real invite flow.
 //
 //   node scripts/dev-login.mjs personA@test.local
 //   node scripts/dev-login.mjs personB@test.local <invite code from A's Settings page>
 import { PrismaClient } from "@prisma/client";
-import { randomBytes } from "crypto";
+import { encode } from "@auth/core/jwt";
 
 const prisma = new PrismaClient();
 const [, , emailArg, inviteCodeArg] = process.argv;
@@ -33,14 +33,14 @@ if (inviteCodeArg) {
   });
 }
 
-const sessionToken = randomBytes(32).toString("hex");
-const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-
-await prisma.session.create({
-  data: { sessionToken, userId: user.id, expires },
+const sessionToken = await encode({
+  token: { id: user.id, sub: user.id, email: user.email, name: user.name },
+  secret: process.env.AUTH_SECRET,
+  salt: "authjs.session-token",
 });
 
-console.log(`session token: ${sessionToken}`);
+console.log(`cookie name: authjs.session-token`);
+console.log(`cookie value: ${sessionToken}`);
 
 const membership = await prisma.householdMember.findUnique({ where: { userId: user.id } });
 if (membership) {

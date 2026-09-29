@@ -24,16 +24,18 @@ net worth over time, and household tasks/reminders. Built with Next.js
 | `DATABASE_URL_UNPOOLED` | Direct (unpooled) connection string, used by Prisma migrations |
 | `AUTH_SECRET` | Auth.js session secret — generate with `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | The app's own base URL (`http://localhost:3000` locally, your production URL when deployed) |
-| `RESEND_API_KEY` | [Resend](https://resend.com) API key, used to send magic-link sign-in emails |
-| `EMAIL_FROM` | The "from" address magic-link emails are sent from |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials, used for "Continue with Google" sign-in |
 
 ### Dev-only tooling
 
-`scripts/dev-login.mjs` seeds a session directly via Prisma, bypassing
-email delivery, for local multi-user testing without needing Resend. It's a
-standalone script (not part of the deployed app — nothing under `src/`
-imports it), so it can't be triggered over HTTP, but it does need direct
-database access: never run it against a production `DATABASE_URL`.
+`scripts/dev-login.mjs` mints a signed session JWT directly, bypassing
+Google/password sign-in, for local multi-user testing. It prints a cookie
+name and value — set that cookie in your browser's devtools to sign in as
+that user. It's a standalone script (not part of the deployed app — nothing
+under `src/` imports it), so it can't be triggered over HTTP, but it does
+need direct database access (to create the user) and `AUTH_SECRET` (to sign
+the session the same way the app would): never run it against a production
+`DATABASE_URL`.
 
 ## Deploying
 

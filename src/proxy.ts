@@ -5,7 +5,7 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
   const isAuthPage =
-    pathname.startsWith("/signin") || pathname.startsWith("/verify-request");
+    pathname.startsWith("/signin") || pathname.startsWith("/signup");
 
   if (!isLoggedIn && !isAuthPage) {
     return NextResponse.redirect(new URL("/signin", req.nextUrl.origin));
