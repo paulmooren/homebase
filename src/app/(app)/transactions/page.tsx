@@ -1,0 +1,618 @@
+"use client";
+
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Papa from "papaparse";
+
+import { trpc } from "@/trpc/react";
+import { formatEUR, formatDate } from "@/lib/format";
+import { TRANSFER_COLOR } from "@/lib/constants";
+import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
+import { suggestCategoryId } from "@/lib/categorize";
+import { ChevronDownIcon } from "@/components/action-icons";
+
+type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
+
+export type Category = { id: string; name: string; color: string };
+
+const COL_DATE = "w-[100px] shrink-0";
+const COL_CATEGORY = "w-[160px] shrink-0";
+const COL_AMOUNT = "w-[110px] shrink-0";
+
+/** Shared text size for every transaction property, so merchant/date/category/amount all read at the same scale. */
+const CELL_TEXT = "text-[14px]";
+const COL_ACTIONS = "flex w-[24px] shrink-0 items-center justify-end";
+
+export default function TransactionsPage() {
+  return (
+    <Suspense>
+      <TransactionsPageInner />
+    </Suspense>
+  );
+}
+
+function TransactionsPageInner() {
+  const searchParams = useSearchParams();
+  const importAccountId = searchParams.get("import");
+
+  const utils = trpc.useUtils();
+  const { data: accounts } = trpc.account.list.useQuery();
+  const { data: categories } = trpc.category.list.useQuery();
+  const { data: transactions } = trpc.transaction.list.useQuery({ limit: 200 });
+
+  const [mode, setMode] = useState<"none" | "manual" | "import">(
+    importAccountId ? "import" : "none",
+  );
+
+  const createTransaction = trpc.transaction.create.useMutation({
+    onSuccess: () => {
+      utils.transaction.list.invalidate();
+      utils.dashboard.summary.invalidate();
+      utils.dashboard.netWorthHistory.invalidate();
+      utils.budget.list.invalidate();
+      setMode("none");
+    },
+  });
+  const deleteTransaction = trpc.transaction.delete.useMutation({
+    onSuccess: () => {
+      utils.transaction.list.invalidate();
+      utils.dashboard.summary.invalidate();
+      utils.dashboard.netWorthHistory.invalidate();
+      utils.budget.list.invalidate();
+    },
+  });
+  const updateTransaction = trpc.transaction.update.useMutation({
+    onSuccess: () => utils.transaction.list.invalidate(),
+  });
+  const removeAllTransactions = trpc.transaction.removeAll.useMutation({
+    onSuccess: () => {
+      utils.transaction.list.invalidate();
+      utils.dashboard.summary.invalidate();
+      utils.dashboard.netWorthHistory.invalidate();
+      utils.budget.list.invalidate();
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="rounded-[20px] border border-border-soft bg-surface p-6">
+        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
+          <h1 className="text-[15px] font-semibold">Transactions</h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode(mode === "manual" ? "none" : "manual")}
+              className="text-[12.5px] font-medium text-accent hover:opacity-80"
+            >
+              {mode === "manual" ? "Cancel" : "+ Transaction"}
+            </button>
+            <span className="text-text-faint">·</span>
+            <button
+              onClick={() => setMode(mode === "import" ? "none" : "import")}
+              className="text-[12.5px] font-medium text-accent hover:opacity-80"
+            >
+              {mode === "import" ? "Cancel" : "Import CSV"}
+            </button>
+            {transactions && transactions.length > 0 && (
+              <>
+                <span className="text-text-faint">·</span>
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Delete all ${transactions.length} transactions? This cannot be undone and will reset the affected account balances.`,
+                      )
+                    ) {
+                      removeAllTransactions.mutate();
+                    }
+                  }}
+                  disabled={removeAllTransactions.isPending}
+                  className="text-[12.5px] font-medium text-critical hover:opacity-80 disabled:opacity-60"
+                >
+                  Remove all
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {mode === "manual" && accounts && (
+          <ManualTransactionForm
+            accounts={accounts}
+            categories={categories ?? []}
+            pending={createTransaction.isPending}
+            onSubmit={(values) => createTransaction.mutate(values)}
+          />
+        )}
+
+        {mode === "import" && accounts && (
+          <CsvImportForm
+            accounts={accounts}
+            categories={categories ?? []}
+            initialAccountId={importAccountId ?? undefined}
+            onDone={() => setMode("none")}
+          />
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className="flex items-center gap-3.5 px-6 pt-5 pb-2.5 text-[10.5px] font-semibold tracking-[0.08em] text-text-faint uppercase">
+              <span className="block w-[3px] shrink-0" />
+              <div className="min-w-0 flex-1" />
+              <div className={COL_DATE}>Date</div>
+              <div className={COL_CATEGORY}>Category</div>
+              <div className={COL_AMOUNT}>Amount</div>
+              <div className={COL_ACTIONS} />
+            </div>
+
+            {transactions?.length === 0 && (
+              <p className="px-6 py-4 text-[13px] text-text-muted">No transactions yet.</p>
+            )}
+
+            {transactions?.map((t) => {
+              const isTransfer = t.type === "TRANSFER";
+              const isIncome = t.type === "INCOME";
+              const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
+              return (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-3.5 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover"
+                >
+                  <span
+                    className="block w-[3px] shrink-0 self-stretch rounded-full"
+                    style={{ background: barColor }}
+                  />
+                  <div className={`min-w-0 flex-1 truncate ${CELL_TEXT} font-medium`}>{t.merchant}</div>
+                  <div className={`${COL_DATE} truncate ${CELL_TEXT} text-text-muted`}>
+                    {formatDate(t.date)}
+                  </div>
+                  <div className={COL_CATEGORY}>
+                    {isTransfer ? (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border border-border-soft bg-surface-2 px-2.5 py-0.5 ${CELL_TEXT} text-text-muted`}
+                      >
+                        ↔ Transfer
+                      </span>
+                    ) : (
+                      <CategoryCell
+                        categoryId={t.categoryId}
+                        categories={categories ?? []}
+                        onChange={(categoryId) => updateTransaction.mutate({ id: t.id, categoryId })}
+                      />
+                    )}
+                  </div>
+                  <div
+                    className={`${COL_AMOUNT} truncate ${CELL_TEXT} font-semibold tabular-nums ${
+                      isIncome ? "text-good" : isTransfer ? "text-text-muted" : ""
+                    }`}
+                  >
+                    {isIncome ? "+" : "−"} {formatEUR(Number(t.amount))}
+                  </div>
+                  <div className={COL_ACTIONS}>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
+                      }}
+                      className="text-[12px] text-text-muted hover:text-critical"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function CategoryCell({
+  categoryId,
+  categories,
+  onChange,
+}: {
+  categoryId: string | null;
+  categories: Category[];
+  onChange: (categoryId: string | null) => void;
+}) {
+  const current = categories.find((c) => c.id === categoryId);
+
+  return (
+    <span className="relative inline-flex w-full items-center">
+      <select
+        value={categoryId ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+      >
+        <option value="">No category</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <span className={`pointer-events-none flex items-center gap-1.5 truncate ${CELL_TEXT} text-text-muted`}>
+        <span
+          className="block h-2 w-2 shrink-0 rounded-full"
+          style={{ background: current?.color ?? "#c7c9cf" }}
+        />
+        <span className="truncate">{current ? current.name : "No category"}</span>
+        <span className="block h-3 w-3 shrink-0">
+          <ChevronDownIcon />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function ManualTransactionForm({
+  accounts,
+  categories,
+  pending,
+  onSubmit,
+}: {
+  accounts: { id: string; name: string }[];
+  categories: { id: string; name: string }[];
+  pending: boolean;
+  onSubmit: (values: {
+    accountId: string;
+    type: TxType;
+    amount: number;
+    date: Date;
+    merchant: string;
+    categoryId?: string;
+    transferToAccountId?: string;
+  }) => void;
+}) {
+  const [type, setType] = useState<TxType>("EXPENSE");
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+
+  return (
+    <form
+      className="mb-2 grid grid-cols-1 gap-3 rounded-xl border border-border-soft bg-surface-2 p-4 sm:grid-cols-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const form = new FormData(e.currentTarget);
+        onSubmit({
+          accountId,
+          type,
+          amount: Math.abs(Number(form.get("amount") || 0)),
+          date: new Date(String(form.get("date"))),
+          merchant: String(form.get("merchant")),
+          categoryId: type === "TRANSFER" ? undefined : String(form.get("categoryId") || "") || undefined,
+          transferToAccountId:
+            type === "TRANSFER" ? String(form.get("transferToAccountId") || "") || undefined : undefined,
+        });
+      }}
+    >
+      <select
+        value={accountId}
+        onChange={(e) => setAccountId(e.target.value)}
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+      >
+        {accounts.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+          </option>
+        ))}
+      </select>
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as TxType)}
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+      >
+        <option value="EXPENSE">Expense</option>
+        <option value="INCOME">Income</option>
+        <option value="TRANSFER">Transfer</option>
+      </select>
+      <input
+        name="merchant"
+        required
+        placeholder="Description"
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+      />
+      <input
+        name="amount"
+        type="number"
+        step="0.01"
+        required
+        placeholder="Amount (€)"
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+      />
+      {type === "TRANSFER" ? (
+        <select
+          name="transferToAccountId"
+          required
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+        >
+          <option value="">Choose destination account</option>
+          {accounts.filter((a) => a.id !== accountId).map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <select
+          name="categoryId"
+          defaultValue=""
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+        >
+          <option value="">Category (optional)</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <input
+        name="date"
+        type="date"
+        defaultValue={new Date().toISOString().slice(0, 10)}
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+      />
+      <button
+        type="submit"
+        disabled={pending}
+        className="col-span-full rounded-lg bg-accent-fill py-2 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+      >
+        Add
+      </button>
+    </form>
+  );
+}
+
+type ParsedRow = Record<string, string>;
+
+function CsvImportForm({
+  accounts,
+  categories,
+  initialAccountId,
+  onDone,
+}: {
+  accounts: { id: string; name: string }[];
+  categories: { id: string; name: string; color: string }[];
+  initialAccountId?: string;
+  onDone: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const [accountId, setAccountId] = useState(
+    initialAccountId && accounts.some((a) => a.id === initialAccountId)
+      ? initialAccountId
+      : (accounts[0]?.id ?? ""),
+  );
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [dateCol, setDateCol] = useState("");
+  const [merchantCol, setMerchantCol] = useState("");
+  const [merchantFallbackCol, setMerchantFallbackCol] = useState("");
+  const [amountCol, setAmountCol] = useState("");
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<number, string>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const importCsv = trpc.transaction.importCsv.useMutation({
+    onSuccess: (result) => {
+      utils.transaction.list.invalidate();
+      utils.dashboard.summary.invalidate();
+      utils.dashboard.netWorthHistory.invalidate();
+      alert(`${result.imported} transactions imported.`);
+      onDone();
+    },
+  });
+
+  async function handleFile(file: File) {
+    setError(null);
+    const text = await file.text();
+    Papa.parse<ParsedRow>(text, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: "",
+      complete: (result) => {
+        const fields = result.meta.fields ?? [];
+        if (fields.length === 0 || result.data.length === 0) {
+          setError("Couldn't read the file. Is it a valid CSV file?");
+          return;
+        }
+        setHeaders(fields);
+        setRows(result.data);
+        setDateCol(guessColumn(fields, ["datum", "date", "buchungstag"]) ?? fields[0]);
+        setMerchantCol(
+          guessColumn(fields, ["beschreibung", "verwendungszweck", "buchungstext", "merchant", "description"]) ??
+            fields[1] ??
+            fields[0],
+        );
+        // Some banks (e.g. bunq) leave the description blank for internal
+        // transfers and only populate a separate payer/payee name column —
+        // used as a fallback so those rows don't get silently dropped for
+        // having an empty merchant.
+        setMerchantFallbackCol(
+          guessColumn(fields, ["name", "gegenpartei", "counterparty", "tegenpartij", "empfänger", "begünstigter", "payee"]) ?? "",
+        );
+        setAmountCol(guessColumn(fields, ["betrag", "amount", "wert"]) ?? fields[fields.length - 1]);
+      },
+    });
+  }
+
+  const parsedRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const primary = merchantCol ? (row[merchantCol] ?? "").trim() : "";
+        const fallback = merchantFallbackCol ? (row[merchantFallbackCol] ?? "").trim() : "";
+        return {
+          date: dateCol ? parseFlexibleDate(row[dateCol] ?? "") : null,
+          merchant: primary || fallback || "Transaction",
+          amount: amountCol ? parseAmount(row[amountCol] ?? "") : NaN,
+        };
+      }),
+    [rows, dateCol, merchantCol, merchantFallbackCol, amountCol],
+  );
+
+  function categoryFor(i: number, merchant: string) {
+    return categoryOverrides[i] ?? suggestCategoryId(merchant, categories) ?? "";
+  }
+
+  const categorizedCount = parsedRows.filter((p, i) => categoryFor(i, p.merchant)).length;
+  const skippedCount = parsedRows.filter((r) => !r.date || Number.isNaN(r.amount)).length;
+
+  function handleImport() {
+    const parsed = parsedRows
+      .map((row, i) => ({ ...row, categoryId: categoryFor(i, row.merchant) || undefined }))
+      .filter((r) => r.date && r.merchant && !Number.isNaN(r.amount)) as {
+      date: Date;
+      merchant: string;
+      amount: number;
+      categoryId?: string;
+    }[];
+
+    if (parsed.length === 0) {
+      setError("No valid rows found. Check the column mapping.");
+      return;
+    }
+    importCsv.mutate({ accountId, rows: parsed });
+  }
+
+  return (
+    <div className="mb-2 rounded-xl border border-border-soft bg-surface-2 p-4">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row">
+        <select
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+        >
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-text-muted outline-none"
+        />
+      </div>
+
+      {error && <p className="mb-3 text-[13px] text-critical">{error}</p>}
+
+      {headers.length > 0 && (
+        <>
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ColumnSelect label="Date column" headers={headers} value={dateCol} onChange={setDateCol} />
+            <ColumnSelect
+              label="Description column"
+              headers={headers}
+              value={merchantCol}
+              onChange={setMerchantCol}
+            />
+            <ColumnSelect label="Amount column" headers={headers} value={amountCol} onChange={setAmountCol} />
+          </div>
+
+          <div className="mb-3 max-h-[360px] overflow-y-auto overflow-x-auto rounded-lg border border-border-soft">
+            <table className="w-full text-left text-[12.5px]">
+              <thead className="sticky top-0 bg-surface-2 text-text-faint">
+                <tr>
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">Description</th>
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedRows.map((p, i) => {
+                  const categoryId = categoryFor(i, p.merchant);
+                  const color = categories.find((c) => c.id === categoryId)?.color ?? "#9a9da5";
+                  return (
+                    <tr key={i} className="border-t border-border-soft">
+                      <td className="px-3 py-2 whitespace-nowrap text-text-muted">
+                        {p.date ? formatDate(p.date) : "—"}
+                      </td>
+                      <td className="px-3 py-2">{p.merchant}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="block h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: color }}
+                          />
+                          <select
+                            value={categoryId}
+                            onChange={(e) =>
+                              setCategoryOverrides((prev) => ({ ...prev, [i]: e.target.value }))
+                            }
+                            className="w-full min-w-[120px] rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent"
+                          >
+                            <option value="">No category</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {Number.isNaN(p.amount) ? "—" : formatEUR(p.amount)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mb-3 text-[12px] text-text-muted">
+            {rows.length} rows detected · {categorizedCount} categorized automatically — review
+            before importing · negative amount = expense, positive amount = income
+          </p>
+          {skippedCount > 0 && (
+            <p className="mb-3 text-[12px] font-medium text-critical">
+              {skippedCount} row{skippedCount === 1 ? "" : "s"} will be skipped — unreadable date or
+              amount. Check the column mapping above.
+            </p>
+          )}
+
+          <button
+            onClick={handleImport}
+            disabled={importCsv.isPending}
+            className="rounded-lg bg-accent-fill px-4 py-2 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+          >
+            Import {rows.length} transactions
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ColumnSelect({
+  label,
+  headers,
+  value,
+  onChange,
+}: {
+  label: string;
+  headers: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-[12px] text-text-muted">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-border bg-surface px-3 py-2 text-[13.5px] text-text outline-none focus:border-accent"
+      >
+        {headers.map((h) => (
+          <option key={h} value={h}>
+            {h}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
