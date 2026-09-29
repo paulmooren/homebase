@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { RemindersCard } from "@/components/dashboard/reminders-card";
-import { NetWorthCard } from "@/components/dashboard/net-worth-card";
-import { TransactionsCard } from "@/components/dashboard/transactions-card";
-import { RecurringCard } from "@/components/dashboard/recurring-card";
+import { NetWorthSnapshot } from "@/components/dashboard/net-worth-snapshot";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 
 export default function DashboardPage() {
@@ -33,9 +31,7 @@ export default function DashboardPage() {
   return (
     <>
       <RemindersCard />
-      <NetWorthCard />
-      <TransactionsCard />
-      <RecurringCard />
+      <NetWorthSnapshot />
     </>
   );
 }

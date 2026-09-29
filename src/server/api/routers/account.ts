@@ -19,7 +19,11 @@ export const accountRouter = createTRPCRouter({
     return ctx.prisma.financialAccount.findMany({
       where: {
         householdId: ctx.householdId,
-        OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+        OR: [
+          { ownerId: null },
+          { ownerId: ctx.userId },
+          { ownerId: { not: null }, visibleToHousehold: true },
+        ],
       },
       orderBy: { createdAt: "asc" },
     });
@@ -33,6 +37,7 @@ export const accountRouter = createTRPCRouter({
         type: accountTypeSchema,
         startingBalance: z.number().finite(),
         ownerId: z.string().nullable().optional(),
+        visibleToHousehold: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -48,6 +53,7 @@ export const accountRouter = createTRPCRouter({
         data: {
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
+          visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           institution: input.institution,
           type: input.type,
@@ -69,6 +75,7 @@ export const accountRouter = createTRPCRouter({
         type: accountTypeSchema.optional(),
         startingBalance: z.number().finite().optional(),
         ownerId: z.string().nullable().optional(),
+        visibleToHousehold: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -88,9 +95,15 @@ export const accountRouter = createTRPCRouter({
           householdId: ctx.householdId,
           OR: [{ ownerId: null }, { ownerId: ctx.userId }],
         },
-        select: { id: true },
+        select: { id: true, ownerId: true },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      if (data.visibleToHousehold !== undefined && existing.ownerId === null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Shared accounts are always visible — visibility only applies to personal accounts.",
+        });
+      }
 
       const account = await ctx.prisma.financialAccount.update({
         where: { id },

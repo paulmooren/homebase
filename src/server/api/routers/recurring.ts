@@ -13,6 +13,7 @@ const candidateInput = z.object({
   frequency: frequencySchema,
   categoryId: z.string().nullable().optional(),
   ownerId: z.string().nullable().optional(),
+  visibleToHousehold: z.boolean().optional(),
 });
 
 function normalize(name: string) {
@@ -28,7 +29,7 @@ export const recurringRouter = createTRPCRouter({
         OR: [
           { ownerId: null },
           { ownerId: ctx.userId },
-          { owner: { shareRecurringItems: true } },
+          { ownerId: { not: null }, visibleToHousehold: true },
         ],
       },
       include: { category: true },
@@ -42,16 +43,24 @@ export const recurringRouter = createTRPCRouter({
   }),
 
   suggestions: householdProcedure.query(async ({ ctx }) => {
+    // Suggestions are drafts, not confirmed facts about anyone's finances —
+    // never shown cross-partner, regardless of the source account's own
+    // visibility. Nothing is shared until consciously confirmed into a
+    // real RecurringItem (which then gets its own visibleToHousehold).
     const [transactions, existing] = await Promise.all([
       ctx.prisma.transaction.findMany({
-        where: { householdId: ctx.householdId, type: { in: ["EXPENSE", "INCOME"] } },
+        where: {
+          householdId: ctx.householdId,
+          type: { in: ["EXPENSE", "INCOME"] },
+          account: { OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
+        },
         select: {
           merchant: true,
           type: true,
           amount: true,
           date: true,
           categoryId: true,
-          account: { select: { ownerId: true, owner: { select: { shareRecurringItems: true } } } },
+          account: { select: { ownerId: true } },
         },
       }),
       ctx.prisma.recurringItem.findMany({
@@ -62,13 +71,6 @@ export const recurringRouter = createTRPCRouter({
 
     const knownNames = new Set(existing.map((e) => normalize(e.name)));
 
-    const shareByOwner = new Map<string, boolean>();
-    for (const t of transactions) {
-      if (t.account.ownerId) {
-        shareByOwner.set(t.account.ownerId, t.account.owner?.shareRecurringItems ?? true);
-      }
-    }
-
     const candidates = detectRecurringCandidates(
       transactions.map((t) => ({
         ...t,
@@ -77,11 +79,7 @@ export const recurringRouter = createTRPCRouter({
       })),
     );
 
-    return candidates.filter((c) => {
-      if (knownNames.has(normalize(c.name))) return false;
-      if (c.ownerId === null || c.ownerId === ctx.userId) return true;
-      return shareByOwner.get(c.ownerId) ?? true;
-    });
+    return candidates.filter((c) => !knownNames.has(normalize(c.name)));
   }),
 
   create: householdProcedure.input(candidateInput).mutation(async ({ ctx, input }) => {
@@ -98,6 +96,7 @@ export const recurringRouter = createTRPCRouter({
         data: {
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
+          visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           type: input.type,
           amount: input.amount,
@@ -124,6 +123,7 @@ export const recurringRouter = createTRPCRouter({
         create: {
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
+          visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           type: input.type,
           amount: input.amount,
@@ -145,6 +145,7 @@ export const recurringRouter = createTRPCRouter({
         create: {
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
+          visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           type: input.type,
           amount: input.amount,
@@ -167,6 +168,7 @@ export const recurringRouter = createTRPCRouter({
         frequency: frequencySchema.optional(),
         categoryId: z.string().nullable().optional(),
         ownerId: z.string().nullable().optional(),
+        visibleToHousehold: z.boolean().optional(),
         status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
       }),
     )
@@ -187,9 +189,15 @@ export const recurringRouter = createTRPCRouter({
           householdId: ctx.householdId,
           OR: [{ ownerId: null }, { ownerId: ctx.userId }],
         },
-        select: { id: true },
+        select: { id: true, ownerId: true },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      if (data.visibleToHousehold !== undefined && existing.ownerId === null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Shared items are always visible — visibility only applies to personal items.",
+        });
+      }
 
       return ctx.prisma.recurringItem.update({
         where: { id },

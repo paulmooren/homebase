@@ -9,11 +9,10 @@ import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
 import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
-import { ChevronDownIcon } from "@/components/action-icons";
+import { CategoryCell } from "@/components/finance/category-cell";
+import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
-
-export type Category = { id: string; name: string; color: string };
 
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
@@ -39,6 +38,12 @@ function TransactionsPageInner() {
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
   const { data: transactions } = trpc.transaction.list.useQuery({ limit: 200 });
+  const { data: household } = trpc.household.current.useQuery();
+  const { data: me } = trpc.user.me.useQuery();
+
+  const members: Member[] = household?.members ?? [];
+  const currentUserId = me?.id ?? "";
+  const multiMember = members.length > 1;
 
   const [mode, setMode] = useState<"none" | "manual" | "import">(
     importAccountId ? "import" : "none",
@@ -77,7 +82,7 @@ function TransactionsPageInner() {
     <div className="flex flex-col gap-5">
       <section className="rounded-[20px] border border-border-soft bg-surface p-6">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="text-[15px] font-semibold">Transactions</h1>
+          <h2 className="text-[15px] font-semibold">Transactions</h2>
           <div className="flex gap-2">
             <button
               onClick={() => setMode(mode === "manual" ? "none" : "manual")}
@@ -154,6 +159,7 @@ function TransactionsPageInner() {
               const isTransfer = t.type === "TRANSFER";
               const isIncome = t.type === "INCOME";
               const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
+              const canEdit = t.account.ownerId === null || t.account.ownerId === currentUserId;
               return (
                 <div
                   key={t.id}
@@ -163,7 +169,14 @@ function TransactionsPageInner() {
                     className="block w-[3px] shrink-0 self-stretch rounded-full"
                     style={{ background: barColor }}
                   />
-                  <div className={`min-w-0 flex-1 truncate ${CELL_TEXT} font-medium`}>{t.merchant}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className={`truncate ${CELL_TEXT} font-medium`}>{t.merchant}</div>
+                    {multiMember && (
+                      <div className="truncate text-[11px] text-text-faint">
+                        {t.account.name} · {groupLabel(t.account.ownerId, members, currentUserId)}
+                      </div>
+                    )}
+                  </div>
                   <div className={`${COL_DATE} truncate ${CELL_TEXT} text-text-muted`}>
                     {formatDate(t.date)}
                   </div>
@@ -174,12 +187,16 @@ function TransactionsPageInner() {
                       >
                         ↔ Transfer
                       </span>
-                    ) : (
+                    ) : canEdit ? (
                       <CategoryCell
                         categoryId={t.categoryId}
                         categories={categories ?? []}
                         onChange={(categoryId) => updateTransaction.mutate({ id: t.id, categoryId })}
                       />
+                    ) : (
+                      <span className={`truncate ${CELL_TEXT} text-text-muted`}>
+                        {t.category?.name ?? "No category"}
+                      </span>
                     )}
                   </div>
                   <div
@@ -190,14 +207,16 @@ function TransactionsPageInner() {
                     {isIncome ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
-                    <button
-                      onClick={() => {
-                        if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
-                      }}
-                      className="text-[12px] text-text-muted hover:text-critical"
-                    >
-                      ✕
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
+                        }}
+                        className="text-[12px] text-text-muted hover:text-critical"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -206,45 +225,6 @@ function TransactionsPageInner() {
         </div>
       </section>
     </div>
-  );
-}
-
-export function CategoryCell({
-  categoryId,
-  categories,
-  onChange,
-}: {
-  categoryId: string | null;
-  categories: Category[];
-  onChange: (categoryId: string | null) => void;
-}) {
-  const current = categories.find((c) => c.id === categoryId);
-
-  return (
-    <span className="relative inline-flex w-full items-center">
-      <select
-        value={categoryId ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
-      >
-        <option value="">No category</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      <span className={`pointer-events-none flex items-center gap-1.5 truncate ${CELL_TEXT} text-text-muted`}>
-        <span
-          className="block h-2 w-2 shrink-0 rounded-full"
-          style={{ background: current?.color ?? "#c7c9cf" }}
-        />
-        <span className="truncate">{current ? current.name : "No category"}</span>
-        <span className="block h-3 w-3 shrink-0">
-          <ChevronDownIcon />
-        </span>
-      </span>
-    </span>
   );
 }
 

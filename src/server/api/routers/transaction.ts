@@ -22,7 +22,15 @@ export const transactionRouter = createTRPCRouter({
           // incoming transfer is part of that account's own history too.
           ...(input.accountId
             ? { OR: [{ accountId: input.accountId }, { transferToAccountId: input.accountId }] }
-            : { account: { OR: [{ ownerId: null }, { ownerId: ctx.userId }] } }),
+            : {
+                account: {
+                  OR: [
+                    { ownerId: null },
+                    { ownerId: ctx.userId },
+                    { ownerId: { not: null }, visibleToHousehold: true },
+                  ],
+                },
+              }),
         },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         take: input.limit,

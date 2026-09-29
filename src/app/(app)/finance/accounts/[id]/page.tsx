@@ -9,7 +9,7 @@ import { formatEUR, formatDate } from "@/lib/format";
 import { ACCOUNT_TYPE_LABELS, TRANSFER_COLOR, type AccountType } from "@/lib/constants";
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { BalanceChart, type BalancePoint, type Granularity } from "@/components/balance-chart";
-import { CategoryCell } from "@/app/(app)/transactions/page";
+import { CategoryCell } from "@/components/finance/category-cell";
 
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
@@ -24,6 +24,7 @@ export default function AccountDetailPage() {
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
   const { data: transactions } = trpc.transaction.list.useQuery({ limit: 200, accountId });
+  const { data: me } = trpc.user.me.useQuery();
 
   const [range, setRange] = useState<{ from: Date; to: Date; granularity: Granularity } | null>(null);
   const { data: history } = trpc.dashboard.accountHistory.useQuery(
@@ -50,12 +51,13 @@ export default function AccountDetailPage() {
   });
 
   const account = accounts?.find((a) => a.id === accountId);
+  const canEdit = account ? account.ownerId === null || account.ownerId === me?.id : false;
 
   if (accounts && !account) {
     return (
       <div className="flex flex-col gap-5">
-        <Link href="/settings" className="text-[12.5px] font-medium text-text-muted hover:text-text">
-          ← Admin
+        <Link href="/finance/accounts" className="text-[12.5px] font-medium text-text-muted hover:text-text">
+          ← Accounts
         </Link>
         <p className="text-[13px] text-text-muted">Account not found.</p>
       </div>
@@ -64,8 +66,8 @@ export default function AccountDetailPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/settings" className="text-[12.5px] font-medium text-text-muted hover:text-text">
-        ← Admin
+      <Link href="/finance/accounts" className="text-[12.5px] font-medium text-text-muted hover:text-text">
+        ← Accounts
       </Link>
 
       {account && (
@@ -138,12 +140,16 @@ export default function AccountDetailPage() {
                       >
                         ↔ Transfer
                       </span>
-                    ) : (
+                    ) : canEdit ? (
                       <CategoryCell
                         categoryId={t.categoryId}
                         categories={categories ?? []}
                         onChange={(categoryId) => updateTransaction.mutate({ id: t.id, categoryId })}
                       />
+                    ) : (
+                      <span className={`truncate text-text-muted ${CELL_TEXT}`}>
+                        {t.category?.name ?? "No category"}
+                      </span>
                     )}
                   </div>
                   <div
@@ -154,14 +160,16 @@ export default function AccountDetailPage() {
                     {isInflow ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
-                    <button
-                      onClick={() => {
-                        if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
-                      }}
-                      className="text-[12px] text-text-muted hover:text-critical"
-                    >
-                      ✕
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
+                        }}
+                        className="text-[12px] text-text-muted hover:text-critical"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
               );

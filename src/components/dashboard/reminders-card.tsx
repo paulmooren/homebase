@@ -55,7 +55,7 @@ export function RemindersCard() {
             </span>
           </p>
           <Link
-            href={`/transactions?import=${r.accountId}`}
+            href={`/finance/transactions?import=${r.accountId}`}
             className="shrink-0 rounded-lg bg-accent-fill px-4 py-2 text-[12.5px] font-semibold text-accent-ink hover:opacity-90"
           >
             Import statement

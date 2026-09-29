@@ -42,15 +42,14 @@ enum RecurringStatus {
 }
 
 model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  name                String?
-  password            String?
-  emailVerified       DateTime?
-  image               String?
-  createdAt           DateTime  @default(now())
-  onboardedAt         DateTime?
-  shareRecurringItems Boolean   @default(true)
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  onboardedAt   DateTime?
 
   accounts            Account[]
   sessions            Session[]
@@ -58,6 +57,7 @@ model User {
   ownedAccounts       FinancialAccount[] @relation("FinancialAccountOwner")
   createdInvites      HouseholdInvite[]
   ownedRecurringItems RecurringItem[]    @relation("RecurringItemOwner")
+  ownedBudgets        Budget[]           @relation("BudgetOwner")
   ownedTasks          Task[]             @relation("TaskOwner")
 
   @@map("users")
@@ -158,17 +158,18 @@ model VerificationToken {
 // --- Finance domain ---
 
 model FinancialAccount {
-  id              String      @id @default(cuid())
-  householdId     String
-  ownerId         String?
-  name            String
-  institution     String?
-  type            AccountType
-  startingBalance Decimal     @default(0) @db.Decimal(14, 2)
-  balance         Decimal     @default(0) @db.Decimal(14, 2)
-  currency        String      @default("EUR")
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                 String      @id @default(cuid())
+  householdId        String
+  ownerId            String?
+  visibleToHousehold Boolean     @default(true)
+  name               String
+  institution        String?
+  type               AccountType
+  startingBalance    Decimal     @default(0) @db.Decimal(14, 2)
+  balance            Decimal     @default(0) @db.Decimal(14, 2)
+  currency           String      @default("EUR")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   household            Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
   owner                User?         @relation("FinancialAccountOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -220,34 +221,44 @@ model Transaction {
 }
 
 model Budget {
-  id            String   @id @default(cuid())
-  householdId   String
-  categoryId    String
-  monthlyAmount Decimal  @db.Decimal(14, 2)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  householdId        String
+  categoryId         String
+  ownerId            String?
+  // Sentinel mirror of `ownerId` (set to ownerId, or "HOUSEHOLD" when null) —
+  // Postgres unique indexes treat NULL <> NULL, so a naive unique on
+  // (householdId, categoryId, ownerId) would let duplicate household-wide
+  // budgets slip through. Kept in sync with ownerId on every write.
+  ownerScope         String   @default("HOUSEHOLD")
+  visibleToHousehold Boolean  @default(true)
+  monthlyAmount      Decimal  @db.Decimal(14, 2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  owner     User?     @relation("BudgetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
-  @@unique([householdId, categoryId])
+  @@unique([householdId, categoryId, ownerScope])
+  @@index([householdId, ownerId])
   @@map("budgets")
 }
 
 model RecurringItem {
-  id          String             @id @default(cuid())
-  householdId String
-  ownerId     String?
-  name        String
-  type        TransactionType
-  amount      Decimal            @db.Decimal(14, 2)
-  frequency   RecurringFrequency
-  categoryId  String?
-  source      RecurringSource
-  status      RecurringStatus    @default(ACTIVE)
-  lastSeenAt  DateTime?          @db.Date
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                 String             @id @default(cuid())
+  householdId        String
+  ownerId            String?
+  visibleToHousehold Boolean            @default(true)
+  name               String
+  type               TransactionType
+  amount             Decimal            @db.Decimal(14, 2)
+  frequency          RecurringFrequency
+  categoryId         String?
+  source             RecurringSource
+  status             RecurringStatus    @default(ACTIVE)
+  lastSeenAt         DateTime?          @db.Date
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   owner     User?     @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: SetNull)

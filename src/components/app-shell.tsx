@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 
 import {
   DashboardIcon,
-  RecurringIcon,
   SettingsIcon,
   TasksIcon,
   TransactionsIcon,
@@ -13,8 +12,7 @@ import {
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
-  { href: "/transactions", label: "Transactions", Icon: TransactionsIcon },
-  { href: "/recurring", label: "Budgeting", Icon: RecurringIcon },
+  { href: "/finance", label: "Finance", Icon: TransactionsIcon },
   { href: "/tasks", label: "Tasks", Icon: TasksIcon },
 ];
 
@@ -51,8 +49,8 @@ export function AppShell({
   });
 
   const eyebrow =
-    [...NAV_ITEMS, { href: "/settings", label: "Admin" }, { href: "/accounts", label: "Admin" }].find(
-      (item) => pathname.startsWith(item.href),
+    [...NAV_ITEMS, { href: "/settings", label: "Admin" }].find((item) =>
+      pathname.startsWith(item.href),
     )?.label ?? "Kontor";
 
   return (

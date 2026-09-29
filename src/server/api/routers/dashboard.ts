@@ -92,7 +92,11 @@ export const dashboardRouter = createTRPCRouter({
         where: {
           id: input.accountId,
           householdId: ctx.householdId,
-          OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+          OR: [
+            { ownerId: null },
+            { ownerId: ctx.userId },
+            { ownerId: { not: null }, visibleToHousehold: true },
+          ],
         },
         select: { id: true, type: true, startingBalance: true },
       });
@@ -158,7 +162,7 @@ export const dashboardRouter = createTRPCRouter({
     }
 
     const accounts = allAccounts.filter(
-      (a) => a.ownerId === null || a.ownerId === ctx.userId,
+      (a) => a.ownerId === null || a.ownerId === ctx.userId || a.visibleToHousehold,
     );
 
     return {
