@@ -1,19 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 
 import { trpc } from "@/trpc/react";
-import { formatDate } from "@/lib/format";
-import { CheckIcon } from "@/components/action-icons";
-
-type Task = {
-  id: string;
-  title: string;
-  dueDate: string | Date | null;
-  frequency: string | null;
-  completedAt: string | Date | null;
-  ownerId: string | null;
-};
+import { TaskRow, type Task, type Member, type FormValues } from "@/components/tasks/task-row";
 
 function startOfToday() {
   const d = new Date();
@@ -26,28 +17,43 @@ function startOfToday() {
  * (never another member's). Every overdue item, uncapped — hiding one would
  * defeat the point — then the next 5 upcoming by due date, then anything
  * with no due date at all (undated items aren't dropped, just deprioritized
- * below anything with a real deadline). Checkbox is interactive (same
- * toggleComplete as the Tasks page: reschedules a recurring reminder,
- * permanently completes a one-off task); everything else (editing, assignee,
- * recurrence) stays on the Tasks page.
+ * below anything with a real deadline). Uses the exact same TaskRow as the
+ * Tasks page — full inline editing (title, date, recurrence, assignee,
+ * delete), not a read-only preview — so the dashboard is a real shortcut,
+ * not a lesser copy.
+ *
+ * `justCompleted` keeps a one-off task visible (struck through) for this
+ * render after you check it off, instead of it vanishing the instant the
+ * refetch lands — otherwise ticking a task here gives no visible
+ * confirmation at all before it's gone.
  */
 export function TasksSnapshot() {
   const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery();
+  const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
+  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
+
   const toggleComplete = trpc.task.toggleComplete.useMutation({
+    onSuccess: () => utils.task.list.invalidate(),
+  });
+  const updateTask = trpc.task.update.useMutation({
+    onSuccess: () => utils.task.list.invalidate(),
+  });
+  const deleteTask = trpc.task.delete.useMutation({
     onSuccess: () => utils.task.list.invalidate(),
   });
 
   if (!tasks || !me) return null;
 
   const currentUserId = me.id;
+  const members: Member[] = household?.members ?? [];
   const today = startOfToday();
 
   const relevant = (tasks as Task[]).filter(
     (t) =>
       (t.ownerId === null || t.ownerId === currentUserId) &&
-      (t.frequency || !t.completedAt),
+      (t.frequency || !t.completedAt || justCompleted.has(t.id)),
   );
 
   const dated = relevant.filter((t) => t.dueDate);
@@ -63,78 +69,33 @@ export function TasksSnapshot() {
 
   if (overdue.length === 0 && upcoming.length === 0 && undated.length === 0) return null;
 
+  const rows = [...overdue, ...upcoming, ...undated];
+
   return (
-    <section className="mb-5 rounded-[20px] border border-border-soft bg-surface p-6">
-      <div className="mb-1 flex items-baseline justify-between">
+    <section className="mb-5 overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+      <div className="mb-1 flex items-baseline justify-between px-6 pt-6">
         <h2 className="text-[15px] font-semibold">Tasks</h2>
         <Link href="/tasks" className="text-[12.5px] font-medium text-accent hover:opacity-80">
           View all
         </Link>
       </div>
-      {overdue.map((task) => (
-        <TaskSnapshotRow
+      {rows.map((task) => (
+        <TaskRow
           key={task.id}
           task={task}
-          overdue
-          onToggle={() => toggleComplete.mutate({ id: task.id })}
-        />
-      ))}
-      {upcoming.map((task) => (
-        <TaskSnapshotRow
-          key={task.id}
-          task={task}
-          overdue={false}
-          onToggle={() => toggleComplete.mutate({ id: task.id })}
-        />
-      ))}
-      {undated.map((task) => (
-        <TaskSnapshotRow
-          key={task.id}
-          task={task}
-          overdue={false}
-          onToggle={() => toggleComplete.mutate({ id: task.id })}
+          members={members}
+          currentUserId={currentUserId}
+          isOverdue={overdue.includes(task)}
+          onToggle={() => {
+            if (!task.frequency && !task.completedAt) {
+              setJustCompleted((prev) => new Set(prev).add(task.id));
+            }
+            toggleComplete.mutate({ id: task.id });
+          }}
+          onUpdate={(values: Partial<FormValues>) => updateTask.mutate({ id: task.id, ...values })}
+          onDelete={() => deleteTask.mutate({ id: task.id })}
         />
       ))}
     </section>
-  );
-}
-
-function TaskSnapshotRow({
-  task,
-  overdue,
-  onToggle,
-}: {
-  task: Task;
-  overdue: boolean;
-  onToggle: () => void;
-}) {
-  const isDone = !task.frequency && !!task.completedAt;
-
-  return (
-    <div className="flex items-center gap-3 border-b border-border-soft py-2.5 last:border-none">
-      <button
-        onClick={onToggle}
-        aria-label={isDone ? "Mark as not done" : "Mark as done"}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-          isDone
-            ? "border-good bg-good text-white"
-            : "border-border text-transparent hover:border-good hover:text-good"
-        }`}
-      >
-        <span className="block h-3 w-3">
-          <CheckIcon />
-        </span>
-      </button>
-      <span
-        className={`min-w-0 flex-1 truncate text-[13.5px] ${
-          isDone ? "text-text-faint line-through" : "font-medium"
-        }`}
-      >
-        {task.title}
-      </span>
-      <span className={`shrink-0 text-[12px] ${overdue && !isDone ? "font-medium text-critical" : "text-text-muted"}`}>
-        {task.dueDate ? formatDate(task.dueDate) : "No due date"}
-      </span>
-    </div>
   );
 }
