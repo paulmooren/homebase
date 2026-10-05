@@ -37,13 +37,24 @@ function TransactionsPageInner() {
   const utils = trpc.useUtils();
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
-  const { data: transactions } = trpc.transaction.list.useQuery({ limit: 200 });
+  // Deep-linkable (?account=<id>) so the Budgets tab's account cards can open
+  // straight into one account's transactions.
+  const [accountFilter, setAccountFilter] = useState(searchParams.get("account") ?? "");
+  const { data: transactions } = trpc.transaction.list.useQuery({
+    limit: 200,
+    ...(accountFilter ? { accountId: accountFilter } : {}),
+  });
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
 
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
   const multiMember = members.length > 1;
+  // Visible-but-not-yours accounts are read-only, so they're not offered when
+  // adding or importing transactions.
+  const writableAccounts = (accounts ?? []).filter(
+    (a) => a.ownerId === null || a.ownerId === currentUserId,
+  );
 
   const [mode, setMode] = useState<"none" | "manual" | "import">(
     importAccountId ? "import" : "none",
@@ -97,7 +108,7 @@ function TransactionsPageInner() {
             >
               {mode === "import" ? "Cancel" : "Import CSV"}
             </button>
-            {transactions && transactions.length > 0 && (
+            {transactions && transactions.length > 0 && !accountFilter && (
               <>
                 <span className="text-text-faint">·</span>
                 <button
@@ -120,18 +131,37 @@ function TransactionsPageInner() {
           </div>
         </div>
 
-        {mode === "manual" && accounts && (
+        {accounts && accounts.length > 1 && (
+          <label className="mt-3 mb-1 flex items-center gap-2 text-[12.5px] text-text-muted">
+            Account
+            <select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              className="rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text outline-none focus:border-accent"
+            >
+              <option value="">All accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {multiMember ? ` · ${groupLabel(a.ownerId, members, currentUserId)}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {mode === "manual" && writableAccounts.length > 0 && (
           <ManualTransactionForm
-            accounts={accounts}
+            accounts={writableAccounts}
             categories={categories ?? []}
             pending={createTransaction.isPending}
             onSubmit={(values) => createTransaction.mutate(values)}
           />
         )}
 
-        {mode === "import" && accounts && (
+        {mode === "import" && writableAccounts.length > 0 && (
           <CsvImportForm
-            accounts={accounts}
+            accounts={writableAccounts}
             categories={categories ?? []}
             initialAccountId={importAccountId ?? undefined}
             onDone={() => setMode("none")}
@@ -158,6 +188,15 @@ function TransactionsPageInner() {
             {transactions?.map((t) => {
               const isTransfer = t.type === "TRANSFER";
               const isIncome = t.type === "INCOME";
+              // Seen through one account, a transfer into it is money in.
+              const isInflow =
+                isIncome || (isTransfer && !!accountFilter && t.transferToAccountId === accountFilter);
+              const label =
+                isTransfer && accountFilter
+                  ? t.transferToAccountId === accountFilter
+                    ? `Transfer from ${t.account.name}`
+                    : `Transfer to ${t.transferToAccount?.name ?? "another account"}`
+                  : t.merchant;
               const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
               const canEdit = t.account.ownerId === null || t.account.ownerId === currentUserId;
               return (
@@ -170,7 +209,7 @@ function TransactionsPageInner() {
                     style={{ background: barColor }}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className={`truncate ${CELL_TEXT} font-medium`}>{t.merchant}</div>
+                    <div className={`truncate ${CELL_TEXT} font-medium`}>{label}</div>
                     {multiMember && (
                       <div className="truncate text-[11px] text-text-faint">
                         {t.account.name} · {groupLabel(t.account.ownerId, members, currentUserId)}
@@ -204,7 +243,7 @@ function TransactionsPageInner() {
                       isIncome ? "text-good" : isTransfer ? "text-text-muted" : ""
                     }`}
                   >
-                    {isIncome ? "+" : "−"} {formatEUR(Number(t.amount))}
+                    {isInflow ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
                     {canEdit && (

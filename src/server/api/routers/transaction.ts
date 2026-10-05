@@ -13,13 +13,30 @@ export const transactionRouter = createTRPCRouter({
         accountId: z.string().optional(),
       }),
     )
-    .query(({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
+      // A specific account must itself be one the caller may see — without
+      // this, any account id (including a partner's private one) would list.
+      if (input.accountId) {
+        const visible = await ctx.prisma.financialAccount.findFirst({
+          where: {
+            id: input.accountId,
+            householdId: ctx.householdId,
+            OR: [
+              { ownerId: null },
+              { ownerId: ctx.userId },
+              { ownerId: { not: null }, visibleToHousehold: true },
+            ],
+          },
+          select: { id: true },
+        });
+        if (!visible) throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
       return ctx.prisma.transaction.findMany({
         where: {
           householdId: ctx.householdId,
-          // Filtering to a specific account (the caller already verified
-          // it's visible) means either leg of a transfer counts — an
-          // incoming transfer is part of that account's own history too.
+          // Filtering to one account means either leg of a transfer counts —
+          // an incoming transfer is part of that account's own history too.
           ...(input.accountId
             ? { OR: [{ accountId: input.accountId }, { transferToAccountId: input.accountId }] }
             : {

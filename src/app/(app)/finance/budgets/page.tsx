@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
@@ -56,8 +57,93 @@ export default function BudgetsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <AccountFlowCards members={members} currentUserId={currentUserId} />
       <RecurringItems members={members} currentUserId={currentUserId} />
     </div>
+  );
+}
+
+function shiftMonth(month: string, delta: number) {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthName(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * What actually came in and went out of each account you can see, for one
+ * month (transfers excluded). Opens on the latest month with activity — a
+ * statement for the current month usually isn't imported yet — and each card
+ * links into that account's transactions.
+ */
+function AccountFlowCards({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+  const [month, setMonth] = useState<string | undefined>(undefined);
+  const { data } = trpc.account.monthlyFlow.useQuery(month ? { month } : undefined);
+
+  if (!data || data.accounts.length === 0) return null;
+
+  const multiMember = members.length > 1;
+  const now = new Date();
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold">Income &amp; expenses by account</h2>
+        <div className="flex items-center gap-1 text-[13px] text-text-muted">
+          <button
+            onClick={() => setMonth(shiftMonth(data.month, -1))}
+            aria-label="Previous month"
+            className="rounded-md px-2 py-1 hover:bg-surface-2 hover:text-text"
+          >
+            ‹
+          </button>
+          <span className="min-w-[110px] text-center font-medium text-text">{monthName(data.month)}</span>
+          <button
+            onClick={() => setMonth(shiftMonth(data.month, 1))}
+            disabled={data.month >= currentMonth}
+            aria-label="Next month"
+            className="rounded-md px-2 py-1 hover:bg-surface-2 hover:text-text disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {data.accounts.map((a) => (
+          <Link
+            key={a.id}
+            href={`/finance/transactions?account=${a.id}`}
+            className="rounded-[20px] border border-border-soft bg-surface p-5 transition-colors hover:bg-surface-hover"
+          >
+            <p className="truncate text-[13.5px] font-semibold">{a.name}</p>
+            <p className="mb-3 truncate text-[11px] tracking-[0.04em] text-text-faint">
+              {[a.institution, multiMember ? groupLabel(a.ownerId, members, currentUserId) : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="mb-1 text-[10.5px] text-text-faint">Income</p>
+                <p className="text-[16px] font-semibold text-good tabular-nums">{formatEUR(a.income)}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-[10.5px] text-text-faint">Expenses</p>
+                <p className="text-[16px] font-semibold tabular-nums">{formatEUR(a.expenses)}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -88,26 +174,21 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
 
   return (
     <>
-      {multiMember ? (
-        <SummaryStrip income={income} expenses={expenses} members={members} currentUserId={currentUserId} />
-      ) : (
-        items &&
-        items.length > 0 && (
-          <div className="flex flex-wrap items-baseline justify-end gap-4">
-            <div className="text-right">
-              <p className="mb-1 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
-                Net recurring / month
-              </p>
-              <p
-                className={`font-serif text-[32px] tabular-nums ${
-                  monthlyIncome - monthlyExpenses < 0 ? "text-critical" : "text-good"
-                }`}
-              >
-                {formatSignedEUR(monthlyIncome - monthlyExpenses)}
-              </p>
-            </div>
+      {!multiMember && items && items.length > 0 && (
+        <div className="flex flex-wrap items-baseline justify-end gap-4">
+          <div className="text-right">
+            <p className="mb-1 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
+              Net recurring / month
+            </p>
+            <p
+              className={`font-serif text-[32px] tabular-nums ${
+                monthlyIncome - monthlyExpenses < 0 ? "text-critical" : "text-good"
+              }`}
+            >
+              {formatSignedEUR(monthlyIncome - monthlyExpenses)}
+            </p>
           </div>
-        )
+        </div>
       )}
 
       {suggestions && suggestions.length > 0 && (
@@ -204,54 +285,6 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
         />
       </div>
     </>
-  );
-}
-
-function SummaryStrip({
-  income,
-  expenses,
-  members,
-  currentUserId,
-}: {
-  income: Item[];
-  expenses: Item[];
-  members: Member[];
-  currentUserId: string;
-}) {
-  const relevantGroups = groupOrder(members, currentUserId).filter(
-    (ownerId) =>
-      ownerId === currentUserId ||
-      ownerId === null ||
-      income.some((i) => i.ownerId === ownerId) ||
-      expenses.some((i) => i.ownerId === ownerId),
-  );
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {relevantGroups.map((ownerId) => {
-        const groupIncome = income.filter((i) => i.ownerId === ownerId);
-        const groupExpenses = expenses.filter((i) => i.ownerId === ownerId);
-        const monthlyIncome = groupIncome.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
-        const monthlyExpenses = groupExpenses.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
-        return (
-          <div key={ownerId ?? "shared"} className="rounded-[20px] border border-border-soft bg-surface p-5">
-            <p className="mb-3 text-[11px] font-semibold tracking-[0.09em] text-text-faint uppercase">
-              {groupLabel(ownerId, members, currentUserId)}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="mb-1 text-[10.5px] text-text-faint">Income</p>
-                <p className="text-[16px] font-semibold text-good tabular-nums">{formatEUR(monthlyIncome)}</p>
-              </div>
-              <div>
-                <p className="mb-1 text-[10.5px] text-text-faint">Expenses</p>
-                <p className="text-[16px] font-semibold tabular-nums">{formatEUR(monthlyExpenses)}</p>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
