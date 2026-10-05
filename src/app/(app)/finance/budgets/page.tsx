@@ -419,11 +419,6 @@ function RecurringRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[13.5px] font-medium">
           {item.name}
-          {item.source === "DETECTED" && (
-            <span className="rounded-full border border-border-soft bg-surface-2 px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
-              Detected
-            </span>
-          )}
         </div>
         <div className="mt-1 text-[12px] text-text-muted">
           {RECURRING_FREQUENCY_LABELS[item.frequency]}
