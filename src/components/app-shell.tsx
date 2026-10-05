@@ -132,7 +132,13 @@ export function AppShell({
               </h1>
               <p className="text-[13px] text-text-muted">{today}</p>
             </div>
-            <Avatar name={userName} image={me?.image} size={36} className="border border-border" />
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              className="rounded-full transition-opacity hover:opacity-80"
+            >
+              <Avatar name={userName} image={me?.image} size={36} className="border border-border" />
+            </Link>
           </div>
 
           {children}
