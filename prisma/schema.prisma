@@ -418,6 +418,8 @@ model ShoppingFavorite {
   id        String   @id @default(cuid())
   listId    String
   name      String
+  // No longer used — favorites carry no amount. Kept (nullable) so removing it
+  // doesn't need a destructive migration while older deployments may still read it.
   quantity  String?
   createdAt DateTime @default(now())
 

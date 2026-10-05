@@ -86,7 +86,7 @@ function ShoppingLists() {
         onToggleFavorite={() =>
           favorite
             ? actions.removeFavorite.mutate({ id: favorite.id })
-            : actions.addFavorite.mutate({ listId: selected!.id, name: item.name, quantity: item.quantity })
+            : actions.addFavorite.mutate({ listId: selected!.id, name: item.name })
         }
         onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
         onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
@@ -116,13 +116,11 @@ function ShoppingLists() {
     <FavoritesPanel
       favorites={favorites ?? []}
       items={items ?? []}
-      onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name, quantity: fav.quantity })}
+      onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name })}
       onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
       onRemove={(id) => actions.removeFavorite.mutate({ id })}
-      onUpdate={(id, values) => actions.updateFavorite.mutate({ id, ...values })}
-      onCreate={({ name, quantity }) =>
-        actions.addFavorite.mutate({ listId: selected.id, name, quantity })
-      }
+      onRename={(id, name) => actions.updateFavorite.mutate({ id, name })}
+      onCreate={(name) => actions.addFavorite.mutate({ listId: selected.id, name })}
     />
   );
 

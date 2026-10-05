@@ -6,13 +6,12 @@ import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 import { InlineEdit } from "@/components/inline-edit";
 import type { ShoppingItemData } from "@/components/shopping/item-row";
 
-export type FavoriteData = { id: string; name: string; quantity: string | null };
+export type FavoriteData = { id: string; name: string };
 
 /**
  * The Favorites of one list as an alphabetical list: tap + to add one to the
- * list (or put it back if it's already in the basket), click its name or
- * amount to change them in place, and add new ones with "+ Add favorite" at
- * the bottom.
+ * list (or put it back if it's already in the basket), click its name to
+ * change it in place, and add new ones with "+ Add favorite" at the bottom.
  */
 export function FavoritesPanel({
   favorites,
@@ -20,7 +19,7 @@ export function FavoritesPanel({
   onAdd,
   onRestore,
   onRemove,
-  onUpdate,
+  onRename,
   onCreate,
 }: {
   favorites: FavoriteData[];
@@ -28,8 +27,8 @@ export function FavoritesPanel({
   onAdd: (favorite: FavoriteData) => void;
   onRestore: (itemId: string) => void;
   onRemove: (id: string) => void;
-  onUpdate: (id: string, values: { name?: string; quantity?: string | null }) => void;
-  onCreate: (favorite: { name: string; quantity: string | null }) => void;
+  onRename: (id: string, name: string) => void;
+  onCreate: (name: string) => void;
 }) {
   const sorted = [...favorites].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
@@ -66,23 +65,10 @@ export function FavoritesPanel({
               <InlineEdit
                 value={fav.name}
                 ariaLabel="Favorite name"
-                onCommit={(name) => onUpdate(fav.id, { name })}
+                onCommit={(name) => onRename(fav.id, name)}
                 className={`text-[14.5px] ${onList ? "text-text-faint" : "font-medium"}`}
               />
             </div>
-            {/* Amount: shown when set; when empty it only appears on hover (always on phones, where there is no hover). */}
-            <InlineEdit
-              value={fav.quantity ?? ""}
-              ariaLabel="Favorite amount"
-              placeholder="amount"
-              allowEmpty
-              maxLength={30}
-              onCommit={(quantity) => onUpdate(fav.id, { quantity: quantity || null })}
-              className={`w-auto shrink-0 text-right text-[13.5px] tabular-nums text-text-muted ${
-                fav.quantity ? "" : "lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-              }`}
-              inputClassName="w-20 text-right text-[13.5px] tabular-nums"
-            />
             <button
               type="button"
               onClick={() => onRemove(fav.id)}
@@ -101,15 +87,13 @@ export function FavoritesPanel({
 }
 
 /** "+ Add favorite": same pattern as "+ Add item" — opens a line and stays open for the next one. */
-function AddFavoriteRow({ onCreate }: { onCreate: (favorite: { name: string; quantity: string | null }) => void }) {
+function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState("");
 
   function close() {
     setOpen(false);
     setName("");
-    setQuantity("");
   }
 
   if (!open) {
@@ -133,10 +117,9 @@ function AddFavoriteRow({ onCreate }: { onCreate: (favorite: { name: string; qua
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
-        onCreate({ name: name.trim(), quantity: quantity.trim() || null });
+        onCreate(name.trim());
         setName("");
-        setQuantity("");
-        (e.currentTarget.elements.namedItem("name") as HTMLInputElement | null)?.focus();
+            (e.currentTarget.elements.namedItem("name") as HTMLInputElement | null)?.focus();
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape") close();
@@ -152,15 +135,6 @@ function AddFavoriteRow({ onCreate }: { onCreate: (favorite: { name: string; qua
         aria-label="Favorite"
         autoComplete="off"
         className="min-w-0 flex-1 bg-transparent text-[14.5px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
-      />
-      <input
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        maxLength={30}
-        placeholder="Amount"
-        aria-label="Favorite amount"
-        autoComplete="off"
-        className="w-16 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-text-faint"
       />
       <button type="submit" aria-label="Add favorite" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
