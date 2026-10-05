@@ -8,19 +8,18 @@ import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 /**
  * "+ Add item" at the bottom of the list, same pattern as the other lists in
  * the app. Opens into a new line; Enter adds the item and leaves a fresh line
- * open so a whole shop can be typed in one go. Past items are suggested (with
- * the amount you used last time).
+ * open so a whole shop can be typed in one go. Past items are suggested. The
+ * amount is set afterwards with the −/+ on the item.
  */
 export function AddItemRow({
   listId,
   onAdd,
 }: {
   listId: string;
-  onAdd: (item: { name: string; quantity: string | null }) => void;
+  onAdd: (item: { name: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState("");
   const [focused, setFocused] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -31,19 +30,17 @@ export function AddItemRow({
   );
   const showSuggestions = focused && query.length > 0 && (suggestions?.length ?? 0) > 0;
 
-  function submit(item?: { name: string; quantity: string | null }) {
-    const finalName = (item?.name ?? name).trim();
+  function submit(picked?: string) {
+    const finalName = (picked ?? name).trim();
     if (!finalName) return;
-    onAdd({ name: finalName, quantity: (item ? item.quantity : quantity.trim()) || null });
+    onAdd({ name: finalName });
     setName("");
-    setQuantity("");
     nameRef.current?.focus();
   }
 
   function close() {
     setOpen(false);
     setName("");
-    setQuantity("");
   }
 
   if (!open) {
@@ -51,7 +48,7 @@ export function AddItemRow({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 border-b border-border-soft px-4 py-3.5 text-left text-text-faint transition-colors last:border-b-0 hover:text-text md:px-6"
+        className="flex w-full items-center gap-3 border-b border-border-soft px-4 py-3.5 text-left text-text-faint transition-colors last:rounded-b-[20px] last:border-b-0 hover:text-text md:px-6"
       >
         <span className="block h-2.5 w-2.5 shrink-0">
           <PlusIcon />
@@ -63,7 +60,7 @@ export function AddItemRow({
 
   return (
     <form
-      className="relative flex items-center gap-3 border-b border-border-soft bg-surface-2 px-4 py-2.5 last:border-b-0 md:px-6"
+      className="relative flex items-center gap-3 border-b border-border-soft bg-surface px-4 py-2.5 last:rounded-b-[20px] last:border-b-0 md:px-6"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -84,18 +81,8 @@ export function AddItemRow({
         placeholder="Item"
         aria-label="Item"
         autoComplete="off"
-        enterKeyHint="next"
-        className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
-      />
-      <input
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        maxLength={30}
-        placeholder="Amount"
-        aria-label="Amount"
-        autoComplete="off"
         enterKeyHint="done"
-        className="w-20 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-text-faint"
+        className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
       />
       <button type="submit" aria-label="Add item" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
@@ -111,19 +98,18 @@ export function AddItemRow({
 
       {showSuggestions && (
         <ul className="absolute top-full right-4 left-4 z-20 mt-1 overflow-hidden rounded-xl border border-border-soft bg-surface shadow-lg md:right-6 md:left-6">
-          {suggestions?.map((s) => (
-            <li key={s.name}>
+          {suggestions?.map((suggestion) => (
+            <li key={suggestion}>
               {/* onMouseDown so the pick lands before the input's blur hides the list */}
               <button
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  submit(s);
+                  submit(suggestion);
                 }}
-                className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-[14px] hover:bg-surface-hover"
+                className="block w-full px-3.5 py-2.5 text-left text-[14px] hover:bg-surface-hover"
               >
-                <span>{s.name}</span>
-                {s.quantity && <span className="text-[12.5px] text-text-muted tabular-nums">{s.quantity}</span>}
+                {suggestion}
               </button>
             </li>
           ))}

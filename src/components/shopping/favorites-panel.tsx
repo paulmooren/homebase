@@ -113,7 +113,7 @@ function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
 
   return (
     <form
-      className="flex items-center gap-2.5 bg-surface-2 px-4 py-2.5 md:px-5"
+      className="flex items-center gap-2.5 rounded-b-[20px] bg-surface px-4 py-2.5 md:px-5"
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;

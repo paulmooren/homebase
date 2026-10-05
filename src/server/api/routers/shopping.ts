@@ -165,7 +165,7 @@ export const shoppingRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  /** Past items matching what you're typing, most-used first (with the amount you last used), skipping ones already open on this list. */
+  /** Past item names matching what you're typing, most-used first, skipping ones already open on this list. */
   suggest: householdProcedure
     .input(z.object({ listId: z.string(), q: z.string().trim().min(1).max(60) }))
     .query(async ({ ctx, input }) => {
@@ -175,7 +175,7 @@ export const shoppingRouter = createTRPCRouter({
           where: { list: visibleLists(ctx), name: { startsWith: input.q, mode: "insensitive" } },
           orderBy: { createdAt: "desc" },
           take: 200,
-          select: { name: true, quantity: true },
+          select: { name: true },
         }),
         ctx.prisma.shoppingItem.findMany({
           where: { listId: input.listId, ...openItems, checkedAt: null },
@@ -183,19 +183,18 @@ export const shoppingRouter = createTRPCRouter({
         }),
       ]);
       const openNames = new Set(open.map((i) => i.name.toLowerCase()));
-      const byName = new Map<string, { name: string; quantity: string | null; count: number }>();
+      const counts = new Map<string, { name: string; count: number }>();
       for (const item of past) {
         const key = item.name.toLowerCase();
         if (openNames.has(key)) continue;
-        // `past` is newest first, so the first sighting carries the most recent amount.
-        const entry = byName.get(key);
+        const entry = counts.get(key);
         if (entry) entry.count += 1;
-        else byName.set(key, { name: item.name, quantity: item.quantity, count: 1 });
+        else counts.set(key, { name: item.name, count: 1 });
       }
-      return [...byName.values()]
+      return [...counts.values()]
         .sort((a, b) => b.count - a.count)
         .slice(0, 6)
-        .map(({ name, quantity }) => ({ name, quantity }));
+        .map((entry) => entry.name);
     }),
 
   /** Favorites of one list: the things you regularly need, one tap from being added. */

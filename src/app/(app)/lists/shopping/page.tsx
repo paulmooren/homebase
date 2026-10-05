@@ -239,7 +239,7 @@ function ShoppingLists() {
 
             <AddItemRow
               listId={selected.id}
-              onAdd={({ name, quantity }) => actions.addItem.mutate({ listId: selected.id, name, quantity })}
+              onAdd={({ name }) => actions.addItem.mutate({ listId: selected.id, name })}
             />
           </div>
         </section>

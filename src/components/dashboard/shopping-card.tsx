@@ -62,7 +62,7 @@ export function ShoppingCard() {
         )}
         <AddItemRow
           listId={main.id}
-          onAdd={({ name, quantity }) => actions.addItem.mutate({ listId: main.id, name, quantity })}
+          onAdd={({ name }) => actions.addItem.mutate({ listId: main.id, name })}
         />
       </div>
     </section>
