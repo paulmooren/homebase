@@ -38,7 +38,7 @@ export function useShoppingActions(listId: string | undefined) {
           id: `pending-${Date.now()}`,
           listId,
           name: input.name,
-          note: input.note ?? null,
+          note: null,
           quantity: input.quantity ?? null,
           checkedAt: null,
           clearedAt: null,
@@ -84,12 +84,20 @@ export function useShoppingActions(listId: string | undefined) {
   const addFavorite = trpc.shopping.addFavorite.useMutation({ onSuccess: refreshFavorites });
   const removeFavorite = trpc.shopping.removeFavorite.useMutation({ onSuccess: refreshFavorites });
   const updateFavorite = trpc.shopping.updateFavorite.useMutation({
-    onMutate: async ({ id, quantity }) => {
+    onMutate: async ({ id, name, quantity }) => {
       if (!listId) return {};
       await utils.shopping.favorites.cancel({ listId });
       const previous = utils.shopping.favorites.getData({ listId });
       utils.shopping.favorites.setData({ listId }, (old) =>
-        old?.map((f) => (f.id === id ? { ...f, quantity: quantity || null } : f)),
+        old?.map((f) =>
+          f.id === id
+            ? {
+                ...f,
+                ...(name !== undefined ? { name } : {}),
+                ...(quantity !== undefined ? { quantity: quantity || null } : {}),
+              }
+            : f,
+        ),
       );
       return { previous };
     },

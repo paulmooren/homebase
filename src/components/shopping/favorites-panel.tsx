@@ -3,15 +3,16 @@
 import { useState } from "react";
 
 import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
-import { QuantityStepper } from "@/components/shopping/quantity-stepper";
+import { InlineEdit } from "@/components/inline-edit";
 import type { ShoppingItemData } from "@/components/shopping/item-row";
 
 export type FavoriteData = { id: string; name: string; quantity: string | null };
 
 /**
  * The Favorites of one list as an alphabetical list: tap + to add one to the
- * list (or put it back if it's already in the basket), adjust its default
- * amount with −/+, and add new favorites with "+ Add favorite" at the bottom.
+ * list (or put it back if it's already in the basket), click its name or
+ * amount to change them in place, and add new ones with "+ Add favorite" at
+ * the bottom.
  */
 export function FavoritesPanel({
   favorites,
@@ -19,7 +20,7 @@ export function FavoritesPanel({
   onAdd,
   onRestore,
   onRemove,
-  onChangeQuantity,
+  onUpdate,
   onCreate,
 }: {
   favorites: FavoriteData[];
@@ -27,7 +28,7 @@ export function FavoritesPanel({
   onAdd: (favorite: FavoriteData) => void;
   onRestore: (itemId: string) => void;
   onRemove: (id: string) => void;
-  onChangeQuantity: (id: string, quantity: string | null) => void;
+  onUpdate: (id: string, values: { name?: string; quantity?: string | null }) => void;
   onCreate: (favorite: { name: string; quantity: string | null }) => void;
 }) {
   const sorted = [...favorites].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
@@ -61,10 +62,27 @@ export function FavoritesPanel({
             >
               <span className="block h-3.5 w-3.5">{onList ? <CheckIcon /> : <PlusIcon />}</span>
             </button>
-            <span className={`min-w-0 flex-1 truncate text-[14.5px] ${onList ? "text-text-faint" : "font-medium"}`}>
-              {fav.name}
-            </span>
-            <QuantityStepper value={fav.quantity} onChange={(q) => onChangeQuantity(fav.id, q)} muted={onList} />
+            <div className="min-w-0 flex-1">
+              <InlineEdit
+                value={fav.name}
+                ariaLabel="Favorite name"
+                onCommit={(name) => onUpdate(fav.id, { name })}
+                className={`text-[14.5px] ${onList ? "text-text-faint" : "font-medium"}`}
+              />
+            </div>
+            {/* Amount: shown when set; when empty it only appears on hover (always on phones, where there is no hover). */}
+            <InlineEdit
+              value={fav.quantity ?? ""}
+              ariaLabel="Favorite amount"
+              placeholder="amount"
+              allowEmpty
+              maxLength={30}
+              onCommit={(quantity) => onUpdate(fav.id, { quantity: quantity || null })}
+              className={`w-auto shrink-0 text-right text-[13.5px] tabular-nums text-text-muted ${
+                fav.quantity ? "" : "lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+              }`}
+              inputClassName="w-20 text-right text-[13.5px] tabular-nums"
+            />
             <button
               type="button"
               onClick={() => onRemove(fav.id)}

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { trpc } from "@/trpc/react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { InlineEdit } from "@/components/inline-edit";
 import { ModuleGate } from "@/components/use-modules";
 import { AddItemRow } from "@/components/shopping/add-item-row";
 import { FavoritesPanel } from "@/components/shopping/favorites-panel";
@@ -32,6 +34,7 @@ function ShoppingLists() {
   // Below lg there is no room for two columns: a switch flips between them, or a sheet slides over the list.
   const [mobileView, setMobileView] = useState<"list" | "favorites">("list");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmDeleteList, setConfirmDeleteList] = useState(false);
 
   const selected = lists?.find((l) => l.id === choice) ?? lists?.[0];
   const { data: items } = useShoppingItems(selected?.id);
@@ -116,7 +119,7 @@ function ShoppingLists() {
       onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name, quantity: fav.quantity })}
       onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
       onRemove={(id) => actions.removeFavorite.mutate({ id })}
-      onChangeQuantity={(id, quantity) => actions.updateFavorite.mutate({ id, quantity })}
+      onUpdate={(id, values) => actions.updateFavorite.mutate({ id, ...values })}
       onCreate={({ name, quantity }) =>
         actions.addFavorite.mutate({ listId: selected.id, name, quantity })
       }
@@ -192,7 +195,14 @@ function ShoppingLists() {
         <section className={`rounded-[20px] border border-border-soft bg-surface ${mobileView === "favorites" ? "hidden lg:block" : ""}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 pb-3 md:px-6">
             <div className="min-w-0">
-              <h2 className="truncate text-[17px] font-semibold">{selected.name}</h2>
+              <InlineEdit
+                key={selected.id}
+                value={selected.name}
+                ariaLabel="List name"
+                maxLength={60}
+                onCommit={(name) => renameList.mutate({ id: selected.id, name })}
+                className="text-[17px] font-semibold"
+              />
               <p className="text-[12px] text-text-muted">
                 {isShared ? "Shared — everyone in your household" : "Private — only you"}
               </p>
@@ -207,21 +217,7 @@ function ShoppingLists() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const name = prompt("Rename list", selected.name)?.trim();
-                  if (name && name !== selected.name) renameList.mutate({ id: selected.id, name });
-                }}
-                className="text-text-muted hover:text-text"
-              >
-                Rename
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Delete "${selected.name}" and everything on it?`)) {
-                    deleteList.mutate({ id: selected.id });
-                  }
-                }}
+                onClick={() => setConfirmDeleteList(true)}
                 className="text-text-muted hover:text-critical"
               >
                 Delete
@@ -273,6 +269,19 @@ function ShoppingLists() {
           {favoritesPanel}
         </section>
         </div>
+      )}
+
+      {selected && confirmDeleteList && (
+        <ConfirmDialog
+          title={`Delete ${selected.name}?`}
+          description="The list and everything on it will be removed."
+          confirmLabel="Delete list"
+          onConfirm={() => {
+            setConfirmDeleteList(false);
+            deleteList.mutate({ id: selected.id });
+          }}
+          onCancel={() => setConfirmDeleteList(false)}
+        />
       )}
 
       {selected && sheetOpen && (
