@@ -13,7 +13,11 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
   const utils = trpc.useUtils();
   const { data: categories } = trpc.category.list.useQuery();
+  const { data: me } = trpc.user.me.useQuery();
 
+  // Everything the wizard creates is the signing-up member's own (personal),
+  // not shared: with no owner it silently became a joint account, which then
+  // counted toward household totals and nagged every member about it.
   const createAccount = trpc.account.create.useMutation({
     onSuccess: (account) => {
       setAccountId(account.id);
@@ -57,6 +61,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 institution: String(form.get("institution") || "") || undefined,
                 type: String(form.get("type")) as (typeof ACCOUNT_TYPES)[number],
                 startingBalance: Number(form.get("startingBalance") || 0),
+                ownerId: me?.id ?? null,
               });
             }}
           >
@@ -92,7 +97,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             />
             <button
               type="submit"
-              disabled={createAccount.isPending}
+              disabled={createAccount.isPending || !me}
               className="mt-1 rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
             >
               Continue
@@ -198,7 +203,10 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               const categoryId = String(form.get("categoryId") || "");
               const monthlyAmount = Number(form.get("monthlyAmount") || 0);
               if (categoryId && monthlyAmount > 0) {
-                upsertBudget.mutate({ categoryId, monthlyAmount });
+                // Personal, to match the personal account above — a household
+                // budget only tracks shared-account spending, so it would
+                // never move for a personal account.
+                upsertBudget.mutate({ categoryId, monthlyAmount, ownerId: me?.id ?? null });
               } else {
                 setStep(4);
               }
