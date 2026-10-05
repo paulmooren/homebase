@@ -8,6 +8,7 @@ export function InlineEdit({
   onCommit,
   ariaLabel,
   placeholder,
+  display,
   allowEmpty,
   maxLength = 120,
   className = "",
@@ -17,6 +18,8 @@ export function InlineEdit({
   onCommit: (value: string) => void;
   ariaLabel: string;
   placeholder?: string;
+  /** What to show while not editing, if it differs from the raw value (e.g. "€12.00" for "12"). */
+  display?: React.ReactNode;
   allowEmpty?: boolean;
   maxLength?: number;
   className?: string;
@@ -57,7 +60,7 @@ export function InlineEdit({
       aria-label={`${ariaLabel}: ${value || "empty"}, click to change`}
       className={`block max-w-full truncate text-left ${className}`}
     >
-      {value || <span className="text-text-faint">{placeholder}</span>}
+      {value ? (display ?? value) : <span className="text-text-faint">{placeholder}</span>}
     </button>
   );
 }

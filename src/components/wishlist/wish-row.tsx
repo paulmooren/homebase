@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { formatEUR } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
+import { InlineEdit } from "@/components/inline-edit";
 import { InlineWishRow, type WishFormValues } from "@/components/wishlist/wish-form";
 
 export type WishData = {
@@ -60,10 +61,19 @@ export function WishRow({
   const claimerName = wish.claimedBy ? wish.claimedBy.name || wish.claimedBy.email : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-soft px-4 py-3.5 transition-colors last:border-b-0 hover:bg-surface-hover md:px-6">
+    <div className="group flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-soft px-4 py-3.5 transition-colors last:border-b-0 hover:bg-surface-hover md:px-6">
       <div className="min-w-0 flex-1 basis-56">
         <div className={`flex items-center gap-2 text-[15px] ${received ? "text-text-faint line-through" : "font-medium"}`}>
-          <span className="truncate">{wish.title}</span>
+          {canEdit && !received ? (
+            <InlineEdit
+              value={wish.title}
+              ariaLabel="Wish"
+              onCommit={(title) => onUpdate({ title, url: wish.url, price: wish.price, note: wish.note })}
+              className="truncate"
+            />
+          ) : (
+            <span className="truncate">{wish.title}</span>
+          )}
           {wish.url && (
             <a
               href={wish.url}
@@ -79,10 +89,33 @@ export function WishRow({
         {wish.note && <div className="truncate text-[12px] text-text-muted">{wish.note}</div>}
       </div>
 
-      {wish.price !== null && (
-        <div className={`text-[14px] font-semibold tabular-nums ${received ? "text-text-faint" : ""}`}>
-          {formatEUR(wish.price)}
-        </div>
+      {canEdit && !received ? (
+        // Click the price to change it; with none set, a faint "+ price" appears on hover (always on phones).
+        <InlineEdit
+          value={wish.price !== null ? String(wish.price) : ""}
+          display={wish.price !== null ? formatEUR(wish.price) : undefined}
+          ariaLabel="Price"
+          placeholder="+ price"
+          allowEmpty
+          maxLength={12}
+          onCommit={(text) => {
+            const parsed = text === "" ? null : Number(text.replace(",", "."));
+            if (parsed !== null && !(Number.isFinite(parsed) && parsed >= 0)) return;
+            onUpdate({ title: wish.title, url: wish.url, price: parsed, note: wish.note });
+          }}
+          className={`w-auto text-right text-[14px] tabular-nums ${
+            wish.price !== null
+              ? "font-semibold"
+              : "text-[12.5px] lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+          }`}
+          inputClassName="w-24 text-right text-[14px] font-semibold tabular-nums"
+        />
+      ) : (
+        wish.price !== null && (
+          <div className={`text-[14px] font-semibold tabular-nums ${received ? "text-text-faint" : ""}`}>
+            {formatEUR(wish.price)}
+          </div>
+        )
       )}
 
       <div className="flex items-center gap-3 text-[12.5px] font-medium">
