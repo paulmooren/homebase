@@ -125,7 +125,7 @@ export function AppShell({
         )}
       </nav>
 
-      <main className="w-full px-4 pt-6 pb-24 md:ml-[240px] md:px-10 md:pt-8 md:pb-14">
+      <main className="w-full min-w-0 px-4 pt-6 pb-24 md:ml-[240px] md:px-10 md:pt-8 md:pb-14">
         <div className="mx-auto max-w-[1180px]">
           <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
             <div>

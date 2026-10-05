@@ -91,7 +91,7 @@ function TransactionsPageInner() {
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="rounded-[20px] border border-border-soft bg-surface p-6">
+      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface px-6 pt-6">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold">Transactions</h2>
           <div className="flex gap-2">
@@ -132,22 +132,33 @@ function TransactionsPageInner() {
         </div>
 
         {accounts && accounts.length > 1 && (
-          <label className="mt-3 mb-1 flex items-center gap-2 text-[12.5px] text-text-muted">
-            Account
-            <select
-              value={accountFilter}
-              onChange={(e) => setAccountFilter(e.target.value)}
-              className="rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text outline-none focus:border-accent"
-            >
-              <option value="">All accounts</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
+          <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter by account">
+            <FilterChip active={!accountFilter} onClick={() => setAccountFilter("")}>
+              All
+            </FilterChip>
+            {accounts.map((a) => {
+              const active = accountFilter === a.id;
+              return (
+                <FilterChip
+                  key={a.id}
+                  active={active}
+                  onClick={() => setAccountFilter(active ? "" : a.id)}
+                  title={`${a.name} · ${groupLabel(a.ownerId, members, currentUserId)}`}
+                >
+                  {multiMember && (
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                        active ? "bg-bg text-text" : "bg-surface-2 text-text-muted"
+                      }`}
+                    >
+                      {ownerInitial(a.ownerId, members, currentUserId)}
+                    </span>
+                  )}
                   {a.name}
-                  {multiMember ? ` · ${groupLabel(a.ownerId, members, currentUserId)}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+                </FilterChip>
+              );
+            })}
+          </div>
         )}
 
         {mode === "manual" && writableAccounts.length > 0 && (
@@ -167,10 +178,8 @@ function TransactionsPageInner() {
             onDone={() => setMode("none")}
           />
         )}
-      </section>
 
-      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
-        <div className="overflow-x-auto">
+        <div className="-mx-6 mt-5 overflow-x-auto border-t border-border-soft">
           <div className="min-w-[640px]">
             <div className="flex items-center gap-3.5 px-6 pt-5 pb-2.5 text-[10.5px] font-semibold tracking-[0.08em] text-text-faint uppercase">
               <span className="block w-[3px] shrink-0" />
@@ -264,6 +273,42 @@ function TransactionsPageInner() {
         </div>
       </section>
     </div>
+  );
+}
+
+function ownerInitial(ownerId: string | null, members: Member[], currentUserId: string) {
+  if (ownerId === null) return "S";
+  const member = members.find((m) => m.user.id === ownerId);
+  const name = member?.user.name || member?.user.email || (ownerId === currentUserId ? "Y" : "?");
+  return name.charAt(0).toUpperCase();
+}
+
+/** Quick-filter pill: filled when active, click again to clear. */
+function FilterChip({
+  active,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${
+        active
+          ? "border-text bg-text text-bg"
+          : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
