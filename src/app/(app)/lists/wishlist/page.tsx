@@ -6,7 +6,8 @@ import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
 import { ModuleGate } from "@/components/use-modules";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
-import { WishForm } from "@/components/wishlist/wish-form";
+import { PlusIcon } from "@/components/action-icons";
+import { InlineWishRow } from "@/components/wishlist/wish-form";
 import { WishRow } from "@/components/wishlist/wish-row";
 
 const HOME = "home";
@@ -25,6 +26,7 @@ function Wishlists() {
   const { data: me } = trpc.user.me.useQuery();
   const [choice, setChoice] = useState<string | null>(null);
   const [showReceived, setShowReceived] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const selected = choice ?? me?.id ?? HOME;
   const isHome = selected === HOME;
@@ -74,7 +76,10 @@ function Wishlists() {
               key={m.user.id}
               type="button"
               aria-pressed={isActive}
-              onClick={() => setChoice(m.user.id)}
+              onClick={() => {
+                setChoice(m.user.id);
+                setAdding(false);
+              }}
               className={`inline-flex h-9 items-center gap-2 rounded-full border pr-4 pl-1.5 text-[13.5px] font-medium transition-colors ${
                 isActive
                   ? "border-text bg-text text-bg"
@@ -89,7 +94,10 @@ function Wishlists() {
         <button
           type="button"
           aria-pressed={isHome}
-          onClick={() => setChoice(HOME)}
+          onClick={() => {
+            setChoice(HOME);
+            setAdding(false);
+          }}
           className={`inline-flex h-9 items-center rounded-full border px-4 text-[13.5px] font-medium transition-colors ${
             isHome
               ? "border-text bg-text text-bg"
@@ -123,20 +131,10 @@ function Wishlists() {
           )}
         </div>
 
-        {canEdit && (
-          <div className="px-4 pb-4 md:px-6">
-            <WishForm
-              submitLabel="Add wish"
-              pending={add.isPending}
-              onSubmit={(values) => add.mutate({ home: isHome, ...values })}
-            />
-          </div>
-        )}
-
         <div className="border-t border-border-soft">
           {wishes && active.length === 0 && (
             <p className="px-6 py-6 text-[13.5px] text-text-muted">
-              {canEdit ? "No wishes yet — add the first one above." : "Nothing on this wishlist yet."}
+              {canEdit ? "No wishes yet." : "Nothing on this wishlist yet."}
             </p>
           )}
           {active.map((wish) => (
@@ -154,6 +152,29 @@ function Wishlists() {
               onUnclaim={() => unclaim.mutate({ id: wish.id })}
             />
           ))}
+
+          {canEdit &&
+            (adding ? (
+              <InlineWishRow
+                pending={add.isPending}
+                onSubmit={(values) => {
+                  add.mutate({ home: isHome, ...values });
+                  setAdding(false);
+                }}
+                onCancel={() => setAdding(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="flex w-full items-center gap-3 border-b border-border-soft px-4 py-3.5 text-left text-text-faint transition-colors last:rounded-b-[20px] last:border-b-0 hover:text-text md:px-6"
+              >
+                <span className="block h-2.5 w-2.5 shrink-0">
+                  <PlusIcon />
+                </span>
+                <span className="text-[14px]">Add wish</span>
+              </button>
+            ))}
 
           {received.length > 0 && (
             <>

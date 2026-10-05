@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { formatEUR } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
-import { WishForm, type WishFormValues } from "@/components/wishlist/wish-form";
+import { InlineWishRow, type WishFormValues } from "@/components/wishlist/wish-form";
 
 export type WishData = {
   id: string;
@@ -46,21 +46,17 @@ export function WishRow({
 
   if (editing) {
     return (
-      <div className="border-b border-border-soft bg-surface-2 px-4 py-4 last:border-b-0 md:px-6">
-        <WishForm
-          initial={wish}
-          submitLabel="Save"
-          onSubmit={(values) => {
-            onUpdate(values);
-            setEditing(false);
-          }}
-          onCancel={() => setEditing(false)}
-        />
-      </div>
+      <InlineWishRow
+        initial={wish}
+        onSubmit={(values) => {
+          onUpdate(values);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
     );
   }
 
-  const meta = [wish.price !== null ? formatEUR(wish.price) : null, wish.note].filter(Boolean).join(" · ");
   const claimerName = wish.claimedBy ? wish.claimedBy.name || wish.claimedBy.email : null;
 
   return (
@@ -80,8 +76,14 @@ export function WishRow({
             </a>
           )}
         </div>
-        {meta && <div className="truncate text-[12px] text-text-muted">{meta}</div>}
+        {wish.note && <div className="truncate text-[12px] text-text-muted">{wish.note}</div>}
       </div>
+
+      {wish.price !== null && (
+        <div className={`text-[14px] font-semibold tabular-nums ${received ? "text-text-faint" : ""}`}>
+          {formatEUR(wish.price)}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 text-[12.5px] font-medium">
         {!ownList && !received && (
