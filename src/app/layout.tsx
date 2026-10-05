@@ -21,6 +21,8 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Kontor",
   description: "An overview of your accounts, budgets, and spending.",
+  // Lets iOS run the saved home-screen app full screen, with the right name.
+  appleWebApp: { capable: true, title: "Kontor", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

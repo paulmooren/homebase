@@ -71,6 +71,10 @@ model Household {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Module keys (see src/lib/modules.ts) the household has switched off. Stored
+  // as the *off* list so a newly added module is on by default.
+  disabledModules String[] @default([])
+
   members           HouseholdMember[]
   invites           HouseholdInvite[]
   financialAccounts FinancialAccount[]
@@ -172,7 +176,7 @@ model FinancialAccount {
   updatedAt          DateTime    @updatedAt
 
   household            Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner                User?           @relation("FinancialAccountOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner                User?           @relation("FinancialAccountOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   transactions         Transaction[]   @relation("AccountTransactions")
   incomingTransferTxns Transaction[]   @relation("TransferDestinationAccount")
   recurringItems       RecurringItem[] @relation("AccountRecurringItems")
@@ -238,7 +242,7 @@ model Budget {
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  owner     User?     @relation("BudgetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner     User?     @relation("BudgetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([householdId, categoryId, ownerScope])
   @@index([householdId, ownerId])
@@ -268,7 +272,7 @@ model RecurringItem {
   updatedAt          DateTime           @updatedAt
 
   household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner     User?             @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner     User?             @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   account   FinancialAccount? @relation("AccountRecurringItems", fields: [accountId], references: [id], onDelete: SetNull)
   category  Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 

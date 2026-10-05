@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
+import { MODULE_KEYS } from "@/lib/modules";
 import { createTRPCRouter, householdProcedure, protectedProcedure } from "@/server/api/trpc";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L
@@ -41,6 +42,7 @@ export const householdRouter = createTRPCRouter({
       id: household.id,
       name: household.name,
       members: household.members,
+      disabledModules: household.disabledModules,
       inviteCode: activeInvite?.code ?? null,
     };
   }),
@@ -101,6 +103,22 @@ export const householdRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.prisma.household.update({ where: { id: ctx.householdId }, data: { name: input.name } }),
     ),
+
+  // A view setting only: switching a module off hides it, it never deletes data.
+  setModuleEnabled: householdProcedure
+    .input(z.object({ key: z.enum(MODULE_KEYS), enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const household = await ctx.prisma.household.findUniqueOrThrow({
+        where: { id: ctx.householdId },
+        select: { disabledModules: true },
+      });
+      const rest = household.disabledModules.filter((k) => k !== input.key);
+      return ctx.prisma.household.update({
+        where: { id: ctx.householdId },
+        data: { disabledModules: input.enabled ? rest : [...rest, input.key] },
+        select: { disabledModules: true },
+      });
+    }),
 
   regenerateInvite: householdProcedure.mutation(async ({ ctx }) => {
     await ctx.prisma.householdInvite.updateMany({

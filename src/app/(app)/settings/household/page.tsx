@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
+import { Switch } from "@/components/switch";
+import { MODULES, isModuleEnabled } from "@/lib/modules";
 import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/settings/form";
 
 export default function HouseholdSettingsPage() {
@@ -11,6 +13,9 @@ export default function HouseholdSettingsPage() {
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
   const renameHousehold = trpc.household.rename.useMutation({
+    onSuccess: () => utils.household.current.invalidate(),
+  });
+  const setModuleEnabled = trpc.household.setModuleEnabled.useMutation({
     onSuccess: () => utils.household.current.invalidate(),
   });
   const regenerateInvite = trpc.household.regenerateInvite.useMutation({
@@ -50,6 +55,31 @@ export default function HouseholdSettingsPage() {
           </Field>
           <UpdateButton disabled={!dirty || renameHousehold.isPending} />
         </form>
+      </SettingsSection>
+
+      <SettingsSection title="Modules">
+        <p className="-mt-2 text-[13px] text-text-muted">
+          Choose what your household uses. Switching something off only hides it — nothing is deleted.
+        </p>
+        <div>
+          {MODULES.map((m) => (
+            <div
+              key={m.key}
+              className="flex items-center gap-4 border-b border-border-soft py-3 last:border-none"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-medium">{m.label}</div>
+                <div className="text-[12.5px] text-text-muted">{m.description}</div>
+              </div>
+              <Switch
+                label={m.label}
+                checked={isModuleEnabled(household?.disabledModules ?? [], m.key)}
+                disabled={!household || setModuleEnabled.isPending}
+                onChange={(enabled) => setModuleEnabled.mutate({ key: m.key, enabled })}
+              />
+            </div>
+          ))}
+        </div>
       </SettingsSection>
 
       <SettingsSection title="Members">

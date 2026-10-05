@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
+import { useModules } from "@/components/use-modules";
+import type { ModuleKey } from "@/lib/modules";
 
 import {
   DashboardIcon,
@@ -13,10 +15,11 @@ import {
   TransactionsIcon,
 } from "@/components/nav-icons";
 
-const NAV_ITEMS = [
+// `module` ties an item to a Household-switchable Module; items without one are always shown.
+const ALL_NAV_ITEMS: { href: string; label: string; Icon: typeof DashboardIcon; module?: ModuleKey }[] = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
-  { href: "/finance", label: "Finance", Icon: TransactionsIcon },
-  { href: "/tasks", label: "Tasks", Icon: TasksIcon },
+  { href: "/finance", label: "Finance", Icon: TransactionsIcon, module: "finance" },
+  { href: "/tasks", label: "Tasks", Icon: TasksIcon, module: "tasks" },
 ];
 
 function greeting() {
@@ -35,6 +38,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { data: me } = trpc.user.me.useQuery();
+  const { isEnabled } = useModules();
+  const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.module || isEnabled(item.module));
 
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
