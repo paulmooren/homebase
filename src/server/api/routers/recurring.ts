@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { detectRecurringCandidates, nextOccurrence } from "@/lib/recurring";
@@ -13,8 +14,33 @@ const candidateInput = z.object({
   frequency: frequencySchema,
   categoryId: z.string().nullable().optional(),
   ownerId: z.string().nullable().optional(),
+  accountId: z.string().nullable().optional(),
   visibleToHousehold: z.boolean().optional(),
 });
+
+type Ctx = { prisma: PrismaClient; householdId: string; userId: string };
+
+/**
+ * An item linked to an account belongs to that account's owner — so the owner
+ * is derived from the account, never trusted from the client. Only accounts
+ * the caller may edit (own or shared) can be linked.
+ */
+async function resolveAccountOwner(
+  ctx: Ctx,
+  accountId: string | null | undefined,
+): Promise<{ accountId: string; ownerId: string | null } | null> {
+  if (!accountId) return null;
+  const account = await ctx.prisma.financialAccount.findFirst({
+    where: {
+      id: accountId,
+      householdId: ctx.householdId,
+      OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+    },
+    select: { id: true, ownerId: true },
+  });
+  if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
+  return { accountId: account.id, ownerId: account.ownerId };
+}
 
 function normalize(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -60,6 +86,7 @@ export const recurringRouter = createTRPCRouter({
           amount: true,
           date: true,
           categoryId: true,
+          accountId: true,
           account: { select: { ownerId: true } },
         },
       }),
@@ -88,7 +115,8 @@ export const recurringRouter = createTRPCRouter({
   }),
 
   create: householdProcedure.input(candidateInput).mutation(async ({ ctx, input }) => {
-    if (input.ownerId) {
+    const linked = await resolveAccountOwner(ctx, input.accountId);
+    if (!linked && input.ownerId) {
       const isMember = await ctx.prisma.householdMember.findFirst({
         where: { householdId: ctx.householdId, userId: input.ownerId },
         select: { id: true },
@@ -100,7 +128,8 @@ export const recurringRouter = createTRPCRouter({
       return await ctx.prisma.recurringItem.create({
         data: {
           householdId: ctx.householdId,
-          ownerId: input.ownerId ?? null,
+          ownerId: linked ? linked.ownerId : (input.ownerId ?? null),
+          accountId: linked?.accountId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           type: input.type,
@@ -123,11 +152,13 @@ export const recurringRouter = createTRPCRouter({
   confirmSuggestion: householdProcedure
     .input(candidateInput.extend({ lastDate: z.coerce.date() }))
     .mutation(async ({ ctx, input }) => {
+      const linked = await resolveAccountOwner(ctx, input.accountId);
       return ctx.prisma.recurringItem.upsert({
         where: { householdId_name: { householdId: ctx.householdId, name: input.name } },
         create: {
           householdId: ctx.householdId,
-          ownerId: input.ownerId ?? null,
+          ownerId: linked ? linked.ownerId : (input.ownerId ?? null),
+          accountId: linked?.accountId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           detectedName: input.name,
@@ -146,11 +177,13 @@ export const recurringRouter = createTRPCRouter({
   dismissSuggestion: householdProcedure
     .input(candidateInput.extend({ lastDate: z.coerce.date() }))
     .mutation(async ({ ctx, input }) => {
+      const linked = await resolveAccountOwner(ctx, input.accountId);
       return ctx.prisma.recurringItem.upsert({
         where: { householdId_name: { householdId: ctx.householdId, name: input.name } },
         create: {
           householdId: ctx.householdId,
-          ownerId: input.ownerId ?? null,
+          ownerId: linked ? linked.ownerId : (input.ownerId ?? null),
+          accountId: linked?.accountId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
           detectedName: input.name,
@@ -175,12 +208,18 @@ export const recurringRouter = createTRPCRouter({
         frequency: frequencySchema.optional(),
         categoryId: z.string().nullable().optional(),
         ownerId: z.string().nullable().optional(),
+        accountId: z.string().nullable().optional(),
         visibleToHousehold: z.boolean().optional(),
         status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, ownerId, ...data } = input;
+      const { id, accountId, ownerId: inputOwnerId, ...data } = input;
+      let ownerId = inputOwnerId;
+      // Linking to an account moves the item to that account's owner;
+      // unlinking (null) leaves the owner as it was unless one is passed.
+      const linked = await resolveAccountOwner(ctx, accountId);
+      if (linked) ownerId = linked.ownerId;
 
       if (ownerId) {
         const isMember = await ctx.prisma.householdMember.findFirst({
@@ -208,7 +247,11 @@ export const recurringRouter = createTRPCRouter({
 
       return ctx.prisma.recurringItem.update({
         where: { id },
-        data: { ...data, ...(ownerId !== undefined ? { ownerId } : {}) },
+        data: {
+          ...data,
+          ...(ownerId !== undefined ? { ownerId } : {}),
+          ...(accountId !== undefined ? { accountId: linked?.accountId ?? null } : {}),
+        },
       });
     }),
 

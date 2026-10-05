@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
@@ -25,6 +24,7 @@ type Candidate = {
   nextDueDate: string | Date;
   categoryId: string | null;
   ownerId: string | null;
+  accountId: string | null;
 };
 
 type Item = {
@@ -38,6 +38,7 @@ type Item = {
   categoryId: string | null;
   category: { color: string; name: string } | null;
   ownerId: string | null;
+  accountId: string | null;
   visibleToHousehold: boolean;
 };
 
@@ -47,108 +48,128 @@ type FormValues = {
   frequency: RecurringFrequency;
   categoryId: string | null;
   ownerId: string | null;
+  accountId: string | null;
 };
+
+type AccountOption = { id: string; name: string; institution: string | null; ownerId: string | null };
 
 export default function BudgetsPage() {
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
+  const { data: accounts } = trpc.account.list.useQuery();
+  const { data: items } = trpc.recurring.list.useQuery();
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
+  // Selecting an account narrows everything below to what runs through it.
+  const [accountFilter, setAccountFilter] = useState("");
 
   return (
     <div className="flex flex-col gap-5">
-      <AccountFlowCards members={members} currentUserId={currentUserId} />
-      <RecurringItems members={members} currentUserId={currentUserId} />
+      <AccountCards
+        accounts={accounts ?? []}
+        items={(items ?? []) as Item[]}
+        selected={accountFilter}
+        onSelect={setAccountFilter}
+        members={members}
+        currentUserId={currentUserId}
+      />
+      <RecurringItems
+        members={members}
+        currentUserId={currentUserId}
+        accounts={accounts ?? []}
+        accountFilter={accountFilter}
+      />
     </div>
   );
 }
 
-function shiftMonth(month: string, delta: number) {
-  const [y, m] = month.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthName(month: string) {
-  const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+function monthlyTotals(items: Item[]) {
+  let income = 0;
+  let expenses = 0;
+  for (const i of items) {
+    const m = monthlyEquivalent(i.amount, i.frequency);
+    if (i.type === "INCOME") income += m;
+    else expenses += m;
+  }
+  return { income, expenses };
 }
 
 /**
- * What actually came in and went out of each account you can see, for one
- * month (transfers excluded). Opens on the latest month with activity — a
- * statement for the current month usually isn't imported yet — and each card
- * links into that account's transactions.
+ * The current monthly picture of each account you can see: its recurring
+ * income and expenses, as monthly equivalents. Clicking a card narrows the
+ * income/expense lists below to that account; click again to clear.
  */
-function AccountFlowCards({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
-  const [month, setMonth] = useState<string | undefined>(undefined);
-  const { data } = trpc.account.monthlyFlow.useQuery(month ? { month } : undefined);
-
-  if (!data || data.accounts.length === 0) return null;
-
+function AccountCards({
+  accounts,
+  items,
+  selected,
+  onSelect,
+  members,
+  currentUserId,
+}: {
+  accounts: AccountOption[];
+  items: Item[];
+  selected: string;
+  onSelect: (id: string) => void;
+  members: Member[];
+  currentUserId: string;
+}) {
+  if (accounts.length === 0) return null;
   const multiMember = members.length > 1;
-  const now = new Date();
-  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-[15px] font-semibold">Income &amp; expenses by account</h2>
-        <div className="flex items-center gap-1 text-[13px] text-text-muted">
-          <button
-            onClick={() => setMonth(shiftMonth(data.month, -1))}
-            aria-label="Previous month"
-            className="rounded-md px-2 py-1 hover:bg-surface-2 hover:text-text"
-          >
-            ‹
-          </button>
-          <span className="min-w-[110px] text-center font-medium text-text">{monthName(data.month)}</span>
-          <button
-            onClick={() => setMonth(shiftMonth(data.month, 1))}
-            disabled={data.month >= currentMonth}
-            aria-label="Next month"
-            className="rounded-md px-2 py-1 hover:bg-surface-2 hover:text-text disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            ›
-          </button>
-        </div>
-      </div>
+      <h2 className="mb-3 text-[15px] font-semibold">Income &amp; expenses by account</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {data.accounts.map((a) => (
-          <Link
-            key={a.id}
-            href={`/finance/transactions?account=${a.id}`}
-            className="rounded-[20px] border border-border-soft bg-surface p-5 transition-colors hover:bg-surface-hover"
-          >
-            <p className="truncate text-[13.5px] font-semibold">{a.name}</p>
-            <p className="mb-3 truncate text-[11px] tracking-[0.04em] text-text-faint">
-              {[a.institution, multiMember ? groupLabel(a.ownerId, members, currentUserId) : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="mb-1 text-[10.5px] text-text-faint">Income</p>
-                <p className="text-[16px] font-semibold text-good tabular-nums">{formatEUR(a.income)}</p>
+        {accounts.map((a) => {
+          const { income, expenses } = monthlyTotals(items.filter((i) => i.accountId === a.id));
+          const active = selected === a.id;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(active ? "" : a.id)}
+              className={`rounded-[20px] border bg-surface p-5 text-left transition-colors hover:bg-surface-hover ${
+                active ? "border-text" : "border-border-soft"
+              }`}
+            >
+              <p className="truncate text-[13.5px] font-semibold">{a.name}</p>
+              <p className="mb-3 truncate text-[11px] tracking-[0.04em] text-text-faint">
+                {[a.institution, multiMember ? groupLabel(a.ownerId, members, currentUserId) : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="mb-1 text-[10.5px] text-text-faint">Income / month</p>
+                  <p className="text-[16px] font-semibold text-good tabular-nums">{formatEUR(income)}</p>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10.5px] text-text-faint">Expenses / month</p>
+                  <p className="text-[16px] font-semibold tabular-nums">{formatEUR(expenses)}</p>
+                </div>
               </div>
-              <div>
-                <p className="mb-1 text-[10.5px] text-text-faint">Expenses</p>
-                <p className="text-[16px] font-semibold tabular-nums">{formatEUR(a.expenses)}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
 }
 
 /** "You" first, then other household members in join order, "Shared" last. */
-function RecurringItems({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+function RecurringItems({
+  members,
+  currentUserId,
+  accounts,
+  accountFilter,
+}: {
+  members: Member[];
+  currentUserId: string;
+  accounts: AccountOption[];
+  accountFilter: string;
+}) {
   const utils = trpc.useUtils();
   const { data: items } = trpc.recurring.list.useQuery();
   const { data: suggestions } = trpc.recurring.suggestions.useQuery();
@@ -167,8 +188,9 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
 
   const multiMember = members.length > 1;
 
-  const income = (items?.filter((i) => i.type === "INCOME") ?? []) as Item[];
-  const expenses = (items?.filter((i) => i.type === "EXPENSE") ?? []) as Item[];
+  const shown = ((items ?? []) as Item[]).filter((i) => !accountFilter || i.accountId === accountFilter);
+  const income = shown.filter((i) => i.type === "INCOME");
+  const expenses = shown.filter((i) => i.type === "EXPENSE");
   const monthlyIncome = income.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
   const monthlyExpenses = expenses.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
 
@@ -191,14 +213,16 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
         </div>
       )}
 
-      {suggestions && suggestions.length > 0 && (
+      {suggestions && suggestions.some((c) => !accountFilter || c.accountId === accountFilter) && (
         <section className="rounded-[20px] border border-border-soft bg-surface p-6">
           <h2 className="mb-1 text-[15px] font-semibold">Suggestions</h2>
           <p className="mb-4 text-[13px] text-text-muted">
             Detected from your transaction history — confirm the ones that are
             genuinely recurring.
           </p>
-          {suggestions.map((c: Candidate) => (
+          {suggestions
+            .filter((c) => !accountFilter || c.accountId === accountFilter)
+            .map((c: Candidate) => (
             <div
               key={`${c.type}-${c.name}`}
               className="flex flex-wrap items-center justify-between gap-3 border-b border-border-soft py-3 last:border-none"
@@ -225,6 +249,7 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
                       frequency: c.frequency,
                       categoryId: c.categoryId,
                       ownerId: c.ownerId,
+                      accountId: c.accountId,
                       lastDate: new Date(c.lastDate),
                     })
                   }
@@ -241,6 +266,7 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
                       frequency: c.frequency,
                       categoryId: c.categoryId,
                       ownerId: c.ownerId,
+                      accountId: c.accountId,
                       lastDate: new Date(c.lastDate),
                     })
                   }
@@ -264,6 +290,8 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
           categories={categories ?? []}
           members={members}
           currentUserId={currentUserId}
+          accounts={accounts}
+          accountFilter={accountFilter}
           onAdd={(values) => createItem.mutate({ ...values, type: "INCOME" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
@@ -278,6 +306,8 @@ function RecurringItems({ members, currentUserId }: { members: Member[]; current
           categories={categories ?? []}
           members={members}
           currentUserId={currentUserId}
+          accounts={accounts}
+          accountFilter={accountFilter}
           onAdd={(values) => createItem.mutate({ ...values, type: "EXPENSE" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
@@ -297,6 +327,8 @@ function RecurringColumn({
   categories,
   members,
   currentUserId,
+  accounts,
+  accountFilter,
   onAdd,
   onUpdate,
   onDelete,
@@ -310,6 +342,8 @@ function RecurringColumn({
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
+  accounts: AccountOption[];
+  accountFilter: string;
   onAdd: (values: FormValues) => void;
   onUpdate: (id: string, values: FormValues) => void;
   onDelete: (id: string) => void;
@@ -321,7 +355,11 @@ function RecurringColumn({
   const groups = multiMember
     ? groupOrder(members, currentUserId)
         .map((ownerId) => ({ ownerId, groupItems: items.filter((i) => i.ownerId === ownerId) }))
-        .filter((g) => g.ownerId === currentUserId || g.ownerId === null || g.groupItems.length > 0)
+        .filter(
+          (g) =>
+            g.groupItems.length > 0 ||
+            (!accountFilter && (g.ownerId === currentUserId || g.ownerId === null)),
+        )
     : [];
 
   return (
@@ -360,6 +398,7 @@ function RecurringColumn({
                   categories={categories}
                   members={members}
                   currentUserId={currentUserId}
+                  accounts={accounts}
                   onUpdate={(values) => onUpdate(item.id, values)}
                   onDelete={() => onDelete(item.id)}
                   onToggleVisibility={(visible) => onToggleVisibility(item.id, visible)}
@@ -374,6 +413,7 @@ function RecurringColumn({
               categories={categories}
               members={members}
               currentUserId={currentUserId}
+              accounts={accounts}
               onUpdate={(values) => onUpdate(item.id, values)}
               onDelete={() => onDelete(item.id)}
               onToggleVisibility={(visible) => onToggleVisibility(item.id, visible)}
@@ -385,6 +425,8 @@ function RecurringColumn({
           categories={categories}
           members={members}
           currentUserId={currentUserId}
+          accounts={accounts}
+          defaultAccountId={accountFilter}
           onSubmit={(values) => {
             onAdd(values);
             setAdding(false);
@@ -411,6 +453,7 @@ function RecurringRow({
   categories,
   members,
   currentUserId,
+  accounts,
   onUpdate,
   onDelete,
   onToggleVisibility,
@@ -419,6 +462,7 @@ function RecurringRow({
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
+  accounts: AccountOption[];
   onUpdate: (values: FormValues) => void;
   onDelete: () => void;
   onToggleVisibility: (visible: boolean) => void;
@@ -434,6 +478,7 @@ function RecurringRow({
         categories={categories}
         members={members}
         currentUserId={currentUserId}
+        accounts={accounts}
         onSubmit={(values) => {
           onUpdate(values);
           setEditing(false);
@@ -497,6 +542,8 @@ function InlineRecurringRow({
   categories,
   members,
   currentUserId,
+  accounts,
+  defaultAccountId,
   onSubmit,
   onCancel,
 }: {
@@ -504,11 +551,22 @@ function InlineRecurringRow({
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
+  accounts: AccountOption[];
+  defaultAccountId?: string;
   onSubmit: (values: FormValues) => void;
   onCancel: () => void;
 }) {
   const [frequency, setFrequency] = useState<RecurringFrequency>(initial?.frequency ?? "MONTHLY");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  // Only accounts you can edit (yours or shared) can carry a recurring item.
+  const writable = accounts.filter((a) => a.ownerId === null || a.ownerId === currentUserId);
+  const [accountId, setAccountId] = useState(
+    initial
+      ? (initial.accountId ?? "")
+      : writable.some((a) => a.id === defaultAccountId)
+        ? (defaultAccountId as string)
+        : (writable.find((a) => a.ownerId === currentUserId)?.id ?? writable[0]?.id ?? ""),
+  );
   const [ownerId, setOwnerId] = useState(initial ? (initial.ownerId ?? "") : currentUserId);
   const selectedColor = categories.find((c) => c.id === categoryId)?.color ?? "#5c5f66";
   const multiMember = members.length > 1;
@@ -527,6 +585,7 @@ function InlineRecurringRow({
           // With no partner yet, default to personal (not shared) — same
           // privacy-conserving default used by the account owner picker.
           ownerId: multiMember ? ownerId || null : currentUserId,
+          accountId: accountId || null,
         });
       }}
     >
@@ -554,7 +613,17 @@ function InlineRecurringRow({
               ...categories.map((c) => ({ value: c.id, label: c.name })),
             ]}
           />
-          {multiMember && (
+          {writable.length > 0 && (
+            <InlineSelect
+              value={accountId}
+              onChange={setAccountId}
+              options={[
+                { value: "", label: "No account" },
+                ...writable.map((a) => ({ value: a.id, label: a.name })),
+              ]}
+            />
+          )}
+          {multiMember && !accountId && (
             <InlineSelect
               value={ownerId}
               onChange={setOwnerId}

@@ -52,6 +52,7 @@ export type RecurringCandidate = {
   nextDueDate: Date;
   categoryId: string | null;
   ownerId: string | null;
+  accountId: string | null;
 };
 
 /**
@@ -68,6 +69,7 @@ export function detectRecurringCandidates(
     date: Date;
     categoryId: string | null;
     ownerId: string | null;
+    accountId: string | null;
   }[],
 ): RecurringCandidate[] {
   const groups = new Map<string, typeof transactions>();
@@ -115,6 +117,7 @@ export function detectRecurringCandidates(
       nextDueDate: nextOccurrence(last.date, frequency),
       categoryId: last.categoryId,
       ownerId: last.ownerId,
+      accountId: last.accountId,
     });
   }
 

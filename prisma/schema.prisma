@@ -171,10 +171,11 @@ model FinancialAccount {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  household            Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner                User?         @relation("FinancialAccountOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  transactions         Transaction[] @relation("AccountTransactions")
-  incomingTransferTxns Transaction[] @relation("TransferDestinationAccount")
+  household            Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner                User?           @relation("FinancialAccountOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  transactions         Transaction[]   @relation("AccountTransactions")
+  incomingTransferTxns Transaction[]   @relation("TransferDestinationAccount")
+  recurringItems       RecurringItem[] @relation("AccountRecurringItems")
 
   @@index([householdId])
   @@index([householdId, ownerId])
@@ -248,6 +249,9 @@ model RecurringItem {
   id                 String             @id @default(cuid())
   householdId        String
   ownerId            String?
+  // The account this income/expense runs through. Its owner always matches
+  // ownerId (set from the account on write); null = not linked to one.
+  accountId          String?
   visibleToHousehold Boolean            @default(true)
   name               String
   type               TransactionType
@@ -263,9 +267,10 @@ model RecurringItem {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner     User?     @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User?             @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  account   FinancialAccount? @relation("AccountRecurringItems", fields: [accountId], references: [id], onDelete: SetNull)
+  category  Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@unique([householdId, name])
   @@index([householdId, status])
