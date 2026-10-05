@@ -1,9 +1,49 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import { trpc } from "@/trpc/react";
 
 /** How often an open list re-checks for items your housemate added from their phone. */
 export const SHOPPING_REFRESH_MS = 5000;
+
+/** How long a ticked item stays on screen, struck through, before it disappears — time to undo a mis-tap. */
+export const TICK_GRACE_MS = 4000;
+
+/**
+ * Tracks items that were just ticked: they stay visible (and untickable) for
+ * TICK_GRACE_MS, then drop off the list. Unticking cancels the countdown.
+ */
+export function useTickGrace() {
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const t = timers.current;
+    return () => t.forEach(clearTimeout);
+  }, []);
+
+  const forget = (id: string) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    setLeaving((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const start = (id: string) => {
+    clearTimeout(timers.current.get(id));
+    setLeaving((prev) => new Set(prev).add(id));
+    timers.current.set(
+      id,
+      setTimeout(() => forget(id), TICK_GRACE_MS),
+    );
+  };
+
+  return { leaving, start, cancel: forget };
+}
 
 /** Items of one list, kept fresh while it is on screen. */
 export function useShoppingItems(listId: string | undefined) {
@@ -79,7 +119,6 @@ export function useShoppingActions(listId: string | undefined) {
     onSettled: refresh,
   });
   const deleteItem = trpc.shopping.deleteItem.useMutation({ onSuccess: refresh });
-  const clearChecked = trpc.shopping.clearChecked.useMutation({ onSuccess: refresh });
   const refreshFavorites = () => utils.shopping.favorites.invalidate();
   const addFavorite = trpc.shopping.addFavorite.useMutation({ onSuccess: refreshFavorites });
   const removeFavorite = trpc.shopping.removeFavorite.useMutation({ onSuccess: refreshFavorites });
@@ -112,5 +151,5 @@ export function useShoppingActions(listId: string | undefined) {
     onSettled: refresh,
   });
 
-  return { addItem, updateItem, deleteItem, clearChecked, setChecked, addFavorite, removeFavorite, updateFavorite };
+  return { addItem, updateItem, deleteItem, setChecked, addFavorite, removeFavorite, updateFavorite };
 }

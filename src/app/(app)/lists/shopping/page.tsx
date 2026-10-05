@@ -13,6 +13,7 @@ import {
   useShoppingActions,
   useShoppingFavorites,
   useShoppingItems,
+  useTickGrace,
 } from "@/components/shopping/use-shopping";
 
 export default function ShoppingPage() {
@@ -40,6 +41,7 @@ function ShoppingLists() {
   const { data: items } = useShoppingItems(selected?.id);
   const { data: favorites } = useShoppingFavorites(selected?.id);
   const actions = useShoppingActions(selected?.id);
+  const ticks = useTickGrace();
 
   const refreshLists = () => utils.shopping.lists.invalidate();
   const createList = trpc.shopping.createList.useMutation({
@@ -67,8 +69,8 @@ function ShoppingLists() {
   if (!lists || !me) return null;
 
   const multiMember = (household?.members.length ?? 0) > 1;
-  const open = items?.filter((i) => !i.checkedAt) ?? [];
-  const inBasket = items?.filter((i) => i.checkedAt) ?? [];
+  // Ticked items stay (struck through) only for the grace period, then drop off.
+  const open = items?.filter((i) => !i.checkedAt || ticks.leaving.has(i.id)) ?? [];
   const isShared = selected ? selected.ownerId === null : true;
 
   const favoriteFor = (name: string) =>
@@ -88,7 +90,12 @@ function ShoppingLists() {
             ? actions.removeFavorite.mutate({ id: favorite.id })
             : actions.addFavorite.mutate({ listId: selected!.id, name: item.name })
         }
-        onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
+        leaving={ticks.leaving.has(item.id)}
+        onToggle={(checked) => {
+          if (checked) ticks.start(item.id);
+          else ticks.cancel(item.id);
+          actions.setChecked.mutate({ id: item.id, checked });
+        }}
         onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
         onDelete={() => actions.deleteItem.mutate({ id: item.id })}
       />
@@ -224,11 +231,8 @@ function ShoppingLists() {
           </div>
 
           <div className="border-t border-border-soft">
-            {items && open.length === 0 && inBasket.length === 0 && (
-              <p className="px-6 py-6 text-[13.5px] text-text-muted">Nothing on this list yet.</p>
-            )}
-            {items && open.length === 0 && inBasket.length > 0 && (
-              <p className="px-6 py-4 text-[13.5px] text-text-muted">Everything is in the basket.</p>
+            {items && open.length === 0 && (
+              <p className="px-6 py-6 text-[13.5px] text-text-muted">Nothing on this list.</p>
             )}
 
             {open.map((item) => renderRow(item))}
@@ -237,24 +241,6 @@ function ShoppingLists() {
               listId={selected.id}
               onAdd={({ name, quantity }) => actions.addItem.mutate({ listId: selected.id, name, quantity })}
             />
-
-            {inBasket.length > 0 && (
-              <>
-                <div className="flex items-center justify-between border-t border-border-soft bg-surface-2 px-4 py-2.5 md:px-6">
-                  <p className="text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
-                    In basket · {inBasket.length}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => actions.clearChecked.mutate({ listId: selected.id })}
-                    className="text-[12.5px] font-medium text-accent hover:opacity-80"
-                  >
-                    Clear checked
-                  </button>
-                </div>
-                {inBasket.map((item) => renderRow(item))}
-              </>
-            )}
           </div>
         </section>
 

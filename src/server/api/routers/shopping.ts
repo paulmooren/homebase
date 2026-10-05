@@ -82,13 +82,21 @@ export const shoppingRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  /** Open items first (oldest first), then ticked ones ("In basket"). Cleared items are hidden. */
+  /**
+   * Open items (oldest first), plus anything ticked in the last minute so a
+   * mis-tap can be undone. Older ticked items stay in the database as history
+   * for suggestions but are no longer sent.
+   */
   items: householdProcedure
     .input(z.object({ listId: z.string() }))
     .query(async ({ ctx, input }) => {
       await requireList(ctx, input.listId);
       return ctx.prisma.shoppingItem.findMany({
-        where: { listId: input.listId, ...openItems },
+        where: {
+          listId: input.listId,
+          ...openItems,
+          OR: [{ checkedAt: null }, { checkedAt: { gte: new Date(Date.now() - 60_000) } }],
+        },
         orderBy: { createdAt: "asc" },
         include: { addedBy: { select: { id: true, name: true, email: true } } },
       });
@@ -138,7 +146,7 @@ export const shoppingRouter = createTRPCRouter({
       });
     }),
 
-  /** Tick or untick: ticked items move to "In basket". */
+  /** Tick or untick. A ticked item disappears from the list a few seconds later (see the client's tick grace). */
   setChecked: householdProcedure
     .input(z.object({ id: z.string(), checked: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
@@ -155,18 +163,6 @@ export const shoppingRouter = createTRPCRouter({
       await requireItem(ctx, input.id);
       await ctx.prisma.shoppingItem.delete({ where: { id: input.id } });
       return { success: true };
-    }),
-
-  /** Removes everything in "In basket" from view, but keeps it as history for suggestions. */
-  clearChecked: householdProcedure
-    .input(z.object({ listId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await requireList(ctx, input.listId);
-      const result = await ctx.prisma.shoppingItem.updateMany({
-        where: { listId: input.listId, ...openItems, checkedAt: { not: null } },
-        data: { clearedAt: new Date() },
-      });
-      return { cleared: result.count };
     }),
 
   /** Past items matching what you're typing, most-used first (with the amount you last used), skipping ones already open on this list. */

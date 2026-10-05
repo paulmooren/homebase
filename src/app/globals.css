@@ -78,3 +78,26 @@ button:disabled,
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Ticking a shopping item: the name is struck through, then the row fades out
+   (the duration is set inline to match TICK_GRACE_MS) before it disappears. */
+@keyframes shopping-strike {
+  from { background-size: 0% 1.5px; }
+  to { background-size: 100% 1.5px; }
+}
+@keyframes shopping-leave {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.shopping-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 100% 1.5px;
+  animation: shopping-strike 0.35s ease-out;
+}
+.shopping-leave {
+  animation-name: shopping-leave;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

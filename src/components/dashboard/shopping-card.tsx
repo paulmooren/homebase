@@ -8,6 +8,7 @@ import { ShoppingItemRow } from "@/components/shopping/item-row";
 import {
   useShoppingActions,
   useShoppingItems,
+  useTickGrace,
 } from "@/components/shopping/use-shopping";
 
 const MAX_ROWS = 6;
@@ -19,10 +20,11 @@ export function ShoppingCard() {
   const main = lists?.find((l) => l.ownerId === null) ?? lists?.[0];
   const { data: items } = useShoppingItems(main?.id);
   const actions = useShoppingActions(main?.id);
+  const ticks = useTickGrace();
 
   if (!main || !me) return null;
 
-  const open = items?.filter((i) => !i.checkedAt) ?? [];
+  const open = items?.filter((i) => !i.checkedAt || ticks.leaving.has(i.id)) ?? [];
   const shown = open.slice(0, MAX_ROWS);
 
   return (
@@ -40,7 +42,12 @@ export function ShoppingCard() {
             item={item}
             currentUserId={me.id}
             showAddedBy={false}
-            onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
+            leaving={ticks.leaving.has(item.id)}
+            onToggle={(checked) => {
+              if (checked) ticks.start(item.id);
+              else ticks.cancel(item.id);
+              actions.setChecked.mutate({ id: item.id, checked });
+            }}
             onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
             onDelete={() => actions.deleteItem.mutate({ id: item.id })}
           />

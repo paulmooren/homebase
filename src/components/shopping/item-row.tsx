@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CheckIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { QuantityPill, parseAmount } from "@/components/shopping/quantity-stepper";
+import { TICK_GRACE_MS } from "@/components/shopping/use-shopping";
 
 export type ShoppingItemData = {
   id: string;
@@ -27,6 +28,7 @@ export function ShoppingItemRow({
   onDelete,
   isFavorite,
   onToggleFavorite,
+  leaving,
 }: {
   item: ShoppingItemData;
   currentUserId: string;
@@ -37,6 +39,8 @@ export function ShoppingItemRow({
   /** Omit to hide the star (e.g. in the compact dashboard card). */
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  /** Just ticked: struck through and fading out until it disappears. */
+  leaving?: boolean;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -48,7 +52,12 @@ export function ShoppingItemRow({
     .join(" · ");
 
   return (
-    <div className="flex items-center gap-3 border-b border-border-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-surface-hover">
+    <div
+      className={`flex items-center gap-3 border-b border-border-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-surface-hover ${
+        leaving && checked ? "shopping-leave" : ""
+      }`}
+      style={leaving && checked ? { animationDuration: `${TICK_GRACE_MS}ms` } : undefined}
+    >
       <button
         type="button"
         onClick={() => onToggle(!checked)}
@@ -103,10 +112,10 @@ export function ShoppingItemRow({
             onClick={() => setRenaming(true)}
             aria-label={`Rename ${item.name}`}
             className={`block max-w-full truncate text-left text-[15px] ${
-              checked ? "text-text-faint line-through" : "font-medium"
+              checked ? "text-text-faint" : "font-medium"
             }`}
           >
-            {item.name}
+            <span className={checked ? "shopping-strike" : ""}>{item.name}</span>
           </button>
         )}
         {subtext && <div className="truncate text-[12px] text-text-muted">{subtext}</div>}

@@ -56,7 +56,7 @@ A named list of things to buy, either Shared (every Member sees and edits it) or
 _Avoid_: Grocery list (that is only the default list's name), basket, Personal list
 
 **Shopping item**:
-One thing to buy on a Shopping list: a name and an optional note. Ticking it moves it to "In basket" until the list is cleared.
+One thing to buy on a Shopping list: a name and an amount. Ticking it strikes it through and removes it a few seconds later, leaving time to undo a mis-tap.
 _Avoid_: Product, entry
 
 **Favorite**:
