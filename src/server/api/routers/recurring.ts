@@ -65,11 +65,16 @@ export const recurringRouter = createTRPCRouter({
       }),
       ctx.prisma.recurringItem.findMany({
         where: { householdId: ctx.householdId },
-        select: { name: true },
+        select: { name: true, detectedName: true },
       }),
     ]);
 
-    const knownNames = new Set(existing.map((e) => normalize(e.name)));
+    // An item hides its suggestion under its current name *and* under the
+    // merchant text it was detected from — otherwise renaming a confirmed
+    // item makes the original suggestion reappear.
+    const knownNames = new Set(
+      existing.flatMap((e) => [e.name, e.detectedName].filter((n): n is string => !!n).map(normalize)),
+    );
 
     const candidates = detectRecurringCandidates(
       transactions.map((t) => ({
@@ -125,6 +130,7 @@ export const recurringRouter = createTRPCRouter({
           ownerId: input.ownerId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
+          detectedName: input.name,
           type: input.type,
           amount: input.amount,
           frequency: input.frequency,
@@ -147,6 +153,7 @@ export const recurringRouter = createTRPCRouter({
           ownerId: input.ownerId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
+          detectedName: input.name,
           type: input.type,
           amount: input.amount,
           frequency: input.frequency,

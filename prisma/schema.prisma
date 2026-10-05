@@ -255,6 +255,9 @@ model RecurringItem {
   frequency          RecurringFrequency
   categoryId         String?
   source             RecurringSource
+  // The transaction merchant text this item was detected from, kept even
+  // after the item is renamed so the same suggestion doesn't resurface.
+  detectedName       String?
   status             RecurringStatus    @default(ACTIVE)
   lastSeenAt         DateTime?          @db.Date
   createdAt          DateTime           @default(now())
