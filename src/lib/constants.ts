@@ -56,3 +56,27 @@ export const RECURRING_FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   MONTHLY: "Monthly",
   YEARLY: "Yearly",
 };
+
+/** Category colour choices, ordered by hue (reds → greens → blues → purples → pinks → grey). Includes every default category colour. */
+export const CATEGORY_COLORS = [
+  "#e5736b",
+  "#ee8a6e",
+  "#eb9b5f",
+  "#c9976b",
+  "#e0b04d",
+  "#e8d065",
+  "#b5cf6b",
+  "#6ee7a8",
+  "#7fd6b8",
+  "#6bc9c2",
+  "#5fb7d4",
+  "#7fb8e8",
+  "#6b8fe0",
+  "#8f9bd6",
+  "#b79cff",
+  "#a07bd8",
+  "#d98bd0",
+  "#f19abf",
+  "#e86f9b",
+  "#9a9da5",
+] as const;

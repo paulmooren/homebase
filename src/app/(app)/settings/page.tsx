@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
+import { ColorBarPicker } from "@/components/finance/color-picker";
 import { Avatar } from "@/components/avatar";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { signOutAction } from "./actions";
@@ -142,11 +143,10 @@ export default function SettingsPage() {
         <h2 className="mb-4 text-[15px] font-semibold">Categories</h2>
         {categories?.map((c) => (
           <div key={c.id} className="flex items-center gap-3 border-b border-border-soft py-2 last:border-none">
-            <input
-              type="color"
-              defaultValue={c.color}
-              onBlur={(e) => updateCategory.mutate({ id: c.id, color: e.target.value })}
-              className="h-6 w-6 shrink-0 cursor-pointer rounded-full border border-border-soft bg-transparent"
+            <ColorBarPicker
+              value={c.color}
+              label={`Change colour of ${c.name}`}
+              onChange={(color) => updateCategory.mutate({ id: c.id, color })}
             />
             <input
               defaultValue={c.name}
@@ -175,12 +175,7 @@ export default function SettingsPage() {
             setNewCategory("");
           }}
         >
-          <input
-            type="color"
-            value={newColor}
-            onChange={(e) => setNewColor(e.target.value)}
-            className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-border bg-transparent"
-          />
+          <ColorBarPicker value={newColor} label="Pick a colour for the new category" onChange={setNewColor} />
           <input
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
