@@ -6,20 +6,19 @@ import { usePathname } from "next/navigation";
 import { trpc } from "@/trpc/react";
 
 const TABS = [
-  { href: "/finance/transactions", label: "Transactions" },
   { href: "/finance/budgets", label: "Budgets" },
+  { href: "/finance/transactions", label: "Transactions" },
   { href: "/finance/accounts", label: "Accounts" },
 ];
 
 export function FinanceTabs({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: accounts } = trpc.account.list.useQuery();
-  const { data: budgets } = trpc.budget.list.useQuery();
   const { data: recurring } = trpc.recurring.list.useQuery();
 
   const counts: Record<string, number | undefined> = {
     "/finance/accounts": accounts?.length,
-    "/finance/budgets": (budgets?.length ?? 0) + (recurring?.length ?? 0),
+    "/finance/budgets": recurring?.length,
   };
 
   return (
@@ -42,8 +41,12 @@ export function FinanceTabs({ children }: { children: React.ReactNode }) {
                 {tab.label}
                 {count !== undefined && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
-                      active ? "bg-text text-bg" : "bg-surface-2 text-text-faint"
+                    // Fixed height + min-width equal to it: a single digit is a
+                    // true circle, two digits stretch into a pill.
+                    className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none tabular-nums ${
+                      active
+                        ? "bg-text text-bg"
+                        : "border border-border bg-surface text-text-muted"
                     }`}
                   >
                     {count}

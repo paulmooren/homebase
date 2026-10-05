@@ -29,20 +29,13 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     onSuccess: () => {
       utils.transaction.list.invalidate();
       utils.dashboard.summary.invalidate();
-      setStep(3);
-    },
-  });
-  const upsertBudget = trpc.budget.upsert.useMutation({
-    onSuccess: () => {
-      utils.budget.list.invalidate();
       setStep(4);
     },
   });
-
   return (
     <div className="mx-auto max-w-[440px] rounded-[20px] border border-border-soft bg-surface p-7">
       <p className="mb-1 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
-        Step {Math.min(step, 3)} of 3
+        Step {Math.min(step, 2)} of 2
       </p>
 
       {step === 1 && (
@@ -172,7 +165,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <div className="mt-1 flex gap-3">
               <button
                 type="button"
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
                 className="flex-1 rounded-xl border border-border-soft py-2.5 text-[14px] font-medium text-text-muted hover:text-text"
               >
                 Skip
@@ -183,68 +176,6 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 className="flex-1 rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
               >
                 Continue
-              </button>
-            </div>
-          </form>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <h2 className="mb-2 font-serif text-[22px]">Your first budget</h2>
-          <p className="mb-5 text-[13.5px] text-text-muted">
-            Set a monthly budget for one category — or skip this too.
-          </p>
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = new FormData(e.currentTarget);
-              const categoryId = String(form.get("categoryId") || "");
-              const monthlyAmount = Number(form.get("monthlyAmount") || 0);
-              if (categoryId && monthlyAmount > 0) {
-                // Personal, to match the personal account above — a household
-                // budget only tracks shared-account spending, so it would
-                // never move for a personal account.
-                upsertBudget.mutate({ categoryId, monthlyAmount, ownerId: me?.id ?? null });
-              } else {
-                setStep(4);
-              }
-            }}
-          >
-            <select
-              name="categoryId"
-              defaultValue=""
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
-            >
-              <option value="">Choose a category</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="monthlyAmount"
-              type="number"
-              step="0.01"
-              placeholder="Monthly budget (€)"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
-            />
-            <div className="mt-1 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                className="flex-1 rounded-xl border border-border-soft py-2.5 text-[14px] font-medium text-text-muted hover:text-text"
-              >
-                Skip
-              </button>
-              <button
-                type="submit"
-                disabled={upsertBudget.isPending}
-                className="flex-1 rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
-              >
-                Done
               </button>
             </div>
           </form>
