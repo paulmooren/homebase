@@ -8,6 +8,7 @@ export type ShoppingItemData = {
   id: string;
   name: string;
   note: string | null;
+  quantity: string | null;
   checkedAt: Date | string | null;
   addedBy: { id: string; name: string | null; email: string } | null;
 };
@@ -20,13 +21,18 @@ export function ShoppingItemRow({
   onToggle,
   onUpdate,
   onDelete,
+  isFavorite,
+  onToggleFavorite,
 }: {
   item: ShoppingItemData;
   currentUserId: string;
   showAddedBy: boolean;
   onToggle: (checked: boolean) => void;
-  onUpdate: (values: { name: string; note: string | null }) => void;
+  onUpdate: (values: { name: string; quantity: string | null; note: string | null }) => void;
   onDelete: () => void;
+  /** Omit to hide the star (e.g. in the compact dashboard card). */
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const checked = !!item.checkedAt;
@@ -40,7 +46,11 @@ export function ShoppingItemRow({
           const form = new FormData(e.currentTarget);
           const name = String(form.get("name") ?? "").trim();
           if (!name) return;
-          onUpdate({ name, note: String(form.get("note") ?? "").trim() || null });
+          onUpdate({
+            name,
+            quantity: String(form.get("quantity") ?? "").trim() || null,
+            note: String(form.get("note") ?? "").trim() || null,
+          });
           setEditing(false);
         }}
       >
@@ -52,6 +62,14 @@ export function ShoppingItemRow({
           maxLength={120}
           aria-label="Item name"
           className="min-w-0 flex-1 rounded-lg border border-border-soft bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+        />
+        <input
+          name="quantity"
+          defaultValue={item.quantity ?? ""}
+          maxLength={30}
+          placeholder="Amount"
+          aria-label="Amount"
+          className="min-w-0 rounded-lg border border-border-soft bg-surface px-3 py-2 text-[14px] outline-none placeholder:text-text-faint focus:border-accent sm:w-28"
         />
         <input
           name="note"
@@ -112,6 +130,26 @@ export function ShoppingItemRow({
           </div>
         )}
       </div>
+
+      {item.quantity && (
+        <span className={`shrink-0 text-[14px] tabular-nums ${checked ? "text-text-faint" : "text-text-muted"}`}>
+          {item.quantity}
+        </span>
+      )}
+
+      {onToggleFavorite && (
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          aria-label={isFavorite ? `Remove ${item.name} from favorites` : `Add ${item.name} to favorites`}
+          aria-pressed={isFavorite}
+          className={`shrink-0 text-[16px] leading-none transition-colors ${
+            isFavorite ? "text-[#e0b04d]" : "text-text-faint hover:text-[#e0b04d]"
+          }`}
+        >
+          {isFavorite ? "★" : "☆"}
+        </button>
+      )}
 
       <button
         type="button"

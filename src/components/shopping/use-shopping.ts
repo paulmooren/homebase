@@ -13,6 +13,11 @@ export function useShoppingItems(listId: string | undefined) {
   );
 }
 
+/** Favorites of one list. */
+export function useShoppingFavorites(listId: string | undefined) {
+  return trpc.shopping.favorites.useQuery({ listId: listId ?? "" }, { enabled: !!listId });
+}
+
 /** Mutations for one list. Ticking is optimistic so it feels instant in a shop. */
 export function useShoppingActions(listId: string | undefined) {
   const utils = trpc.useUtils();
@@ -25,6 +30,9 @@ export function useShoppingActions(listId: string | undefined) {
   const updateItem = trpc.shopping.updateItem.useMutation({ onSuccess: refresh });
   const deleteItem = trpc.shopping.deleteItem.useMutation({ onSuccess: refresh });
   const clearChecked = trpc.shopping.clearChecked.useMutation({ onSuccess: refresh });
+  const refreshFavorites = () => utils.shopping.favorites.invalidate();
+  const addFavorite = trpc.shopping.addFavorite.useMutation({ onSuccess: refreshFavorites });
+  const removeFavorite = trpc.shopping.removeFavorite.useMutation({ onSuccess: refreshFavorites });
   const setChecked = trpc.shopping.setChecked.useMutation({
     onMutate: async ({ id, checked }) => {
       if (!listId) return {};
@@ -41,5 +49,5 @@ export function useShoppingActions(listId: string | undefined) {
     onSettled: refresh,
   });
 
-  return { addItem, updateItem, deleteItem, clearChecked, setChecked };
+  return { addItem, updateItem, deleteItem, clearChecked, setChecked, addFavorite, removeFavorite };
 }

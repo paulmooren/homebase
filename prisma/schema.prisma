@@ -334,9 +334,10 @@ model ShoppingList {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner     User?          @relation("ShoppingListOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User?              @relation("ShoppingListOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   items     ShoppingItem[]
+  favorites ShoppingFavorite[]
 
   @@index([householdId])
   @@map("shopping_lists")
@@ -347,6 +348,8 @@ model ShoppingItem {
   listId    String
   name      String
   note      String?
+  // Free text so it can be "2", "500 g" or "1 L".
+  quantity  String?
   // Ticked: shown under "In basket". Cleared: hidden from the list but kept
   // so past items can be suggested again.
   checkedAt DateTime?
@@ -407,4 +410,19 @@ model VaultEntry {
 
   @@index([householdId])
   @@map("vault_entries")
+}
+
+// Things a list's members regularly need, one tap away. Per list, so
+// "Groceries" and "Pharmacy" keep their own.
+model ShoppingFavorite {
+  id        String   @id @default(cuid())
+  listId    String
+  name      String
+  quantity  String?
+  createdAt DateTime @default(now())
+
+  list ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, name])
+  @@map("shopping_favorites")
 }

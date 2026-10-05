@@ -99,6 +99,7 @@ export const shoppingRouter = createTRPCRouter({
       z.object({
         listId: z.string(),
         name: z.string().trim().min(1).max(120),
+        quantity: z.string().trim().max(30).nullable().optional(),
         note: z.string().trim().max(200).optional(),
       }),
     )
@@ -108,6 +109,7 @@ export const shoppingRouter = createTRPCRouter({
         data: {
           listId: input.listId,
           name: input.name,
+          quantity: input.quantity || null,
           note: input.note || null,
           addedById: ctx.userId,
         },
@@ -119,6 +121,7 @@ export const shoppingRouter = createTRPCRouter({
       z.object({
         id: z.string(),
         name: z.string().trim().min(1).max(120).optional(),
+        quantity: z.string().trim().max(30).nullable().optional(),
         note: z.string().trim().max(200).nullable().optional(),
       }),
     )
@@ -127,7 +130,11 @@ export const shoppingRouter = createTRPCRouter({
       const { id, ...data } = input;
       return ctx.prisma.shoppingItem.update({
         where: { id },
-        data: { ...data, ...(data.note !== undefined ? { note: data.note || null } : {}) },
+        data: {
+          ...data,
+          ...(data.note !== undefined ? { note: data.note || null } : {}),
+          ...(data.quantity !== undefined ? { quantity: data.quantity || null } : {}),
+        },
       });
     }),
 
@@ -162,21 +169,17 @@ export const shoppingRouter = createTRPCRouter({
       return { cleared: result.count };
     }),
 
-  /** Past item names matching what you're typing, most-bought first, skipping ones already open on this list. */
+  /** Past items matching what you're typing, most-used first (with the amount you last used), skipping ones already open on this list. */
   suggest: householdProcedure
     .input(z.object({ listId: z.string(), q: z.string().trim().min(1).max(60) }))
     .query(async ({ ctx, input }) => {
       await requireList(ctx, input.listId);
       const [past, open] = await Promise.all([
-        ctx.prisma.shoppingItem.groupBy({
-          by: ["name"],
-          where: {
-            list: visibleLists(ctx),
-            name: { startsWith: input.q, mode: "insensitive" },
-          },
-          _count: { name: true },
-          orderBy: { _count: { name: "desc" } },
-          take: 20,
+        ctx.prisma.shoppingItem.findMany({
+          where: { list: visibleLists(ctx), name: { startsWith: input.q, mode: "insensitive" } },
+          orderBy: { createdAt: "desc" },
+          take: 200,
+          select: { name: true, quantity: true },
         }),
         ctx.prisma.shoppingItem.findMany({
           where: { listId: input.listId, ...openItems, checkedAt: null },
@@ -184,15 +187,62 @@ export const shoppingRouter = createTRPCRouter({
         }),
       ]);
       const openNames = new Set(open.map((i) => i.name.toLowerCase()));
-      const seen = new Set<string>();
-      return past
-        .map((p) => p.name)
-        .filter((n) => {
-          const key = n.toLowerCase();
-          if (openNames.has(key) || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .slice(0, 6);
+      const byName = new Map<string, { name: string; quantity: string | null; count: number }>();
+      for (const item of past) {
+        const key = item.name.toLowerCase();
+        if (openNames.has(key)) continue;
+        // `past` is newest first, so the first sighting carries the most recent amount.
+        const entry = byName.get(key);
+        if (entry) entry.count += 1;
+        else byName.set(key, { name: item.name, quantity: item.quantity, count: 1 });
+      }
+      return [...byName.values()]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6)
+        .map(({ name, quantity }) => ({ name, quantity }));
+    }),
+
+  /** Favorites of one list: the things you regularly need, one tap from being added. */
+  favorites: householdProcedure
+    .input(z.object({ listId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await requireList(ctx, input.listId);
+      return ctx.prisma.shoppingFavorite.findMany({
+        where: { listId: input.listId },
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
+  addFavorite: householdProcedure
+    .input(
+      z.object({
+        listId: z.string(),
+        name: z.string().trim().min(1).max(120),
+        quantity: z.string().trim().max(30).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireList(ctx, input.listId);
+      const existing = await ctx.prisma.shoppingFavorite.findFirst({
+        where: { listId: input.listId, name: { equals: input.name, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (existing) return existing;
+      return ctx.prisma.shoppingFavorite.create({
+        data: { listId: input.listId, name: input.name, quantity: input.quantity || null },
+        select: { id: true },
+      });
+    }),
+
+  removeFavorite: householdProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const favorite = await ctx.prisma.shoppingFavorite.findFirst({
+        where: { id: input.id, list: visibleLists(ctx) },
+        select: { id: true },
+      });
+      if (!favorite) throw new TRPCError({ code: "NOT_FOUND" });
+      await ctx.prisma.shoppingFavorite.delete({ where: { id: input.id } });
+      return { success: true };
     }),
 });

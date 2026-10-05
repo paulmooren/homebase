@@ -4,9 +4,14 @@ import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { ModuleGate } from "@/components/use-modules";
-import { AddItemInput } from "@/components/shopping/add-item-input";
+import { AddItemRow } from "@/components/shopping/add-item-row";
+import { FavoritesStrip } from "@/components/shopping/favorites-strip";
 import { ShoppingItemRow } from "@/components/shopping/item-row";
-import { useShoppingActions, useShoppingItems } from "@/components/shopping/use-shopping";
+import {
+  useShoppingActions,
+  useShoppingFavorites,
+  useShoppingItems,
+} from "@/components/shopping/use-shopping";
 
 export default function ShoppingPage() {
   return (
@@ -27,6 +32,7 @@ function ShoppingLists() {
 
   const selected = lists?.find((l) => l.id === choice) ?? lists?.[0];
   const { data: items } = useShoppingItems(selected?.id);
+  const { data: favorites } = useShoppingFavorites(selected?.id);
   const actions = useShoppingActions(selected?.id);
 
   const refreshLists = () => utils.shopping.lists.invalidate();
@@ -51,6 +57,30 @@ function ShoppingLists() {
   const open = items?.filter((i) => !i.checkedAt) ?? [];
   const inBasket = items?.filter((i) => i.checkedAt) ?? [];
   const isShared = selected ? selected.ownerId === null : true;
+
+  const favoriteFor = (name: string) =>
+    favorites?.find((f) => f.name.toLowerCase() === name.toLowerCase());
+
+  const renderRow = (item: NonNullable<typeof items>[number]) => {
+    const favorite = favoriteFor(item.name);
+    return (
+      <ShoppingItemRow
+        key={item.id}
+        item={item}
+        currentUserId={me.id}
+        showAddedBy={isShared && multiMember}
+        isFavorite={!!favorite}
+        onToggleFavorite={() =>
+          favorite
+            ? actions.removeFavorite.mutate({ id: favorite.id })
+            : actions.addFavorite.mutate({ listId: selected!.id, name: item.name, quantity: item.quantity })
+        }
+        onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
+        onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
+        onDelete={() => actions.deleteItem.mutate({ id: item.id })}
+      />
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -131,12 +161,13 @@ function ShoppingLists() {
             </div>
           </div>
 
-          <div className="px-4 pb-4 md:px-6">
-            <AddItemInput
-              listId={selected.id}
-              onAdd={(name) => actions.addItem.mutate({ listId: selected.id, name })}
-            />
-          </div>
+          <FavoritesStrip
+            favorites={favorites ?? []}
+            items={items ?? []}
+            onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name, quantity: fav.quantity })}
+            onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
+            onRemove={(id) => actions.removeFavorite.mutate({ id })}
+          />
 
           <div className="border-t border-border-soft">
             {items && open.length === 0 && inBasket.length === 0 && (
@@ -146,17 +177,12 @@ function ShoppingLists() {
               <p className="px-6 py-4 text-[13.5px] text-text-muted">Everything is in the basket.</p>
             )}
 
-            {open.map((item) => (
-              <ShoppingItemRow
-                key={item.id}
-                item={item}
-                currentUserId={me.id}
-                showAddedBy={isShared && multiMember}
-                onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
-                onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
-                onDelete={() => actions.deleteItem.mutate({ id: item.id })}
-              />
-            ))}
+            {open.map((item) => renderRow(item))}
+
+            <AddItemRow
+              listId={selected.id}
+              onAdd={({ name, quantity }) => actions.addItem.mutate({ listId: selected.id, name, quantity })}
+            />
 
             {inBasket.length > 0 && (
               <>
@@ -172,17 +198,7 @@ function ShoppingLists() {
                     Clear checked
                   </button>
                 </div>
-                {inBasket.map((item) => (
-                  <ShoppingItemRow
-                    key={item.id}
-                    item={item}
-                    currentUserId={me.id}
-                    showAddedBy={isShared && multiMember}
-                    onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
-                    onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
-                    onDelete={() => actions.deleteItem.mutate({ id: item.id })}
-                  />
-                ))}
+                {inBasket.map((item) => renderRow(item))}
               </>
             )}
           </div>

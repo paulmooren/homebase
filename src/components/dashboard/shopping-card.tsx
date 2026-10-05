@@ -3,9 +3,14 @@
 import Link from "next/link";
 
 import { trpc } from "@/trpc/react";
-import { AddItemInput } from "@/components/shopping/add-item-input";
+import { AddItemRow } from "@/components/shopping/add-item-row";
+import { FavoritesStrip } from "@/components/shopping/favorites-strip";
 import { ShoppingItemRow } from "@/components/shopping/item-row";
-import { useShoppingActions, useShoppingItems } from "@/components/shopping/use-shopping";
+import {
+  useShoppingActions,
+  useShoppingFavorites,
+  useShoppingItems,
+} from "@/components/shopping/use-shopping";
 
 const MAX_ROWS = 6;
 
@@ -15,6 +20,7 @@ export function ShoppingCard() {
   const { data: me } = trpc.user.me.useQuery();
   const main = lists?.find((l) => l.ownerId === null) ?? lists?.[0];
   const { data: items } = useShoppingItems(main?.id);
+  const { data: favorites } = useShoppingFavorites(main?.id);
   const actions = useShoppingActions(main?.id);
 
   if (!main || !me) return null;
@@ -30,39 +36,38 @@ export function ShoppingCard() {
           Open list
         </Link>
       </div>
-      <div className="px-6 pb-4">
-        <AddItemInput
+      <FavoritesStrip
+        compact
+        favorites={favorites ?? []}
+        items={items ?? []}
+        onAdd={(fav) => actions.addItem.mutate({ listId: main.id, name: fav.name, quantity: fav.quantity })}
+        onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
+      />
+      <div className="border-t border-border-soft">
+        {shown.map((item) => (
+          <ShoppingItemRow
+            key={item.id}
+            item={item}
+            currentUserId={me.id}
+            showAddedBy={false}
+            onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
+            onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
+            onDelete={() => actions.deleteItem.mutate({ id: item.id })}
+          />
+        ))}
+        {open.length > shown.length && (
+          <Link
+            href="/lists/shopping"
+            className="block border-b border-border-soft px-6 py-3 text-[12.5px] font-medium text-text-muted hover:text-text"
+          >
+            + {open.length - shown.length} more
+          </Link>
+        )}
+        <AddItemRow
           listId={main.id}
-          onAdd={(name) => actions.addItem.mutate({ listId: main.id, name })}
+          onAdd={({ name, quantity }) => actions.addItem.mutate({ listId: main.id, name, quantity })}
         />
       </div>
-      {open.length === 0 ? (
-        <p className="border-t border-border-soft px-6 py-4 text-[13.5px] text-text-muted">
-          Nothing to buy right now.
-        </p>
-      ) : (
-        <div className="border-t border-border-soft">
-          {shown.map((item) => (
-            <ShoppingItemRow
-              key={item.id}
-              item={item}
-              currentUserId={me.id}
-              showAddedBy={false}
-              onToggle={(checked) => actions.setChecked.mutate({ id: item.id, checked })}
-              onUpdate={(values) => actions.updateItem.mutate({ id: item.id, ...values })}
-              onDelete={() => actions.deleteItem.mutate({ id: item.id })}
-            />
-          ))}
-          {open.length > shown.length && (
-            <Link
-              href="/lists/shopping"
-              className="block px-6 py-3 text-[12.5px] font-medium text-text-muted hover:text-text"
-            >
-              + {open.length - shown.length} more
-            </Link>
-          )}
-        </div>
-      )}
     </section>
   );
 }
