@@ -44,7 +44,7 @@ export function AppShell({
   });
 
   const eyebrow =
-    [...NAV_ITEMS, { href: "/settings", label: "Admin" }].find((item) =>
+    [...NAV_ITEMS, { href: "/settings", label: "Settings" }].find((item) =>
       pathname.startsWith(item.href),
     )?.label ?? "Kontor";
 
@@ -92,7 +92,7 @@ export function AppShell({
                 : "text-text-muted hover:text-text"
             }`}
           >
-            Admin
+            Settings
           </Link>
         </div>
       </nav>

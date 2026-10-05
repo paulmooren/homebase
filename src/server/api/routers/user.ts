@@ -1,13 +1,17 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { createTRPCRouter, householdProcedure, protectedProcedure } from "@/server/api/trpc";
 
 export const userRouter = createTRPCRouter({
-  me: protectedProcedure.query(({ ctx }) => {
-    return ctx.prisma.user.findUniqueOrThrow({
+  me: protectedProcedure.query(async ({ ctx }) => {
+    const { password, ...user } = await ctx.prisma.user.findUniqueOrThrow({
       where: { id: ctx.userId },
-      select: { id: true, email: true, name: true, image: true },
+      select: { id: true, email: true, name: true, image: true, password: true },
     });
+    // Never send the hash itself — the UI only needs to know whether one exists.
+    return { ...user, hasPassword: password !== null };
   }),
 
   updateName: protectedProcedure
@@ -37,6 +41,33 @@ export const userRouter = createTRPCRouter({
         data: { image: input.image },
         select: { id: true },
       });
+    }),
+
+  // Accounts that signed up with Google have no password yet, so they may set
+  // one without a current password; otherwise the current one must match.
+  changePassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().optional(),
+        newPassword: z.string().min(8).max(200),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUniqueOrThrow({
+        where: { id: ctx.userId },
+        select: { password: true },
+      });
+      if (user.password) {
+        const ok = input.currentPassword
+          ? await verifyPassword(input.currentPassword, user.password)
+          : false;
+        if (!ok) throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      }
+      await ctx.prisma.user.update({
+        where: { id: ctx.userId },
+        data: { password: await hashPassword(input.newPassword) },
+      });
+      return { success: true };
     }),
 
   exportData: householdProcedure.query(async ({ ctx }) => {
