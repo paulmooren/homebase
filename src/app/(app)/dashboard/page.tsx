@@ -40,9 +40,9 @@ export default function DashboardPage() {
   if (!finance && !tasks && !shopping) {
     return (
       <p className="py-10 text-center text-[13.5px] text-text-muted">
-        Everything is switched off.{" "}
+        Nothing to show here.{" "}
         <Link href="/settings/household" className="text-accent hover:opacity-80">
-          Turn something on in Settings
+          Choose what your household uses in Settings
         </Link>
         .
       </p>

@@ -16,12 +16,12 @@ import {
   TransactionsIcon,
 } from "@/components/nav-icons";
 
-// `module` ties an item to a Household-switchable Module; items without one are always shown.
-const ALL_NAV_ITEMS: { href: string; label: string; Icon: typeof DashboardIcon; module?: ModuleKey }[] = [
+// `modules` ties an item to Household-switchable Modules (shown if any is on); items without one are always shown.
+const ALL_NAV_ITEMS: { href: string; label: string; Icon: typeof DashboardIcon; modules?: ModuleKey[] }[] = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
-  { href: "/finance", label: "Finance", Icon: TransactionsIcon, module: "finance" },
-  { href: "/tasks", label: "Tasks", Icon: TasksIcon, module: "tasks" },
-  { href: "/lists", label: "Lists", Icon: ListIcon, module: "shopping" },
+  { href: "/finance", label: "Finance", Icon: TransactionsIcon, modules: ["finance"] },
+  { href: "/tasks", label: "Tasks", Icon: TasksIcon, modules: ["tasks"] },
+  { href: "/lists", label: "Lists", Icon: ListIcon, modules: ["shopping", "wishlist"] },
 ];
 
 function greeting() {
@@ -41,7 +41,7 @@ export function AppShell({
   const pathname = usePathname();
   const { data: me } = trpc.user.me.useQuery();
   const { isEnabled } = useModules();
-  const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.module || isEnabled(item.module));
+  const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.modules || item.modules.some(isEnabled));
 
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",

@@ -9,6 +9,7 @@ import { recurringRouter } from "@/server/api/routers/recurring";
 import { householdRouter } from "@/server/api/routers/household";
 import { taskRouter } from "@/server/api/routers/task";
 import { shoppingRouter } from "@/server/api/routers/shopping";
+import { wishlistRouter } from "@/server/api/routers/wishlist";
 
 export const appRouter = createTRPCRouter({
   account: accountRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   household: householdRouter,
   task: taskRouter,
   shopping: shoppingRouter,
+  wishlist: wishlistRouter,
 });
 
 export type AppRouter = typeof appRouter;

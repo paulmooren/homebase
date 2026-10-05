@@ -18,6 +18,11 @@ export const MODULES = [
     label: "Shopping list",
     description: "Shared and private lists of things to buy.",
   },
+  {
+    key: "wishlist",
+    label: "Wishlist",
+    description: "Everyone's wishes, with secret Claims so gifts stay a surprise.",
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];

@@ -1,0 +1,145 @@
+"use client";
+
+import { useState } from "react";
+
+import { formatEUR } from "@/lib/format";
+import { PencilIcon, TrashIcon } from "@/components/action-icons";
+import { WishForm, type WishFormValues } from "@/components/wishlist/wish-form";
+
+export type WishData = {
+  id: string;
+  title: string;
+  url: string | null;
+  price: number | null;
+  note: string | null;
+  receivedAt: Date | string | null;
+  claimedBy: { id: string; name: string | null; email: string } | null;
+  claimedByMe: boolean;
+};
+
+/**
+ * One wish. `canEdit` is true for your own wishes and any Home wish; otherwise
+ * the row is read-only except for Claiming. `ownList` hides all Claim UI —
+ * the owner never learns who is buying what.
+ */
+export function WishRow({
+  wish,
+  canEdit,
+  ownList,
+  onUpdate,
+  onDelete,
+  onSetReceived,
+  onClaim,
+  onUnclaim,
+}: {
+  wish: WishData;
+  canEdit: boolean;
+  ownList: boolean;
+  onUpdate: (values: WishFormValues) => void;
+  onDelete: () => void;
+  onSetReceived: (received: boolean) => void;
+  onClaim: () => void;
+  onUnclaim: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const received = !!wish.receivedAt;
+
+  if (editing) {
+    return (
+      <div className="border-b border-border-soft bg-surface-2 px-4 py-4 last:border-b-0 md:px-6">
+        <WishForm
+          initial={wish}
+          submitLabel="Save"
+          onSubmit={(values) => {
+            onUpdate(values);
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      </div>
+    );
+  }
+
+  const meta = [wish.price !== null ? formatEUR(wish.price) : null, wish.note].filter(Boolean).join(" · ");
+  const claimerName = wish.claimedBy ? wish.claimedBy.name || wish.claimedBy.email : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-soft px-4 py-3.5 transition-colors last:border-b-0 hover:bg-surface-hover md:px-6">
+      <div className="min-w-0 flex-1 basis-56">
+        <div className={`flex items-center gap-2 text-[15px] ${received ? "text-text-faint line-through" : "font-medium"}`}>
+          <span className="truncate">{wish.title}</span>
+          {wish.url && (
+            <a
+              href={wish.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-[12px] font-medium text-accent no-underline hover:opacity-80"
+              aria-label={`Open link for ${wish.title}`}
+            >
+              Link ↗
+            </a>
+          )}
+        </div>
+        {meta && <div className="truncate text-[12px] text-text-muted">{meta}</div>}
+      </div>
+
+      <div className="flex items-center gap-3 text-[12.5px] font-medium">
+        {!ownList && !received && (
+          wish.claimedByMe ? (
+            <>
+              <span className="rounded-full bg-good/15 px-2.5 py-1 text-good">You&apos;re getting this</span>
+              <button type="button" onClick={onUnclaim} className="text-text-muted hover:text-text">
+                Unclaim
+              </button>
+            </>
+          ) : claimerName ? (
+            <span className="rounded-full border border-border-soft bg-surface-2 px-2.5 py-1 text-text-muted">
+              Claimed by {claimerName}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onClaim}
+              className="rounded-full border border-border px-3.5 py-1.5 text-text hover:border-text"
+            >
+              I&apos;ll get this
+            </button>
+          )
+        )}
+        {!ownList && received && wish.claimedByMe && (
+          <span className="rounded-full bg-good/15 px-2.5 py-1 text-good">You gave this</span>
+        )}
+
+        {canEdit && (
+          <>
+            <button
+              type="button"
+              onClick={() => onSetReceived(!received)}
+              className="text-accent hover:opacity-80"
+            >
+              {received ? "Undo" : "Mark received"}
+            </button>
+            {!received && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label={`Edit ${wish.title}`}
+                className="h-4 w-4 text-text-faint hover:text-text"
+              >
+                <PencilIcon />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Delete ${wish.title}`}
+              className="h-4 w-4 text-text-faint hover:text-critical"
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

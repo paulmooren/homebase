@@ -6,6 +6,7 @@ import type { ModuleKey } from "@/lib/modules";
 
 const TABS: { href: string; label: string; module: ModuleKey }[] = [
   { href: "/lists/shopping", label: "Shopping", module: "shopping" },
+  { href: "/lists/wishlist", label: "Wishlist", module: "wishlist" },
 ];
 
 export default function ListsLayout({ children }: { children: React.ReactNode }) {

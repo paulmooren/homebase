@@ -61,6 +61,8 @@ model User {
   ownedTasks          Task[]             @relation("TaskOwner")
   ownedShoppingLists  ShoppingList[]     @relation("ShoppingListOwner")
   addedShoppingItems  ShoppingItem[]     @relation("ShoppingItemAddedBy")
+  ownedWishes         Wish[]             @relation("WishOwner")
+  claimedWishes       Wish[]             @relation("WishClaimer")
 
   @@map("users")
 }
@@ -87,15 +89,18 @@ model Household {
   netWorthSnapshots NetWorthSnapshot[]
   tasks             Task[]
   shoppingLists     ShoppingList[]
+  wishes            Wish[]
 
   @@map("households")
 }
 
 model HouseholdMember {
-  id          String   @id @default(cuid())
-  householdId String
-  userId      String   @unique
-  joinedAt    DateTime @default(now())
+  id              String   @id @default(cuid())
+  householdId     String
+  userId          String   @unique
+  joinedAt        DateTime @default(now())
+  // Whether the rest of the household can see this member's wishlist (and claim from it).
+  wishlistVisible Boolean  @default(true)
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -352,4 +357,27 @@ model ShoppingItem {
 
   @@index([listId])
   @@map("shopping_items")
+}
+
+// ownerId null is the shared "Home" wishlist. claimedById is never shown to
+// the wish's owner (so gifts stay a surprise); on Home wishes it is visible
+// to everyone. Deleting a member deletes their wishes with them.
+model Wish {
+  id          String    @id @default(cuid())
+  householdId String
+  ownerId     String?
+  title       String
+  url         String?
+  price       Decimal?  @db.Decimal(14, 2)
+  note        String?
+  claimedById String?
+  receivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User?     @relation("WishOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  claimedBy User?     @relation("WishClaimer", fields: [claimedById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, ownerId])
+  @@map("wishes")
 }
