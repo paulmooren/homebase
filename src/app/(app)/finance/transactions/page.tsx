@@ -9,6 +9,7 @@ import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
 import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
+import { Avatar } from "@/components/avatar";
 import { CategoryCell } from "@/components/finance/category-cell";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 
@@ -146,15 +147,17 @@ function TransactionsPageInner() {
                   title={`${a.name} · ${groupLabel(a.ownerId, members, currentUserId)}`}
                 >
                   {multiMember && (
-                    <span
-                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
-                        active ? "bg-bg text-text" : "bg-surface-2 text-text-muted"
-                      }`}
-                    >
-                      {ownerInitial(a.ownerId, members, currentUserId)}
-                    </span>
+                    <Avatar
+                      name={ownerName(a.ownerId, members, currentUserId)}
+                      image={members.find((m) => m.user.id === a.ownerId)?.user.image}
+                    />
                   )}
                   {a.name}
+                  {multiMember && (
+                    <span className={active ? "text-bg/70" : "text-text-faint"}>
+                      · {groupLabel(a.ownerId, members, currentUserId)}
+                    </span>
+                  )}
                 </FilterChip>
               );
             })}
@@ -276,11 +279,10 @@ function TransactionsPageInner() {
   );
 }
 
-function ownerInitial(ownerId: string | null, members: Member[], currentUserId: string) {
-  if (ownerId === null) return "S";
+function ownerName(ownerId: string | null, members: Member[], currentUserId: string) {
+  if (ownerId === null) return "Shared";
   const member = members.find((m) => m.user.id === ownerId);
-  const name = member?.user.name || member?.user.email || (ownerId === currentUserId ? "Y" : "?");
-  return name.charAt(0).toUpperCase();
+  return member?.user.name || member?.user.email || (ownerId === currentUserId ? "You" : "?");
 }
 
 /** Quick-filter pill: filled when active, click again to clear. */

@@ -7,6 +7,7 @@ import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
 import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/constants";
 import { monthlyEquivalent } from "@/lib/recurring";
 import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon } from "@/components/action-icons";
+import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 
@@ -134,12 +135,23 @@ function AccountCards({
                 active ? "border-text" : "border-border-soft"
               }`}
             >
-              <p className="truncate text-[13.5px] font-semibold">{a.name}</p>
-              <p className="mb-3 truncate text-[11px] tracking-[0.04em] text-text-faint">
-                {[a.institution, multiMember ? groupLabel(a.ownerId, members, currentUserId) : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
+              <div className="mb-3 flex items-center gap-2.5">
+                {multiMember && (
+                  <Avatar
+                    name={members.find((m) => m.user.id === a.ownerId)?.user.name || groupLabel(a.ownerId, members, currentUserId)}
+                    image={members.find((m) => m.user.id === a.ownerId)?.user.image}
+                    size={32}
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[13.5px] font-semibold">{a.name}</p>
+                  <p className="truncate text-[11px] tracking-[0.04em] text-text-faint">
+                    {[a.institution, multiMember ? groupLabel(a.ownerId, members, currentUserId) : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="mb-1 text-[10.5px] text-text-faint">Income / month</p>

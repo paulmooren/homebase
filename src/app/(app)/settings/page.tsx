@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
+import { Avatar } from "@/components/avatar";
+import { fileToAvatarDataUrl } from "@/lib/image";
 import { signOutAction } from "./actions";
 
 export default function SettingsPage() {
@@ -13,6 +15,12 @@ export default function SettingsPage() {
 
   const updateName = trpc.user.updateName.useMutation({
     onSuccess: () => utils.user.me.invalidate(),
+  });
+  const updateAvatar = trpc.user.updateAvatar.useMutation({
+    onSuccess: () => {
+      utils.user.me.invalidate();
+      utils.household.current.invalidate();
+    },
   });
   const createCategory = trpc.category.create.useMutation({
     onSuccess: () => utils.category.list.invalidate(),
@@ -71,7 +79,41 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-5">
       <section className="rounded-[20px] border border-border-soft bg-surface p-6">
         <h1 className="mb-4 text-[15px] font-semibold">Profile</h1>
-        <div className="mb-3 text-[13px] text-text-muted">{me?.email}</div>
+        <div className="mb-4 flex items-center gap-4">
+          <Avatar name={me?.name || me?.email || ""} image={me?.image} size={56} />
+          <div>
+            <div className="mb-1.5 text-[13px] text-text-muted">{me?.email}</div>
+            <div className="flex items-center gap-3 text-[12.5px] font-medium">
+              <label className="cursor-pointer text-accent hover:opacity-80">
+                {me?.image ? "Change picture" : "Upload picture"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    try {
+                      updateAvatar.mutate({ image: await fileToAvatarDataUrl(file) });
+                    } catch {
+                      alert("Couldn't read that image — try a JPG or PNG.");
+                    }
+                  }}
+                />
+              </label>
+              {me?.image && (
+                <button
+                  type="button"
+                  onClick={() => updateAvatar.mutate({ image: null })}
+                  className="text-text-muted hover:text-critical"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
         <form
           className="flex gap-2"
           onSubmit={(e) => {

@@ -6,7 +6,7 @@ export const userRouter = createTRPCRouter({
   me: protectedProcedure.query(({ ctx }) => {
     return ctx.prisma.user.findUniqueOrThrow({
       where: { id: ctx.userId },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, image: true },
     });
   }),
 
@@ -16,6 +16,26 @@ export const userRouter = createTRPCRouter({
       return ctx.prisma.user.update({
         where: { id: ctx.userId },
         data: { name: input.name },
+      });
+    }),
+
+  // Stored as a small data URL (the client crops/downsizes it first), so no
+  // file storage is needed. null removes the picture.
+  updateAvatar: protectedProcedure
+    .input(
+      z.object({
+        image: z
+          .string()
+          .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/)
+          .max(200_000)
+          .nullable(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      return ctx.prisma.user.update({
+        where: { id: ctx.userId },
+        data: { image: input.image },
+        select: { id: true },
       });
     }),
 

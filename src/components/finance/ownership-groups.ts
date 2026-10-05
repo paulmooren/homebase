@@ -1,4 +1,4 @@
-export type Member = { user: { id: string; name: string | null; email: string } };
+export type Member = { user: { id: string; name: string | null; email: string; image?: string | null } };
 
 /** "You" first, then other household members in join order, "Shared" last. */
 export function groupOrder(members: Member[], currentUserId: string): (string | null)[] {

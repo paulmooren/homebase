@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { trpc } from "@/trpc/react";
+import { Avatar } from "@/components/avatar";
+
 import {
   DashboardIcon,
   SettingsIcon,
@@ -23,15 +26,6 @@ function greeting() {
   return "Good evening";
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
 export function AppShell({
   userName,
   children,
@@ -40,6 +34,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { data: me } = trpc.user.me.useQuery();
 
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -137,9 +132,7 @@ export function AppShell({
               </h1>
               <p className="text-[13px] text-text-muted">{today}</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-2 text-[12.5px] font-semibold text-text-muted">
-              {initials(userName)}
-            </div>
+            <Avatar name={userName} image={me?.image} size={36} className="border border-border" />
           </div>
 
           {children}
