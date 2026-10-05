@@ -69,7 +69,6 @@ export function WishRow({
               value={wish.title}
               ariaLabel="Wish"
               onCommit={(title) => onUpdate({ title, url: wish.url, price: wish.price, note: wish.note })}
-              className="truncate"
             />
           ) : (
             <span className="truncate">{wish.title}</span>
@@ -93,22 +92,23 @@ export function WishRow({
         // Click the price to change it; with none set, a faint "+ price" appears on hover (always on phones).
         <InlineEdit
           value={wish.price !== null ? String(wish.price) : ""}
+          editValue={wish.price !== null ? formatEUR(wish.price) : ""}
           display={wish.price !== null ? formatEUR(wish.price) : undefined}
           ariaLabel="Price"
           placeholder="+ price"
           allowEmpty
-          maxLength={12}
+          maxLength={14}
           onCommit={(text) => {
-            const parsed = text === "" ? null : Number(text.replace(",", "."));
+            // Accepts what was on screen ("€12.50") or a plain number ("12,5").
+            const cleaned = text.replace(/[^\d.,]/g, "");
+            const parsed = cleaned === "" ? null : Number(cleaned.replace(",", "."));
             if (parsed !== null && !(Number.isFinite(parsed) && parsed >= 0)) return;
             onUpdate({ title: wish.title, url: wish.url, price: parsed, note: wish.note });
           }}
-          className={`w-auto text-right text-[14px] tabular-nums ${
-            wish.price !== null
-              ? "font-semibold"
-              : "text-[12.5px] lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+          className={`text-right tabular-nums ${wish.price !== null ? "text-[14px] font-semibold" : "text-[12.5px]"}`}
+          buttonClassName={`block ${
+            wish.price !== null ? "" : "lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
           }`}
-          inputClassName="w-24 text-right text-[14px] font-semibold tabular-nums"
         />
       ) : (
         wish.price !== null && (

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { CheckIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { InlineEdit } from "@/components/inline-edit";
 import { QuantityPill, parseAmount } from "@/components/shopping/quantity-stepper";
 import { TICK_GRACE_MS } from "@/components/shopping/use-shopping";
 
@@ -42,7 +43,6 @@ export function ShoppingItemRow({
   /** Just ticked: struck through and fading out until it disappears. */
   leaving?: boolean;
 }) {
-  const [renaming, setRenaming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const checked = !!item.checkedAt;
   const addedByOther = item.addedBy && item.addedBy.id !== currentUserId;
@@ -86,38 +86,13 @@ export function ShoppingItemRow({
       )}
 
       <div className="min-w-0 flex-1">
-        {renaming ? (
-          <input
-            defaultValue={item.name}
-            autoFocus
-            maxLength={120}
-            aria-label="Item name"
-            className="w-full rounded-md bg-surface-2 px-1.5 py-0.5 text-[15px] font-medium outline-none"
-            onBlur={(e) => {
-              setRenaming(false);
-              const name = e.target.value.trim();
-              if (name && name !== item.name) onUpdate({ name });
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                e.currentTarget.value = item.name;
-                e.currentTarget.blur();
-              }
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setRenaming(true)}
-            aria-label={`Rename ${item.name}`}
-            className={`block max-w-full truncate text-left text-[15px] ${
-              checked ? "text-text-faint" : "font-medium"
-            }`}
-          >
-            <span className={checked ? "shopping-strike" : ""}>{item.name}</span>
-          </button>
-        )}
+        <InlineEdit
+          value={item.name}
+          ariaLabel="Item name"
+          onCommit={(name) => onUpdate({ name })}
+          display={<span className={checked ? "shopping-strike" : ""}>{item.name}</span>}
+          className={`text-[15px] ${checked ? "text-text-faint" : "font-medium"}`}
+        />
         {subtext && <div className="truncate text-[12px] text-text-muted">{subtext}</div>}
       </div>
 
