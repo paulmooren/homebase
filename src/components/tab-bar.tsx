@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type Tab = { href: string; label: string; count?: number };
+export type Tab = { href: string; label: string };
 
-/** Underlined page tabs; an optional count shows as a round badge. */
+/** Underlined page tabs. */
 export function TabBar({ tabs }: { tabs: Tab[] }) {
   const pathname = usePathname();
 
@@ -22,17 +22,6 @@ export function TabBar({ tabs }: { tabs: Tab[] }) {
             }`}
           >
             {tab.label}
-            {tab.count !== undefined && (
-              <span
-                // Fixed height + min-width equal to it: a single digit is a
-                // true circle, two digits stretch into a pill.
-                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none tabular-nums ${
-                  active ? "bg-text text-bg" : "border border-border bg-surface text-text-muted"
-                }`}
-              >
-                {tab.count}
-              </span>
-            )}
           </Link>
         );
       })}
