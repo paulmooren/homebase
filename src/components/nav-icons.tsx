@@ -162,3 +162,26 @@ export function ListIcon({ active }: IconProps) {
     </svg>
   );
 }
+
+export function VaultIcon({ active }: IconProps) {
+  if (active) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M7 10V8a5 5 0 0 1 10 0v2h.5A2.5 2.5 0 0 1 20 12.5v6a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-6A2.5 2.5 0 0 1 6.5 10H7Zm2 0h6V8a3 3 0 0 0-6 0v2Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="10" width="16" height="11" rx="2.5" />
+      <path d="M8 10V8a4 4 0 0 1 8 0v2" />
+    </svg>
+  );
+}

@@ -14,6 +14,7 @@ import {
   SettingsIcon,
   TasksIcon,
   TransactionsIcon,
+  VaultIcon,
 } from "@/components/nav-icons";
 
 // `modules` ties an item to Household-switchable Modules (shown if any is on); items without one are always shown.
@@ -22,6 +23,7 @@ const ALL_NAV_ITEMS: { href: string; label: string; Icon: typeof DashboardIcon; 
   { href: "/finance", label: "Finance", Icon: TransactionsIcon, modules: ["finance"] },
   { href: "/tasks", label: "Tasks", Icon: TasksIcon, modules: ["tasks"] },
   { href: "/lists", label: "Lists", Icon: ListIcon, modules: ["shopping", "wishlist"] },
+  { href: "/vault", label: "Vault", Icon: VaultIcon, modules: ["vault"] },
 ];
 
 function greeting() {
@@ -113,7 +115,7 @@ export function AppShell({
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center gap-1 px-2.5 py-1.5 ${
+                className={`flex flex-col items-center gap-1 px-1.5 py-1.5 sm:px-2.5 ${
                   active ? "text-accent" : "text-text-faint"
                 }`}
               >

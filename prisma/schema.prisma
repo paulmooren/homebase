@@ -63,6 +63,7 @@ model User {
   addedShoppingItems  ShoppingItem[]     @relation("ShoppingItemAddedBy")
   ownedWishes         Wish[]             @relation("WishOwner")
   claimedWishes       Wish[]             @relation("WishClaimer")
+  ownedVaultEntries   VaultEntry[]       @relation("VaultEntryOwner")
 
   @@map("users")
 }
@@ -90,6 +91,7 @@ model Household {
   tasks             Task[]
   shoppingLists     ShoppingList[]
   wishes            Wish[]
+  vaultEntries      VaultEntry[]
 
   @@map("households")
 }
@@ -380,4 +382,29 @@ model Wish {
 
   @@index([householdId, ownerId])
   @@map("wishes")
+}
+
+// Titles, categories, labels and expiry dates are readable; the values inside
+// `fields` ([{ label, value }]) and `noteEnc` are encrypted with the server's
+// VAULT_KEY before they reach the database (see src/server/vault-crypto.ts and
+// docs/adr/0001). ownerId null = Shared; Personal entries can be hidden from
+// the household via visibleToHousehold. Deleted with their owner.
+model VaultEntry {
+  id                 String    @id @default(cuid())
+  householdId        String
+  ownerId            String?
+  visibleToHousehold Boolean   @default(true)
+  title              String
+  category           String
+  expiresOn          DateTime? @db.Date
+  fields             Json
+  noteEnc            String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User?     @relation("VaultEntryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("vault_entries")
 }

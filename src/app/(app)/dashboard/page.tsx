@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const finance = isEnabled("finance");
   const tasks = isEnabled("tasks");
   const shopping = isEnabled("shopping");
+  const vault = isEnabled("vault");
 
   // Decided once, from the account count at first load — a mid-wizard mutation
   // (e.g. creating the first account in step 1) must not yank the wizard away
@@ -37,7 +38,7 @@ export default function DashboardPage() {
     return <OnboardingWizard onComplete={() => setShowWizard(false)} />;
   }
 
-  if (!finance && !tasks && !shopping) {
+  if (!finance && !tasks && !shopping && !vault) {
     return (
       <p className="py-10 text-center text-[13.5px] text-text-muted">
         Nothing to show here.{" "}
@@ -53,7 +54,7 @@ export default function DashboardPage() {
     <>
       {finance && <MissingStatementsCard />}
       {shopping && <ShoppingCard />}
-      {tasks && <TasksSnapshot />}
+      {(tasks || vault) && <TasksSnapshot showTasks={tasks} showVault={vault} />}
       {finance && <NetWorthSnapshot />}
     </>
   );

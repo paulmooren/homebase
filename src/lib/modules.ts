@@ -23,6 +23,11 @@ export const MODULES = [
     label: "Wishlist",
     description: "Everyone's wishes, with secret Claims so gifts stay a surprise.",
   },
+  {
+    key: "vault",
+    label: "Vault",
+    description: "Important numbers and notes — passports, policies, accounts — kept encrypted.",
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];
