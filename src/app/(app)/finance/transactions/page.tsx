@@ -57,6 +57,15 @@ function TransactionsPageInner() {
     (a) => a.ownerId === null || a.ownerId === currentUserId,
   );
 
+  // "Remove all" only ever touches transactions on accounts you can edit — for
+  // a filtered account that's its own transactions (not incoming transfers).
+  const filteredAccount = accounts?.find((a) => a.id === accountFilter);
+  const removableCount = (transactions ?? []).filter((t) =>
+    accountFilter
+      ? t.accountId === accountFilter && (t.account.ownerId === null || t.account.ownerId === currentUserId)
+      : t.account.ownerId === null || t.account.ownerId === currentUserId,
+  ).length;
+
   const [mode, setMode] = useState<"none" | "manual" | "import">(
     importAccountId ? "import" : "none",
   );
@@ -109,17 +118,18 @@ function TransactionsPageInner() {
             >
               {mode === "import" ? "Cancel" : "Import CSV"}
             </button>
-            {transactions && transactions.length > 0 && !accountFilter && (
+            {removableCount > 0 && (
               <>
                 <span className="text-text-faint">·</span>
                 <button
                   onClick={() => {
+                    const scope = filteredAccount ? `on ${filteredAccount.name}` : "on your accounts";
                     if (
                       confirm(
-                        `Delete all ${transactions.length} transactions? This cannot be undone and will reset the affected account balances.`,
+                        `Delete all transactions ${scope}? This cannot be undone and will reset the affected account balances.`,
                       )
                     ) {
-                      removeAllTransactions.mutate();
+                      removeAllTransactions.mutate(accountFilter ? { accountId: accountFilter } : undefined);
                     }
                   }}
                   disabled={removeAllTransactions.isPending}

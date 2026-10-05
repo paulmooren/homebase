@@ -151,22 +151,40 @@ export const transactionRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  removeAll: householdProcedure.mutation(async ({ ctx }) => {
-    const transactions = await ctx.prisma.transaction.findMany({
-      where: {
-        householdId: ctx.householdId,
-        account: { OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
-      },
-      select: { id: true },
-    });
-    if (transactions.length === 0) return { deleted: 0 };
+  // With no accountId, clears every transaction on the caller's own and shared
+  // accounts; with one, only that account's (which must be editable).
+  removeAll: householdProcedure
+    .input(z.object({ accountId: z.string().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const transactions = await ctx.prisma.transaction.findMany({
+        where: {
+          householdId: ctx.householdId,
+          account: {
+            OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+            ...(input?.accountId ? { id: input.accountId } : {}),
+          },
+        },
+        select: { id: true },
+      });
+      if (input?.accountId) {
+        const editable = await ctx.prisma.financialAccount.findFirst({
+          where: {
+            id: input.accountId,
+            householdId: ctx.householdId,
+            OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+          },
+          select: { id: true },
+        });
+        if (!editable) throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      if (transactions.length === 0) return { deleted: 0 };
 
-    await ctx.prisma.transaction.deleteMany({
-      where: { id: { in: transactions.map((t) => t.id) } },
-    });
-    await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);
-    return { deleted: transactions.length };
-  }),
+      await ctx.prisma.transaction.deleteMany({
+        where: { id: { in: transactions.map((t) => t.id) } },
+      });
+      await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);
+      return { deleted: transactions.length };
+    }),
 
   importCsv: householdProcedure
     .input(
