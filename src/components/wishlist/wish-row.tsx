@@ -5,6 +5,7 @@ import { useState } from "react";
 import { formatEUR } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
 import { InlineEdit } from "@/components/inline-edit";
+import { parseMoney } from "@/lib/money";
 import { InlineWishRow, type WishFormValues } from "@/components/wishlist/wish-form";
 
 export type WishData = {
@@ -99,10 +100,9 @@ export function WishRow({
           allowEmpty
           maxLength={14}
           onCommit={(text) => {
-            // Accepts what was on screen ("€12.50") or a plain number ("12,5").
-            const cleaned = text.replace(/[^\d.,]/g, "");
-            const parsed = cleaned === "" ? null : Number(cleaned.replace(",", "."));
-            if (parsed !== null && !(Number.isFinite(parsed) && parsed >= 0)) return;
+            // Accepts what was on screen ("€1,250.50") or a plain number ("12,5"); empty clears it.
+            const parsed = text.trim() === "" ? null : parseMoney(text);
+            if (text.trim() !== "" && (parsed === null || parsed < 0)) return;
             onUpdate({ title: wish.title, url: wish.url, price: parsed, note: wish.note });
           }}
           className={`text-right tabular-nums ${wish.price !== null ? "text-[14px] font-semibold" : "text-[12.5px]"}`}

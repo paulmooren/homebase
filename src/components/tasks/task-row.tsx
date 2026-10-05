@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+
+import { InlineEdit } from "@/components/inline-edit";
 
 import { formatDate } from "@/lib/format";
 import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/constants";
@@ -152,52 +154,15 @@ function TitleCell({
   isDone: boolean;
   onCommit: (title: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(title);
-  const cancelledRef = useRef(false);
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") {
-            cancelledRef.current = true;
-            e.currentTarget.blur();
-          }
-        }}
-        onBlur={() => {
-          setEditing(false);
-          if (cancelledRef.current) {
-            cancelledRef.current = false;
-            return;
-          }
-          const trimmed = draft.trim();
-          if (trimmed && trimmed !== title) onCommit(trimmed);
-        }}
-        className={`w-full rounded-md border border-accent bg-surface px-1.5 -mx-1.5 py-0.5 -my-0.5 ${CELL_TEXT} font-medium text-text outline-none`}
-      />
-    );
-  }
-
   return (
-    <button
-      type="button"
-      onClick={() => {
-        setDraft(title);
-        cancelledRef.current = false;
-        setEditing(true);
-      }}
-      className={`block w-full cursor-pointer truncate text-left ${CELL_TEXT} font-medium ${
-        isDone ? "text-text-faint line-through" : ""
-      }`}
-    >
-      {title}
-    </button>
+    <InlineEdit
+      value={title}
+      ariaLabel="Title"
+      onCommit={onCommit}
+      display={<span className={isDone ? "line-through" : ""}>{title}</span>}
+      className={`${CELL_TEXT} font-medium ${isDone ? "text-text-faint" : ""}`}
+      buttonClassName="block w-full cursor-pointer truncate text-left"
+    />
   );
 }
 
@@ -211,6 +176,8 @@ function DateCell({
   onCommit: (date: Date | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // The field takes over exactly the width of the text it replaces, so nothing around it moves.
+  const [width, setWidth] = useState<number | undefined>(undefined);
   const isoValue = value ? new Date(value).toISOString().slice(0, 10) : "";
 
   if (editing) {
@@ -225,6 +192,8 @@ function DateCell({
         // single digit already completed the year. Reading the value once,
         // on blur, sidesteps the conflict entirely.
         defaultValue={isoValue}
+        aria-label="Due date"
+        style={{ width }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
@@ -237,7 +206,9 @@ function DateCell({
           const next = e.target.value;
           if (next !== isoValue) onCommit(next ? new Date(next) : null);
         }}
-        className="w-[130px] rounded-md border border-accent bg-surface px-1.5 py-0.5 text-[12px] text-text outline-none"
+        className={`m-0 min-w-0 border-0 bg-transparent p-0 text-[12px] outline-none [&::-webkit-calendar-picker-indicator]:hidden ${
+          isCritical && value ? "font-medium text-critical" : "text-text-muted"
+        }`}
       />
     );
   }
@@ -245,7 +216,11 @@ function DateCell({
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      onClick={(e) => {
+        setWidth(e.currentTarget.getBoundingClientRect().width);
+        setEditing(true);
+      }}
+      aria-label={`Due date: ${value ? formatDate(value) : "none"}, click to change`}
       className={`cursor-pointer whitespace-nowrap text-left ${
         isCritical && value ? "font-medium text-critical" : "text-text-muted"
       }`}

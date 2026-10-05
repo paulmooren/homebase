@@ -42,7 +42,7 @@ export function InlineEdit({
   if (draft !== null) {
     return (
       // The hidden copy of the text sizes the box, so the field is exactly as wide as what's shown.
-      <span className="inline-grid max-w-full min-w-0">
+      <span className="grid w-fit max-w-full min-w-0">
         <span
           aria-hidden
           className={`invisible col-start-1 row-start-1 overflow-hidden whitespace-pre ${className}`}

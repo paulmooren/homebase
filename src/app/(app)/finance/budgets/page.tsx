@@ -9,6 +9,8 @@ import { monthlyEquivalent } from "@/lib/recurring";
 import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon } from "@/components/action-icons";
 import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
+import { InlineEdit } from "@/components/inline-edit";
+import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 
 const FREQUENCIES = Object.keys(RECURRING_FREQUENCY_LABELS) as RecurringFrequency[];
@@ -362,7 +364,7 @@ function RecurringColumn({
   accounts: AccountOption[];
   accountFilter: string;
   onAdd: (values: FormValues) => void;
-  onUpdate: (id: string, values: FormValues) => void;
+  onUpdate: (id: string, values: Partial<FormValues>) => void;
   onDelete: (id: string) => void;
   onToggleVisibility: (id: string, visible: boolean) => void;
 }) {
@@ -480,7 +482,7 @@ function RecurringRow({
   members: Member[];
   currentUserId: string;
   accounts: AccountOption[];
-  onUpdate: (values: FormValues) => void;
+  onUpdate: (values: Partial<FormValues>) => void;
   onDelete: () => void;
   onToggleVisibility: (visible: boolean) => void;
 }) {
@@ -513,14 +515,40 @@ function RecurringRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[13.5px] font-medium">
-          {item.name}
+          {canEdit ? (
+            <InlineEdit
+              value={item.name}
+              ariaLabel="Name"
+              onCommit={(name) => onUpdate({ name })}
+              className="text-[13.5px] font-medium"
+            />
+          ) : (
+            item.name
+          )}
         </div>
         <div className="mt-1 text-[12px] text-text-muted">
           {RECURRING_FREQUENCY_LABELS[item.frequency]}
           {item.nextDueDate && <> · next {formatDate(item.nextDueDate)}</>}
         </div>
       </div>
-      <div className="text-[14px] font-semibold tabular-nums">{formatEUR(item.amount)}</div>
+      {canEdit ? (
+        <InlineEdit
+          value={String(item.amount)}
+          editValue={formatEUR(item.amount)}
+          display={formatEUR(item.amount)}
+          ariaLabel="Amount"
+          maxLength={14}
+          onCommit={(text) => {
+            // Accepts what was on screen ("€1,250.00") or a plain number ("1250,50").
+            const parsed = parseMoney(text);
+            if (parsed !== null && parsed > 0) onUpdate({ amount: parsed });
+          }}
+          className="text-right text-[14px] font-semibold tabular-nums"
+          buttonClassName="block"
+        />
+      ) : (
+        <div className="text-[14px] font-semibold tabular-nums">{formatEUR(item.amount)}</div>
+      )}
       {item.ownerId !== null &&
         (isOwn ? (
           <VisibilityToggle visible={item.visibleToHousehold} onChange={onToggleVisibility} />
