@@ -1,9 +1,45 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
 import { suggestCategoryId } from "@/lib/categorize";
+
+type Ctx = { householdId: string; userId: string; prisma: PrismaClient };
+
+/** Transactions on accounts you can edit: your own and Shared. */
+const editableTransactions = (ctx: Ctx) => ({
+  householdId: ctx.householdId,
+  account: { OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
+});
+
+/**
+ * Ids of the other uncategorized transactions with the same merchant text on
+ * accounts you can edit. "Same" ignores case, surrounding spaces and repeated
+ * spaces — bank exports are inconsistent about those.
+ */
+async function sameMerchantIds(
+  ctx: Ctx,
+  excludeId: string,
+  merchant: string,
+): Promise<string[]> {
+  const accounts = await ctx.prisma.financialAccount.findMany({
+    where: { householdId: ctx.householdId, OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
+    select: { id: true },
+  });
+  if (accounts.length === 0) return [];
+  const rows = await ctx.prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM transactions
+    WHERE "householdId" = ${ctx.householdId}
+      AND "accountId" IN (${Prisma.join(accounts.map((a) => a.id))})
+      AND id <> ${excludeId}
+      AND "categoryId" IS NULL
+      AND type <> 'TRANSFER'
+      AND lower(regexp_replace(btrim(merchant), '[[:space:]]+', ' ', 'g')) = lower(regexp_replace(btrim(${merchant}), '[[:space:]]+', ' ', 'g'))
+  `;
+  return rows.map((r) => r.id);
+}
 
 export const transactionRouter = createTRPCRouter({
   list: householdProcedure
@@ -131,6 +167,47 @@ export const transactionRouter = createTRPCRouter({
         where: { id: input.id },
         data: { categoryId: input.categoryId },
       });
+    }),
+
+  /**
+   * How many other transactions have exactly this merchant text (ignoring case
+   * and surrounding spaces) but no category yet — candidates for "apply the
+   * same category to those too". Only counts transactions you can edit.
+   */
+  sameMerchant: householdProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const source = await ctx.prisma.transaction.findFirst({
+        where: { id: input.id, ...editableTransactions(ctx) },
+        select: { merchant: true },
+      });
+      if (!source) throw new TRPCError({ code: "NOT_FOUND" });
+      const merchant = source.merchant.trim();
+      const ids = await sameMerchantIds(ctx, input.id, merchant);
+      return { merchant, count: ids.length };
+    }),
+
+  /** Gives the same category to the other uncategorized transactions with this merchant text. */
+  applyCategoryToSame: householdProcedure
+    .input(z.object({ id: z.string(), categoryId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [source, category] = await Promise.all([
+        ctx.prisma.transaction.findFirst({
+          where: { id: input.id, ...editableTransactions(ctx) },
+          select: { merchant: true },
+        }),
+        ctx.prisma.category.findFirst({
+          where: { id: input.categoryId, householdId: ctx.householdId },
+          select: { id: true },
+        }),
+      ]);
+      if (!source || !category) throw new TRPCError({ code: "NOT_FOUND" });
+      const ids = await sameMerchantIds(ctx, input.id, source.merchant.trim());
+      const result = await ctx.prisma.transaction.updateMany({
+        where: { id: { in: ids } },
+        data: { categoryId: category.id },
+      });
+      return { updated: result.count };
     }),
 
   delete: householdProcedure

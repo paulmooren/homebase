@@ -11,6 +11,7 @@ import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { CategoryCell } from "@/components/finance/category-cell";
+import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
@@ -87,9 +88,7 @@ function TransactionsPageInner() {
       utils.budget.list.invalidate();
     },
   });
-  const updateTransaction = trpc.transaction.update.useMutation({
-    onSuccess: () => utils.transaction.list.invalidate(),
-  });
+  const { assign: assignCategory, toast: categoryToast } = useCategoryAssign(categories ?? []);
   const removeAllTransactions = trpc.transaction.removeAll.useMutation({
     onSuccess: () => {
       utils.transaction.list.invalidate();
@@ -101,6 +100,7 @@ function TransactionsPageInner() {
 
   return (
     <div className="flex flex-col gap-5">
+      {categoryToast}
       <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface px-6 pt-6">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold">Transactions</h2>
@@ -252,7 +252,7 @@ function TransactionsPageInner() {
                       <CategoryCell
                         categoryId={t.categoryId}
                         categories={categories ?? []}
-                        onChange={(categoryId) => updateTransaction.mutate({ id: t.id, categoryId })}
+                        onChange={(categoryId) => assignCategory(t.id, categoryId)}
                       />
                     ) : (
                       <span className={`truncate ${CELL_TEXT} text-text-muted`}>

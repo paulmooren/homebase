@@ -10,6 +10,7 @@ import { ACCOUNT_TYPE_LABELS, TRANSFER_COLOR, type AccountType } from "@/lib/con
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { BalanceChart, type BalancePoint, type Granularity } from "@/components/balance-chart";
 import { CategoryCell } from "@/components/finance/category-cell";
+import { useCategoryAssign } from "@/components/finance/use-category-assign";
 
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
@@ -37,9 +38,7 @@ export default function AccountDetailPage() {
     [history],
   );
 
-  const updateTransaction = trpc.transaction.update.useMutation({
-    onSuccess: () => utils.transaction.list.invalidate(),
-  });
+  const { assign: assignCategory, toast: categoryToast } = useCategoryAssign(categories ?? []);
   const deleteTransaction = trpc.transaction.delete.useMutation({
     onSuccess: () => {
       utils.transaction.list.invalidate();
@@ -66,6 +65,7 @@ export default function AccountDetailPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {categoryToast}
       <Link href="/finance/accounts" className="text-[12.5px] font-medium text-text-muted hover:text-text">
         ← Accounts
       </Link>
@@ -144,7 +144,7 @@ export default function AccountDetailPage() {
                       <CategoryCell
                         categoryId={t.categoryId}
                         categories={categories ?? []}
-                        onChange={(categoryId) => updateTransaction.mutate({ id: t.id, categoryId })}
+                        onChange={(categoryId) => assignCategory(t.id, categoryId)}
                       />
                     ) : (
                       <span className={`truncate text-text-muted ${CELL_TEXT}`}>
