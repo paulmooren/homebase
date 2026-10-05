@@ -10,6 +10,7 @@ import type { ModuleKey } from "@/lib/modules";
 
 import {
   DashboardIcon,
+  ListIcon,
   SettingsIcon,
   TasksIcon,
   TransactionsIcon,
@@ -20,6 +21,7 @@ const ALL_NAV_ITEMS: { href: string; label: string; Icon: typeof DashboardIcon; 
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
   { href: "/finance", label: "Finance", Icon: TransactionsIcon, module: "finance" },
   { href: "/tasks", label: "Tasks", Icon: TasksIcon, module: "tasks" },
+  { href: "/lists", label: "Lists", Icon: ListIcon, module: "shopping" },
 ];
 
 function greeting() {

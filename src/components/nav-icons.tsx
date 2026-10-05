@@ -132,3 +132,33 @@ export function SettingsIcon({ active }: IconProps) {
     </svg>
   );
 }
+
+export function ListIcon({ active }: IconProps) {
+  if (active) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <circle cx="5" cy="6" r="1.8" />
+        <circle cx="5" cy="12" r="1.8" />
+        <circle cx="5" cy="18" r="1.8" />
+        <rect x="9" y="4.6" width="12" height="2.8" rx="1.4" />
+        <rect x="9" y="10.6" width="12" height="2.8" rx="1.4" />
+        <rect x="9" y="16.6" width="12" height="2.8" rx="1.4" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 6h12M9 12h12M9 18h12" />
+      <circle cx="4.5" cy="6" r="0.8" fill="currentColor" />
+      <circle cx="4.5" cy="12" r="0.8" fill="currentColor" />
+      <circle cx="4.5" cy="18" r="0.8" fill="currentColor" />
+    </svg>
+  );
+}

@@ -13,6 +13,11 @@ export const MODULES = [
     label: "Tasks",
     description: "Things to do, and reminders that come back on a schedule.",
   },
+  {
+    key: "shopping",
+    label: "Shopping list",
+    description: "Shared and private lists of things to buy.",
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];

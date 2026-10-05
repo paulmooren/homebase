@@ -6,6 +6,7 @@ import { trpc } from "@/trpc/react";
 import Link from "next/link";
 import { useModules } from "@/components/use-modules";
 import { MissingStatementsCard } from "@/components/dashboard/missing-statements-card";
+import { ShoppingCard } from "@/components/dashboard/shopping-card";
 import { TasksSnapshot } from "@/components/dashboard/tasks-snapshot";
 import { NetWorthSnapshot } from "@/components/dashboard/net-worth-snapshot";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
@@ -15,6 +16,7 @@ export default function DashboardPage() {
   const { ready, isEnabled } = useModules();
   const finance = isEnabled("finance");
   const tasks = isEnabled("tasks");
+  const shopping = isEnabled("shopping");
 
   // Decided once, from the account count at first load — a mid-wizard mutation
   // (e.g. creating the first account in step 1) must not yank the wizard away
@@ -35,7 +37,7 @@ export default function DashboardPage() {
     return <OnboardingWizard onComplete={() => setShowWizard(false)} />;
   }
 
-  if (!finance && !tasks) {
+  if (!finance && !tasks && !shopping) {
     return (
       <p className="py-10 text-center text-[13.5px] text-text-muted">
         Everything is switched off.{" "}
@@ -50,6 +52,7 @@ export default function DashboardPage() {
   return (
     <>
       {finance && <MissingStatementsCard />}
+      {shopping && <ShoppingCard />}
       {tasks && <TasksSnapshot />}
       {finance && <NetWorthSnapshot />}
     </>

@@ -59,6 +59,8 @@ model User {
   ownedRecurringItems RecurringItem[]    @relation("RecurringItemOwner")
   ownedBudgets        Budget[]           @relation("BudgetOwner")
   ownedTasks          Task[]             @relation("TaskOwner")
+  ownedShoppingLists  ShoppingList[]     @relation("ShoppingListOwner")
+  addedShoppingItems  ShoppingItem[]     @relation("ShoppingItemAddedBy")
 
   @@map("users")
 }
@@ -84,6 +86,7 @@ model Household {
   recurringItems    RecurringItem[]
   netWorthSnapshots NetWorthSnapshot[]
   tasks             Task[]
+  shoppingLists     ShoppingList[]
 
   @@map("households")
 }
@@ -312,4 +315,41 @@ model Task {
 
   @@index([householdId])
   @@map("tasks")
+}
+
+// Shared (ownerId null): every member sees and edits it. Private: only the
+// owner. Deleting a member deletes their private lists with them.
+model ShoppingList {
+  id          String   @id @default(cuid())
+  householdId String
+  ownerId     String?
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User?          @relation("ShoppingListOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  items     ShoppingItem[]
+
+  @@index([householdId])
+  @@map("shopping_lists")
+}
+
+model ShoppingItem {
+  id        String    @id @default(cuid())
+  listId    String
+  name      String
+  note      String?
+  // Ticked: shown under "In basket". Cleared: hidden from the list but kept
+  // so past items can be suggested again.
+  checkedAt DateTime?
+  clearedAt DateTime?
+  addedById String?
+  createdAt DateTime  @default(now())
+
+  list    ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  addedBy User?        @relation("ShoppingItemAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@index([listId])
+  @@map("shopping_items")
 }
