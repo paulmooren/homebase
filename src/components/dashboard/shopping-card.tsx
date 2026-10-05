@@ -4,11 +4,9 @@ import Link from "next/link";
 
 import { trpc } from "@/trpc/react";
 import { AddItemRow } from "@/components/shopping/add-item-row";
-import { FavoritesStrip } from "@/components/shopping/favorites-strip";
 import { ShoppingItemRow } from "@/components/shopping/item-row";
 import {
   useShoppingActions,
-  useShoppingFavorites,
   useShoppingItems,
 } from "@/components/shopping/use-shopping";
 
@@ -20,7 +18,6 @@ export function ShoppingCard() {
   const { data: me } = trpc.user.me.useQuery();
   const main = lists?.find((l) => l.ownerId === null) ?? lists?.[0];
   const { data: items } = useShoppingItems(main?.id);
-  const { data: favorites } = useShoppingFavorites(main?.id);
   const actions = useShoppingActions(main?.id);
 
   if (!main || !me) return null;
@@ -36,13 +33,6 @@ export function ShoppingCard() {
           Open list
         </Link>
       </div>
-      <FavoritesStrip
-        compact
-        favorites={favorites ?? []}
-        items={items ?? []}
-        onAdd={(fav) => actions.addItem.mutate({ listId: main.id, name: fav.name, quantity: fav.quantity })}
-        onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
-      />
       <div className="border-t border-border-soft">
         {shown.map((item) => (
           <ShoppingItemRow

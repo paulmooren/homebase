@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { CheckIcon, PencilIcon, TrashIcon } from "@/components/action-icons";
+import { QuantityStepper } from "@/components/shopping/quantity-stepper";
 
 export type ShoppingItemData = {
   id: string;
@@ -35,6 +36,7 @@ export function ShoppingItemRow({
   onToggleFavorite?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const checked = !!item.checkedAt;
 
   if (editing) {
@@ -101,7 +103,7 @@ export function ShoppingItemRow({
   const addedByOther = item.addedBy && item.addedBy.id !== currentUserId;
 
   return (
-    <div className="flex items-center gap-3.5 border-b border-border-soft px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
+    <div className="flex items-center gap-2.5 border-b border-border-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-surface-hover">
       <button
         type="button"
         onClick={() => onToggle(!checked)}
@@ -119,9 +121,38 @@ export function ShoppingItemRow({
       </button>
 
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-[15px] ${checked ? "text-text-faint line-through" : "font-medium"}`}>
-          {item.name}
-        </div>
+        {renaming ? (
+          <input
+            defaultValue={item.name}
+            autoFocus
+            maxLength={120}
+            aria-label="Item name"
+            className="w-full rounded-md bg-surface-2 px-1.5 py-0.5 text-[15px] font-medium outline-none"
+            onBlur={(e) => {
+              setRenaming(false);
+              const name = e.target.value.trim();
+              if (name && name !== item.name) onUpdate({ name, quantity: item.quantity, note: item.note });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                e.currentTarget.value = item.name;
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setRenaming(true)}
+            aria-label={`Rename ${item.name}`}
+            className={`block max-w-full truncate text-left text-[15px] ${
+              checked ? "text-text-faint line-through" : "font-medium"
+            }`}
+          >
+            {item.name}
+          </button>
+        )}
         {(item.note || (showAddedBy && addedByOther)) && (
           <div className="truncate text-[12px] text-text-muted">
             {[item.note, showAddedBy && addedByOther ? `Added by ${item.addedBy!.name || item.addedBy!.email}` : null]
@@ -131,11 +162,11 @@ export function ShoppingItemRow({
         )}
       </div>
 
-      {item.quantity && (
-        <span className={`shrink-0 text-[14px] tabular-nums ${checked ? "text-text-faint" : "text-text-muted"}`}>
-          {item.quantity}
-        </span>
-      )}
+      <QuantityStepper
+        value={item.quantity}
+        muted={checked}
+        onChange={(quantity) => onUpdate({ name: item.name, quantity, note: item.note })}
+      />
 
       {onToggleFavorite && (
         <button

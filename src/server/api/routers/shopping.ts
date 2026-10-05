@@ -234,6 +234,22 @@ export const shoppingRouter = createTRPCRouter({
       });
     }),
 
+  /** Change a favorite's default amount (null clears it). */
+  updateFavorite: householdProcedure
+    .input(z.object({ id: z.string(), quantity: z.string().trim().max(30).nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const favorite = await ctx.prisma.shoppingFavorite.findFirst({
+        where: { id: input.id, list: visibleLists(ctx) },
+        select: { id: true },
+      });
+      if (!favorite) throw new TRPCError({ code: "NOT_FOUND" });
+      return ctx.prisma.shoppingFavorite.update({
+        where: { id: input.id },
+        data: { quantity: input.quantity || null },
+        select: { id: true },
+      });
+    }),
+
   removeFavorite: householdProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {

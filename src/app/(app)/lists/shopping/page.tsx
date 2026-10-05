@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { ModuleGate } from "@/components/use-modules";
 import { AddItemRow } from "@/components/shopping/add-item-row";
-import { FavoritesStrip } from "@/components/shopping/favorites-strip";
+import { FavoritesPanel } from "@/components/shopping/favorites-panel";
 import { ShoppingItemRow } from "@/components/shopping/item-row";
 import {
   useShoppingActions,
@@ -29,6 +29,9 @@ function ShoppingLists() {
 
   const [choice, setChoice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Below lg there is no room for two columns: a switch flips between them, or a sheet slides over the list.
+  const [mobileView, setMobileView] = useState<"list" | "favorites">("list");
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const selected = lists?.find((l) => l.id === choice) ?? lists?.[0];
   const { data: items } = useShoppingItems(selected?.id);
@@ -50,6 +53,13 @@ function ShoppingLists() {
       refreshLists();
     },
   });
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSheetOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sheetOpen]);
 
   if (!lists || !me) return null;
 
@@ -81,6 +91,37 @@ function ShoppingLists() {
       />
     );
   };
+
+  const favoritesHeader = selected && (
+    <div className="flex items-baseline justify-between px-4 pt-5 pb-3 md:px-5">
+      <div>
+        <h2 className="text-[16px] font-semibold">Favorites</h2>
+        <p className="text-[12px] text-text-muted">What you buy often, for {selected.name}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setSheetOpen(false)}
+        className="text-[12.5px] font-medium text-text-muted hover:text-text lg:hidden"
+        hidden={!sheetOpen}
+      >
+        Close
+      </button>
+    </div>
+  );
+
+  const favoritesPanel = selected && (
+    <FavoritesPanel
+      favorites={favorites ?? []}
+      items={items ?? []}
+      onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name, quantity: fav.quantity })}
+      onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
+      onRemove={(id) => actions.removeFavorite.mutate({ id })}
+      onChangeQuantity={(id, quantity) => actions.updateFavorite.mutate({ id, quantity })}
+      onCreate={({ name, quantity }) =>
+        actions.addFavorite.mutate({ listId: selected.id, name, quantity })
+      }
+    />
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -128,7 +169,27 @@ function ShoppingLists() {
       )}
 
       {selected && (
-        <section className="rounded-[20px] border border-border-soft bg-surface">
+        <div className="flex rounded-xl border border-border-soft bg-surface p-1 text-[13px] font-medium lg:hidden" role="tablist">
+          {(["list", "favorites"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              role="tab"
+              aria-selected={mobileView === view}
+              onClick={() => setMobileView(view)}
+              className={`flex-1 rounded-lg px-4 py-2 transition-colors ${
+                mobileView === view ? "bg-text text-bg" : "text-text-muted hover:text-text"
+              }`}
+            >
+              {view === "list" ? "List" : `Favorites${favorites?.length ? ` · ${favorites.length}` : ""}`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <section className={`rounded-[20px] border border-border-soft bg-surface ${mobileView === "favorites" ? "hidden lg:block" : ""}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 pb-3 md:px-6">
             <div className="min-w-0">
               <h2 className="truncate text-[17px] font-semibold">{selected.name}</h2>
@@ -137,6 +198,13 @@ function ShoppingLists() {
               </p>
             </div>
             <div className="flex items-center gap-3 text-[12.5px] font-medium">
+              <button
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                className="rounded-full border border-border px-3 py-1 text-text hover:border-text lg:hidden"
+              >
+                ★ Favorites
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -160,14 +228,6 @@ function ShoppingLists() {
               </button>
             </div>
           </div>
-
-          <FavoritesStrip
-            favorites={favorites ?? []}
-            items={items ?? []}
-            onAdd={(fav) => actions.addItem.mutate({ listId: selected.id, name: fav.name, quantity: fav.quantity })}
-            onRestore={(id) => actions.setChecked.mutate({ id, checked: false })}
-            onRemove={(id) => actions.removeFavorite.mutate({ id })}
-          />
 
           <div className="border-t border-border-soft">
             {items && open.length === 0 && inBasket.length === 0 && (
@@ -203,6 +263,31 @@ function ShoppingLists() {
             )}
           </div>
         </section>
+
+        <section
+          className={`rounded-[20px] border border-border-soft bg-surface lg:sticky lg:top-6 ${
+            mobileView === "favorites" ? "" : "hidden lg:block"
+          }`}
+        >
+          {favoritesHeader}
+          {favoritesPanel}
+        </section>
+        </div>
+      )}
+
+      {selected && sheetOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Favorites">
+          <button
+            type="button"
+            aria-label="Close favorites"
+            onClick={() => setSheetOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-[20px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
+            {favoritesHeader}
+            {favoritesPanel}
+          </div>
+        </div>
       )}
     </div>
   );

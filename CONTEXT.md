@@ -59,6 +59,10 @@ _Avoid_: Grocery list (that is only the default list's name), basket, Personal l
 One thing to buy on a Shopping list: a name and an optional note. Ticking it moves it to "In basket" until the list is cleared.
 _Avoid_: Product, entry
 
+**Favorite**:
+A Shopping item remembered on one Shopping list, with an optional amount, so it can be added again in one tap. Favorites belong to a list, not to a Member.
+_Avoid_: Staple, frequent item, template
+
 ### Wishlist
 
 **Wishlist**:

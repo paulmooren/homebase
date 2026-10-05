@@ -26,13 +26,78 @@ export function useShoppingActions(listId: string | undefined) {
     utils.shopping.lists.invalidate();
   };
 
-  const addItem = trpc.shopping.addItem.useMutation({ onSuccess: refresh });
-  const updateItem = trpc.shopping.updateItem.useMutation({ onSuccess: refresh });
+  // Adding and editing show up at once; the refetch afterwards swaps in the real rows.
+  const addItem = trpc.shopping.addItem.useMutation({
+    onMutate: async (input) => {
+      if (!listId) return {};
+      await utils.shopping.items.cancel({ listId });
+      const previous = utils.shopping.items.getData({ listId });
+      utils.shopping.items.setData({ listId }, (old) => [
+        ...(old ?? []),
+        {
+          id: `pending-${Date.now()}`,
+          listId,
+          name: input.name,
+          note: input.note ?? null,
+          quantity: input.quantity ?? null,
+          checkedAt: null,
+          clearedAt: null,
+          addedById: null,
+          createdAt: new Date(),
+          addedBy: null,
+        },
+      ]);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (listId && context?.previous) utils.shopping.items.setData({ listId }, context.previous);
+    },
+    onSettled: refresh,
+  });
+  const updateItem = trpc.shopping.updateItem.useMutation({
+    onMutate: async (input) => {
+      if (!listId) return {};
+      await utils.shopping.items.cancel({ listId });
+      const previous = utils.shopping.items.getData({ listId });
+      utils.shopping.items.setData({ listId }, (old) =>
+        old?.map((item) =>
+          item.id === input.id
+            ? {
+                ...item,
+                ...(input.name !== undefined ? { name: input.name } : {}),
+                ...(input.quantity !== undefined ? { quantity: input.quantity || null } : {}),
+                ...(input.note !== undefined ? { note: input.note || null } : {}),
+              }
+            : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (listId && context?.previous) utils.shopping.items.setData({ listId }, context.previous);
+    },
+    onSettled: refresh,
+  });
   const deleteItem = trpc.shopping.deleteItem.useMutation({ onSuccess: refresh });
   const clearChecked = trpc.shopping.clearChecked.useMutation({ onSuccess: refresh });
   const refreshFavorites = () => utils.shopping.favorites.invalidate();
   const addFavorite = trpc.shopping.addFavorite.useMutation({ onSuccess: refreshFavorites });
   const removeFavorite = trpc.shopping.removeFavorite.useMutation({ onSuccess: refreshFavorites });
+  const updateFavorite = trpc.shopping.updateFavorite.useMutation({
+    onMutate: async ({ id, quantity }) => {
+      if (!listId) return {};
+      await utils.shopping.favorites.cancel({ listId });
+      const previous = utils.shopping.favorites.getData({ listId });
+      utils.shopping.favorites.setData({ listId }, (old) =>
+        old?.map((f) => (f.id === id ? { ...f, quantity: quantity || null } : f)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (listId && context?.previous) utils.shopping.favorites.setData({ listId }, context.previous);
+    },
+    onSettled: refreshFavorites,
+  });
   const setChecked = trpc.shopping.setChecked.useMutation({
     onMutate: async ({ id, checked }) => {
       if (!listId) return {};
@@ -49,5 +114,5 @@ export function useShoppingActions(listId: string | undefined) {
     onSettled: refresh,
   });
 
-  return { addItem, updateItem, deleteItem, clearChecked, setChecked, addFavorite, removeFavorite };
+  return { addItem, updateItem, deleteItem, clearChecked, setChecked, addFavorite, removeFavorite, updateFavorite };
 }
