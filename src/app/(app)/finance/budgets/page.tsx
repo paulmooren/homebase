@@ -62,7 +62,13 @@ export default function BudgetsPage() {
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
   // Selecting an account narrows everything below to what runs through it.
-  const [accountFilter, setAccountFilter] = useState("");
+  // Until a choice is made, your own (first) account is selected; clicking the
+  // selected card clears it ("") to show everything.
+  const [choice, setChoice] = useState<string | null>(null);
+  const defaultAccountId =
+    accounts?.find((a) => a.ownerId === currentUserId)?.id ?? accounts?.[0]?.id ?? "";
+  const accountFilter = choice ?? defaultAccountId;
+  const setAccountFilter = setChoice;
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,7 +126,6 @@ function AccountCards({
 
   return (
     <section>
-      <h2 className="mb-3 text-[15px] font-semibold">Income &amp; expenses by account</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.map((a) => {
           const { income, expenses } = monthlyTotals(items.filter((i) => i.accountId === a.id));
