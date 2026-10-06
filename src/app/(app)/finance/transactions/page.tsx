@@ -7,7 +7,7 @@ import Papa from "papaparse";
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
-import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
+import { parseAmount, parseFlexibleDate, detectColumns } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { CategoryCell } from "@/components/finance/category-cell";
@@ -567,20 +567,11 @@ function CsvImportForm({
         }
         setHeaders(fields);
         setRows(result.data);
-        setDateCol(guessColumn(fields, ["datum", "date", "buchungstag"]) ?? fields[0]);
-        setMerchantCol(
-          guessColumn(fields, ["beschreibung", "verwendungszweck", "buchungstext", "merchant", "description"]) ??
-            fields[1] ??
-            fields[0],
-        );
-        // Some banks (e.g. bunq) leave the description blank for internal
-        // transfers and only populate a separate payer/payee name column —
-        // used as a fallback so those rows don't get silently dropped for
-        // having an empty merchant.
-        setMerchantFallbackCol(
-          guessColumn(fields, ["name", "gegenpartei", "counterparty", "tegenpartij", "empfänger", "begünstigter", "payee"]) ?? "",
-        );
-        setAmountCol(guessColumn(fields, ["betrag", "amount", "wert"]) ?? fields[fields.length - 1]);
+        const cols = detectColumns(fields);
+        setDateCol(cols.dateCol);
+        setMerchantCol(cols.merchantCol);
+        setMerchantFallbackCol(cols.merchantFallbackCol);
+        setAmountCol(cols.amountCol);
       },
     });
   }

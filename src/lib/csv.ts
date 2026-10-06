@@ -64,3 +64,22 @@ export function guessColumn(headers: string[], keywords: string[]): string | nul
   }
   return null;
 }
+
+/**
+ * Which column of a bank export holds what, guessed from the header names.
+ * Some banks (e.g. bunq) leave the description blank for internal transfers
+ * and only fill a separate payer/payee name column — `merchantFallbackCol` is
+ * used for those rows so they aren't dropped for having an empty merchant.
+ */
+export function detectColumns(fields: string[]) {
+  return {
+    dateCol: guessColumn(fields, ["datum", "date", "buchungstag"]) ?? fields[0],
+    merchantCol:
+      guessColumn(fields, ["beschreibung", "verwendungszweck", "buchungstext", "merchant", "description"]) ??
+      fields[1] ??
+      fields[0],
+    merchantFallbackCol:
+      guessColumn(fields, ["name", "gegenpartei", "counterparty", "tegenpartij", "empfänger", "begünstigter", "payee"]) ?? "",
+    amountCol: guessColumn(fields, ["betrag", "amount", "wert"]) ?? fields[fields.length - 1],
+  };
+}
