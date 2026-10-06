@@ -68,46 +68,48 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
   return (
     <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
       {reminderActions.toast}
-      <div className="mb-1 flex items-baseline justify-between px-6 pt-6">
+      <div className="mb-3 flex items-baseline justify-between px-6 pt-6">
         <h2 className="text-[15px] font-semibold">{showTasks ? "Tasks" : "Coming up"}</h2>
         <Link href={showTasks ? "/tasks" : "/vault"} className="text-[12.5px] font-medium text-accent hover:opacity-80">
           View all
         </Link>
       </div>
 
-      {dueReminders.map((r) => (
-        <ReminderRow
-          key={r.id}
-          reminder={r}
-          members={members}
-          currentUserId={currentUserId}
-          today={today}
-          compact
-          onTick={() => reminderActions.tick(r)}
-          onUpdate={(patch) => reminderActions.update.mutate({ id: r.id, ...patch })}
-          onDelete={() => reminderActions.remove.mutate({ id: r.id })}
-        />
-      ))}
+      <div className="border-t border-border-soft">
+        {dueReminders.map((r) => (
+          <ReminderRow
+            key={r.id}
+            reminder={r}
+            members={members}
+            currentUserId={currentUserId}
+            today={today}
+            compact
+            onTick={() => reminderActions.tick(r)}
+            onUpdate={(patch) => reminderActions.update.mutate({ id: r.id, ...patch })}
+            onDelete={() => reminderActions.remove.mutate({ id: r.id })}
+          />
+        ))}
 
-      {vaultRows.map((e) => (
-        <VaultExpiryRow key={`vault-${e.id}`} title={e.title} date={e.date} />
-      ))}
+        {vaultRows.map((e) => (
+          <VaultExpiryRow key={`vault-${e.id}`} title={e.title} date={e.date} />
+        ))}
 
-      {checklist.map((task) => (
-        <ChecklistRow
-          key={task.id}
-          compact
-          task={task}
-          members={members}
-          currentUserId={currentUserId}
-          onToggle={() => {
-            if (!task.completedAt) setJustCompleted((prev) => new Set(prev).add(task.id));
-            toggleComplete.mutate({ id: task.id });
-          }}
-          onUpdate={(values) => updateTask.mutate({ id: task.id, ...values })}
-          onDelete={() => deleteTask.mutate({ id: task.id })}
-        />
-      ))}
+        {checklist.map((task) => (
+          <ChecklistRow
+            key={task.id}
+            compact
+            task={task}
+            members={members}
+            currentUserId={currentUserId}
+            onToggle={() => {
+              if (!task.completedAt) setJustCompleted((prev) => new Set(prev).add(task.id));
+              toggleComplete.mutate({ id: task.id });
+            }}
+            onUpdate={(values) => updateTask.mutate({ id: task.id, ...values })}
+            onDelete={() => deleteTask.mutate({ id: task.id })}
+          />
+        ))}
+      </div>
     </section>
   );
 }
