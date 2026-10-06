@@ -46,8 +46,23 @@ export function Modal({
             ✕
           </button>
         </div>
-        <div className="overflow-y-auto px-6 pt-3 pb-6">{children}</div>
+        <div className="overflow-y-auto px-6 pt-3">{children}</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The button row of a form inside a Modal. It stays pinned to the bottom of
+ * the dialog while the content above it scrolls, so "Save" or "Import" is
+ * always in reach.
+ */
+export function ModalFooter({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`sticky bottom-0 z-10 -mx-6 mt-6 flex items-center gap-3 border-t border-border-soft bg-surface px-6 py-4 ${className}`}
+    >
+      {children}
     </div>
   );
 }

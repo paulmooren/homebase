@@ -11,7 +11,7 @@ import { parseAmount, parseFlexibleDate, detectColumns, cleanMerchant } from "@/
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
-import { Modal } from "@/components/modal";
+import { Modal, ModalFooter } from "@/components/modal";
 import { Toast, toastPrimary } from "@/components/toast";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { CategoryCell } from "@/components/finance/category-cell";
@@ -515,7 +515,7 @@ function ManualTransactionForm({
       <Field label="Date">
         <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
       </Field>
-      <div className="col-span-full flex items-center gap-3">
+      <ModalFooter className="col-span-full">
         <button
           type="submit"
           disabled={pending}
@@ -530,7 +530,7 @@ function ManualTransactionForm({
         >
           Cancel
         </button>
-      </div>
+      </ModalFooter>
     </form>
   );
 }
@@ -715,9 +715,9 @@ function CsvImportForm({
             <ColumnSelect label="Amount column" headers={headers} value={amountCol} onChange={setAmountCol} />
           </div>
 
-          <div className="max-h-[320px] overflow-auto rounded-xl border border-border-soft">
+          <div className="overflow-x-auto rounded-xl border border-border-soft">
             <table className="w-full text-left text-[12.5px]">
-              <thead className="sticky top-0 bg-surface-2 text-text-faint">
+              <thead className="bg-surface-2 text-text-faint">
                 <tr>
                   <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Description</th>
@@ -777,7 +777,7 @@ function CsvImportForm({
         </>
       )}
 
-      <div className="flex items-center gap-3">
+      <ModalFooter>
         <button
           onClick={handleImport}
           disabled={importCsv.isPending || headers.length === 0}
@@ -792,7 +792,7 @@ function CsvImportForm({
         >
           Cancel
         </button>
-      </div>
+      </ModalFooter>
     </div>
   );
 }

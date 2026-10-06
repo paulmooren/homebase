@@ -9,7 +9,7 @@ import { formatEUR } from "@/lib/format";
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { groupLabel, groupOrder, type Member } from "@/components/finance/ownership-groups";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
-import { Modal } from "@/components/modal";
+import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
@@ -354,7 +354,7 @@ function AccountForm({
           transaction history.
         </p>
       </div>
-      <div className="col-span-full flex items-center gap-3">
+      <ModalFooter className="col-span-full">
         <button
           type="submit"
           disabled={pending}
@@ -369,7 +369,7 @@ function AccountForm({
         >
           Cancel
         </button>
-      </div>
+      </ModalFooter>
     </form>
   );
 }
