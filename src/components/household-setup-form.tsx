@@ -32,13 +32,13 @@ export function HouseholdSetupForm() {
   return (
     <div className="w-full max-w-md rounded-[20px] border border-border-soft bg-surface p-8">
       <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill">
-        <span className="pl-[2px] font-serif text-[21px] italic text-accent-ink">K</span>
+        <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">K</span>
       </div>
 
       <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
         Household setup
       </p>
-      <h1 className="mb-2 font-serif text-[26px]">Set up your household</h1>
+      <h1 className="mb-2 font-display font-bold tracking-tight text-[26px]">Set up your household</h1>
       <p className="mb-6 text-[13.5px] leading-relaxed text-text-muted">
         Every account belongs to a household — create a new one, or join one
         you&apos;ve been invited to.

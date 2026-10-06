@@ -33,6 +33,12 @@ function greeting() {
   return "Good evening";
 }
 
+/**
+ * The frame of the app: a light-grey shell (sidebar, bottom bar) around one
+ * white content panel, so the eye lands on the content, not the navigation.
+ * On desktop the panel floats inside the shell with rounded corners; on a
+ * phone it runs edge to edge and only the bottom bar stays grey.
+ */
 export function AppShell({
   userName,
   children,
@@ -45,29 +51,23 @@ export function AppShell({
   const { isEnabled } = useModules();
   const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.modules || item.modules.some(isEnabled));
 
-  const today = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const section = [...NAV_ITEMS, { href: "/settings", label: "Settings" }].find((item) =>
+    pathname.startsWith(item.href),
+  );
+  // The dashboard greets you; every other page is titled by its section.
+  const title = section?.href === "/dashboard" || !section ? `${greeting()}, ${userName}` : section.label;
 
-  const eyebrow =
-    [...NAV_ITEMS, { href: "/settings", label: "Settings" }].find((item) =>
-      pathname.startsWith(item.href),
-    )?.label ?? "Kontor";
+  const settingsActive = pathname.startsWith("/settings");
 
   return (
-    <div className="flex min-h-screen">
-      {/* Desktop sidebar */}
-      <nav className="fixed inset-y-0 left-0 z-20 hidden w-[240px] flex-col border-r border-border-soft bg-[rgba(255,255,255,0.75)] px-4 pt-6 pb-4 backdrop-blur-md md:flex">
-        <div className="mb-8 flex items-center gap-2.5 px-2">
+    <div className="flex min-h-screen bg-bg">
+      {/* Desktop sidebar — same grey as the shell, no panel of its own */}
+      <nav className="fixed inset-y-0 left-0 z-20 hidden w-[240px] flex-col px-5 pt-7 pb-5 md:flex">
+        <div className="mb-9 flex items-center gap-2.5 px-2">
           <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-accent-fill">
-            <span className="pl-[2px] font-serif text-[16px] italic text-accent-ink">
-              K
-            </span>
+            <span className="font-display text-[16px] font-bold text-accent-ink">K</span>
           </div>
-          <span className="font-serif text-[16px]">Kontor</span>
+          <span className="font-display text-[17px] font-bold tracking-tight">Kontor</span>
         </div>
 
         <div className="flex flex-col gap-0.5">
@@ -77,8 +77,8 @@ export function AppShell({
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                  active ? "text-text" : "text-text-muted hover:text-text"
+                className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors ${
+                  active ? "font-semibold text-text" : "font-medium text-text-muted hover:text-text"
                 }`}
               >
                 <span className="block h-[18px] w-[18px] shrink-0">
@@ -92,22 +92,26 @@ export function AppShell({
 
         <div className="flex-1" />
 
-        <div className="flex flex-col gap-0.5 px-3 pb-1 text-[13px]">
-          <Link
-            href="/settings"
-            className={`py-1.5 transition-colors ${
-              pathname.startsWith("/settings")
-                ? "font-medium text-text"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Settings
-          </Link>
-        </div>
+        <Link
+          href="/settings"
+          className={`mb-3 px-3 py-1.5 text-[13.5px] transition-colors ${
+            settingsActive ? "font-semibold text-text" : "font-medium text-text-muted hover:text-text"
+          }`}
+        >
+          Settings
+        </Link>
+        <Link
+          href="/settings"
+          aria-label="Your profile and settings"
+          className="flex items-center gap-2.5 rounded-xl border border-border-soft bg-surface px-3 py-2.5 transition-colors hover:border-border"
+        >
+          <Avatar name={userName} image={me?.image} size={26} />
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{userName}</span>
+        </Link>
       </nav>
 
-      {/* Mobile bottom bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-border-soft bg-[rgba(255,255,255,0.92)] px-1.5 py-2 backdrop-blur-md md:hidden [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
+      {/* Mobile bottom bar — the one grey strip left on a phone */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-border-soft bg-bg px-1.5 py-2 md:hidden [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
         {[...NAV_ITEMS, { href: "/settings", label: "More", Icon: SettingsIcon }].map(
           ({ href, label, Icon }) => {
             const active = pathname.startsWith(href);
@@ -116,7 +120,7 @@ export function AppShell({
                 key={href}
                 href={href}
                 className={`flex flex-col items-center gap-1 px-1.5 py-1.5 sm:px-2.5 ${
-                  active ? "text-accent" : "text-text-faint"
+                  active ? "text-text" : "text-text-faint"
                 }`}
               >
                 <span className="block h-5 w-5">
@@ -129,28 +133,12 @@ export function AppShell({
         )}
       </nav>
 
-      <main className="w-full min-w-0 px-4 pt-6 pb-24 md:ml-[240px] md:px-10 md:pt-8 md:pb-14">
-        <div className="mx-auto max-w-[1180px]">
-          <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
-                {eyebrow}
-              </p>
-              <h1 className="mb-1 font-serif text-[26px] md:text-[30px]">
-                {greeting()}, {userName}
-              </h1>
-              <p className="text-[13px] text-text-muted">{today}</p>
-            </div>
-            <Link
-              href="/settings"
-              aria-label="Settings"
-              className="rounded-full transition-opacity hover:opacity-80"
-            >
-              <Avatar name={userName} image={me?.image} size={36} className="border border-border" />
-            </Link>
+      <main className="w-full min-w-0 md:ml-[240px] md:py-3 md:pr-3">
+        <div className="min-h-screen bg-surface px-4 pt-7 pb-28 md:min-h-[calc(100vh-1.5rem)] md:rounded-[24px] md:px-10 md:pt-9 md:pb-14">
+          <div className="mx-auto max-w-[1180px]">
+            <h1 className="mb-7 font-display text-[26px] font-bold tracking-tight md:text-[32px]">{title}</h1>
+            {children}
           </div>
-
-          {children}
         </div>
       </main>
     </div>

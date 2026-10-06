@@ -30,13 +30,13 @@ export function NetWorthSnapshot() {
         <p className="mb-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
           Yours
         </p>
-        <p className="font-serif text-[26px] tabular-nums">{formatEUR(yours)}</p>
+        <p className="font-display font-bold tracking-tight text-[26px] tabular-nums">{formatEUR(yours)}</p>
       </div>
       <div>
         <p className="mb-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
           Household
         </p>
-        <p className="font-serif text-[26px] tabular-nums">{formatEUR(Number(summary.netWorth))}</p>
+        <p className="font-display font-bold tracking-tight text-[26px] tabular-nums">{formatEUR(Number(summary.netWorth))}</p>
       </div>
     </Link>
   );

@@ -222,7 +222,7 @@ function RecurringItems({
               Net recurring / month
             </p>
             <p
-              className={`font-serif text-[32px] tabular-nums ${
+              className={`font-display font-bold tracking-tight text-[32px] tabular-nums ${
                 monthlyIncome - monthlyExpenses < 0 ? "text-critical" : "text-good"
               }`}
             >
@@ -385,7 +385,7 @@ function RecurringColumn({
     <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
       <div className="px-6 pt-6 pb-4">
         <h2 className="mb-1 text-[15px] font-semibold">{title}</h2>
-        <p className={`font-serif text-[22px] tabular-nums ${totalClass}`}>
+        <p className={`font-display font-bold tracking-tight text-[22px] tabular-nums ${totalClass}`}>
           {formatEUR(total)} <span className="text-[13px] font-sans text-text-muted">/ month</span>
         </p>
       </div>

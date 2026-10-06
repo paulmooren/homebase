@@ -173,7 +173,7 @@ export function BalanceChart({
           <p className="mb-2.5 text-[11px] font-semibold tracking-[0.11em] text-text-muted uppercase">
             {label}
           </p>
-          <p className="font-serif text-[clamp(40px,6vw,60px)] leading-none tabular-nums">
+          <p className="font-display font-bold tracking-tight text-[clamp(40px,6vw,60px)] leading-none tabular-nums">
             {formatEUR(currentValue)}
           </p>
           <div className="mt-3 flex items-center gap-2 text-[13.5px] text-text-muted">

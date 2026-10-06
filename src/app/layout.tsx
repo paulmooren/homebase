@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, Instrument_Serif } from "next/font/google";
+import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 
 import { TRPCProvider } from "@/trpc/react";
@@ -11,11 +11,10 @@ const instrumentSans = Instrument_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
-const instrumentSerif = Instrument_Serif({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-instrument-serif",
-  weight: ["400"],
-  style: ["normal", "italic"],
+  variable: "--font-plus-jakarta",
+  weight: ["500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -35,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${instrumentSans.variable} ${instrumentSerif.variable}`}
+        className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}
       >
         <TRPCProvider>{children}</TRPCProvider>
         <Script id="register-sw" strategy="afterInteractive">

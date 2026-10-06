@@ -145,7 +145,7 @@ function ShoppingLists() {
               className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[13.5px] font-medium transition-colors ${
                 active
                   ? "border-text bg-text text-bg"
-                  : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+                  : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
               }`}
             >
               {list.name}
@@ -177,7 +177,7 @@ function ShoppingLists() {
       )}
 
       {selected && (
-        <div className="flex rounded-xl border border-border-soft bg-surface p-1 text-[13px] font-medium lg:hidden" role="tablist">
+        <div className="flex rounded-xl bg-surface-2 p-1 text-[13px] font-medium lg:hidden" role="tablist">
           {(["list", "favorites"] as const).map((view) => (
             <button
               key={view}
@@ -197,8 +197,8 @@ function ShoppingLists() {
 
       {selected && (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <section className={`rounded-[20px] border border-border-soft bg-surface ${mobileView === "favorites" ? "hidden lg:block" : ""}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 pb-3 md:px-6">
+        <section className={mobileView === "favorites" ? "hidden lg:block" : ""}>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 pb-4">
             <div className="min-w-0">
               <InlineEdit
                 key={selected.id}

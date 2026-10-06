@@ -20,7 +20,7 @@ export default async function SignInPage({
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-[380px] rounded-[20px] border border-border-soft bg-surface p-8">
         <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill">
-          <span className="pl-[2px] font-serif text-[21px] italic text-accent-ink">
+          <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">
             K
           </span>
         </div>
@@ -28,7 +28,7 @@ export default async function SignInPage({
         <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
           Sign in
         </p>
-        <h1 className="mb-6 font-serif text-[26px]">Welcome to Kontor</h1>
+        <h1 className="mb-6 font-display font-bold tracking-tight text-[26px]">Welcome to Kontor</h1>
 
         {errorMessage && (
           <p className="mb-4 rounded-lg border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">

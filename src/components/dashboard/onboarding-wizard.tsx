@@ -40,7 +40,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       {step === 1 && (
         <>
-          <h2 className="mb-2 font-serif text-[22px]">Your first account</h2>
+          <h2 className="mb-2 font-display font-bold tracking-tight text-[22px]">Your first account</h2>
           <p className="mb-5 text-[13.5px] text-text-muted">
             Checking, savings, credit card — what would you like to start with?
           </p>
@@ -101,7 +101,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       {step === 2 && accountId && (
         <>
-          <h2 className="mb-2 font-serif text-[22px]">Your first transaction</h2>
+          <h2 className="mb-2 font-display font-bold tracking-tight text-[22px]">Your first transaction</h2>
           <p className="mb-5 text-[13.5px] text-text-muted">
             Add an expense or income — or skip this step.
           </p>
@@ -184,7 +184,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
       {step === 4 && (
         <div className="py-4 text-center">
-          <p className="mb-1 font-serif text-[22px]">You&apos;re all set</p>
+          <p className="mb-1 font-display font-bold tracking-tight text-[22px]">You&apos;re all set</p>
           <p className="mb-5 text-[13.5px] text-text-muted">
             Your dashboard is ready.
           </p>

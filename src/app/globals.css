@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 :root {
+  /* Shell = the grey frame and sidebar; surface = the white content panel. */
   --bg: #f4f4f5;
   --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --surface-hover: #ececee;
-  --border: #e4e4e7;
+  /* Faint tint for fills on white: chips, quiet buttons, selected rows. */
+  --surface-2: #f5f5f6;
+  --surface-hover: #f7f7f8;
+  --border: #e0e0e3;
   --border-soft: #ececee;
   --text: #18181b;
   --text-muted: #71717a;
@@ -47,7 +49,7 @@
   --color-critical: var(--critical);
 
   --font-sans: var(--font-instrument-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: var(--font-instrument-serif), Georgia, serif;
+  --font-display: var(--font-plus-jakarta), var(--font-instrument-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html {
