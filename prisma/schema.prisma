@@ -66,6 +66,7 @@ model User {
   ownedVaultEntries   VaultEntry[]         @relation("VaultEntryOwner")
   ownedReminders      Reminder[]           @relation("ReminderOwner")
   completedReminders  ReminderCompletion[] @relation("ReminderCompletedBy")
+  pushSubscriptions   PushSubscription[]
 
   @@map("users")
 }
@@ -489,4 +490,30 @@ model ReminderCompletion {
 
   @@index([reminderId, completedAt])
   @@map("reminder_completions")
+}
+
+// One row per phone/browser that has switched notifications on. Removed
+// automatically when the push service says the registration has expired.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// One row per day the daily reminder notifications were sent, so a retried or
+// doubled scheduled run never notifies twice.
+model NotificationRun {
+  date      DateTime @id @db.Date
+  createdAt DateTime @default(now())
+
+  @@map("notification_runs")
 }

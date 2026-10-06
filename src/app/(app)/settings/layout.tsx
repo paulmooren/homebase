@@ -8,6 +8,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           { href: "/settings/profile", label: "Profile" },
           { href: "/settings/categories", label: "Categories" },
           { href: "/settings/household", label: "Household" },
+          { href: "/settings/notifications", label: "Notifications" },
           { href: "/settings/data", label: "Data" },
         ]}
       />
