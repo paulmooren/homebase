@@ -45,8 +45,16 @@ export const transactionRouter = createTRPCRouter({
   list: householdProcedure
     .input(
       z.object({
-        limit: z.number().min(1).max(200).default(50),
+        limit: z.number().min(1).max(1000).default(50),
         accountId: z.string().optional(),
+        /** Inclusive date range, "YYYY-MM-DD". */
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+        /** Category ids; "none" means no category (transfers excluded). */
+        categoryIds: z.array(z.string()).max(60).optional(),
+        /** Absolute amount bounds — income and expenses alike. */
+        minAmount: z.number().nonnegative().optional(),
+        maxAmount: z.number().nonnegative().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -68,22 +76,48 @@ export const transactionRouter = createTRPCRouter({
         if (!visible) throw new TRPCError({ code: "NOT_FOUND" });
       }
 
+      const filters: Prisma.TransactionWhereInput[] = [];
+      if (input.from || input.to) {
+        filters.push({ date: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } });
+      }
+      if (input.categoryIds?.length) {
+        const ids = input.categoryIds.filter((id) => id !== "none");
+        const uncategorized = input.categoryIds.includes("none");
+        filters.push({
+          OR: [
+            ...(ids.length ? [{ categoryId: { in: ids } }] : []),
+            ...(uncategorized ? [{ categoryId: null, type: { not: "TRANSFER" as const } }] : []),
+          ],
+        });
+      }
+      if (input.minAmount !== undefined || input.maxAmount !== undefined) {
+        filters.push({
+          amount: {
+            ...(input.minAmount !== undefined ? { gte: input.minAmount } : {}),
+            ...(input.maxAmount !== undefined ? { lte: input.maxAmount } : {}),
+          },
+        });
+      }
+
       return ctx.prisma.transaction.findMany({
         where: {
           householdId: ctx.householdId,
-          // Filtering to one account means either leg of a transfer counts —
-          // an incoming transfer is part of that account's own history too.
-          ...(input.accountId
-            ? { OR: [{ accountId: input.accountId }, { transferToAccountId: input.accountId }] }
-            : {
-                account: {
-                  OR: [
-                    { ownerId: null },
-                    { ownerId: ctx.userId },
-                    { ownerId: { not: null }, visibleToHousehold: true },
-                  ],
+          AND: [
+            // Filtering to one account means either leg of a transfer counts —
+            // an incoming transfer is part of that account's own history too.
+            input.accountId
+              ? { OR: [{ accountId: input.accountId }, { transferToAccountId: input.accountId }] }
+              : {
+                  account: {
+                    OR: [
+                      { ownerId: null },
+                      { ownerId: ctx.userId },
+                      { ownerId: { not: null }, visibleToHousehold: true },
+                    ],
+                  },
                 },
-              }),
+            ...filters,
+          ],
         },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         take: input.limit,

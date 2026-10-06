@@ -11,10 +11,18 @@ import { parseAmount, parseFlexibleDate, guessColumn } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { CategoryCell } from "@/components/finance/category-cell";
+import {
+  NO_FILTERS,
+  TransactionFilterBar,
+  hasFilters,
+  type TransactionFilters,
+} from "@/components/finance/transaction-filters";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
+
+const PAGE_SIZE = 200;
 
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
@@ -42,10 +50,22 @@ function TransactionsPageInner() {
   // Deep-linkable (?account=<id>) so the Budgets tab's account cards can open
   // straight into one account's transactions.
   const [accountFilter, setAccountFilter] = useState(searchParams.get("account") ?? "");
-  const { data: transactions } = trpc.transaction.list.useQuery({
-    limit: 200,
-    ...(accountFilter ? { accountId: accountFilter } : {}),
-  });
+  const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
+  const filtering = hasFilters(filters);
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const { data: transactions } = trpc.transaction.list.useQuery(
+    {
+      limit,
+      ...(accountFilter ? { accountId: accountFilter } : {}),
+      ...(filters.from ? { from: filters.from } : {}),
+      ...(filters.to ? { to: filters.to } : {}),
+      ...(filters.categoryIds.length ? { categoryIds: filters.categoryIds } : {}),
+      ...(filters.minAmount !== undefined ? { minAmount: filters.minAmount } : {}),
+      ...(filters.maxAmount !== undefined ? { maxAmount: filters.maxAmount } : {}),
+    },
+    // Keep the old rows on screen while a new filter loads, so the list doesn't flash empty.
+    { placeholderData: (previous) => previous },
+  );
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
 
@@ -118,7 +138,7 @@ function TransactionsPageInner() {
             >
               {mode === "import" ? "Cancel" : "Import CSV"}
             </button>
-            {removableCount > 0 && (
+            {removableCount > 0 && !filtering && (
               <>
                 <span className="text-text-faint">·</span>
                 <button
@@ -174,6 +194,19 @@ function TransactionsPageInner() {
           </div>
         )}
 
+        <TransactionFilterBar
+          filters={filters}
+          onChange={(next) => {
+            setFilters(next);
+            setLimit(PAGE_SIZE);
+          }}
+          categories={categories ?? []}
+        />
+
+        {filtering && transactions && (
+          <FilterSummary transactions={transactions} limit={limit} />
+        )}
+
         {mode === "manual" && writableAccounts.length > 0 && (
           <ManualTransactionForm
             accounts={writableAccounts}
@@ -204,7 +237,9 @@ function TransactionsPageInner() {
             </div>
 
             {transactions?.length === 0 && (
-              <p className="px-6 py-4 text-[13px] text-text-muted">No transactions yet.</p>
+              <p className="px-6 py-4 text-[13px] text-text-muted">
+                {filtering ? "No transactions match these filters." : "No transactions yet."}
+              </p>
             )}
 
             {transactions?.map((t) => {
@@ -282,10 +317,45 @@ function TransactionsPageInner() {
                 </div>
               );
             })}
+
+            {transactions && transactions.length >= limit && (
+              <button
+                type="button"
+                onClick={() => setLimit((l) => l + PAGE_SIZE)}
+                className="block w-full px-6 py-3.5 text-left text-[13px] font-medium text-accent hover:opacity-80"
+              >
+                Showing the latest {transactions.length} — load more
+              </button>
+            )}
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+/** What the current filters add up to — only exact once every match is loaded. */
+function FilterSummary({
+  transactions,
+  limit,
+}: {
+  transactions: { type: string; amount: unknown }[];
+  limit: number;
+}) {
+  const truncated = transactions.length >= limit;
+  let expenses = 0;
+  let income = 0;
+  for (const t of transactions) {
+    if (t.type === "EXPENSE") expenses += Number(t.amount);
+    else if (t.type === "INCOME") income += Number(t.amount);
+  }
+  return (
+    <p className="mt-3 text-[12.5px] text-text-muted">
+      {truncated ? `${transactions.length}+` : transactions.length} transaction{transactions.length === 1 ? "" : "s"}
+      {truncated
+        ? " — load more for exact totals"
+        : ` · ${formatEUR(expenses)} spent · ${formatEUR(income)} received`}
+    </p>
   );
 }
 
