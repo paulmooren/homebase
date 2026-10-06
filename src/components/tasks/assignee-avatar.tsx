@@ -2,7 +2,7 @@
 
 import { Avatar } from "@/components/avatar";
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
-import type { Member } from "@/components/tasks/task-row";
+import type { Member } from "@/components/tasks/types";
 
 function SharedIcon() {
   return (

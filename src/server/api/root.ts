@@ -11,6 +11,7 @@ import { taskRouter } from "@/server/api/routers/task";
 import { shoppingRouter } from "@/server/api/routers/shopping";
 import { wishlistRouter } from "@/server/api/routers/wishlist";
 import { vaultRouter } from "@/server/api/routers/vault";
+import { reminderRouter } from "@/server/api/routers/reminder";
 
 export const appRouter = createTRPCRouter({
   account: accountRouter,
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   shopping: shoppingRouter,
   wishlist: wishlistRouter,
   vault: vaultRouter,
+  reminder: reminderRouter,
 });
 
 export type AppRouter = typeof appRouter;

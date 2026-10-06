@@ -54,16 +54,18 @@ model User {
   accounts            Account[]
   sessions            Session[]
   householdMember     HouseholdMember?
-  ownedAccounts       FinancialAccount[] @relation("FinancialAccountOwner")
+  ownedAccounts       FinancialAccount[]   @relation("FinancialAccountOwner")
   createdInvites      HouseholdInvite[]
-  ownedRecurringItems RecurringItem[]    @relation("RecurringItemOwner")
-  ownedBudgets        Budget[]           @relation("BudgetOwner")
-  ownedTasks          Task[]             @relation("TaskOwner")
-  ownedShoppingLists  ShoppingList[]     @relation("ShoppingListOwner")
-  addedShoppingItems  ShoppingItem[]     @relation("ShoppingItemAddedBy")
-  ownedWishes         Wish[]             @relation("WishOwner")
-  claimedWishes       Wish[]             @relation("WishClaimer")
-  ownedVaultEntries   VaultEntry[]       @relation("VaultEntryOwner")
+  ownedRecurringItems RecurringItem[]      @relation("RecurringItemOwner")
+  ownedBudgets        Budget[]             @relation("BudgetOwner")
+  ownedTasks          Task[]               @relation("TaskOwner")
+  ownedShoppingLists  ShoppingList[]       @relation("ShoppingListOwner")
+  addedShoppingItems  ShoppingItem[]       @relation("ShoppingItemAddedBy")
+  ownedWishes         Wish[]               @relation("WishOwner")
+  claimedWishes       Wish[]               @relation("WishClaimer")
+  ownedVaultEntries   VaultEntry[]         @relation("VaultEntryOwner")
+  ownedReminders      Reminder[]           @relation("ReminderOwner")
+  completedReminders  ReminderCompletion[] @relation("ReminderCompletedBy")
 
   @@map("users")
 }
@@ -92,6 +94,7 @@ model Household {
   shoppingLists     ShoppingList[]
   wishes            Wish[]
   vaultEntries      VaultEntry[]
+  reminders         Reminder[]
 
   @@map("households")
 }
@@ -434,4 +437,56 @@ model ShoppingFavorite {
 
   @@unique([listId, name])
   @@map("shopping_favorites")
+}
+
+enum ScheduleUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+// FROM_DONE: the next due date counts from the day it was done (flexible).
+// FIXED: it keeps its rhythm whatever day it was done on.
+enum ScheduleMode {
+  FROM_DONE
+  FIXED
+}
+
+// Recurring chores (hoovering, watering the plants). Always visible to the
+// whole household; ownerId null means "Everyone". Deleting an assignee hands
+// their reminders back to Everyone rather than deleting them.
+model Reminder {
+  id            String       @id @default(cuid())
+  householdId   String
+  ownerId       String?
+  title         String
+  intervalCount Int
+  intervalUnit  ScheduleUnit
+  mode          ScheduleMode @default(FROM_DONE)
+  nextDueDate   DateTime     @db.Date
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  household   Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner       User?                @relation("ReminderOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  completions ReminderCompletion[]
+
+  @@index([householdId, nextDueDate])
+  @@map("reminders")
+}
+
+// One row per time a Reminder was done. dueDateAtCompletion lets a mis-tap be undone.
+model ReminderCompletion {
+  id                  String    @id @default(cuid())
+  reminderId          String
+  completedById       String?
+  completedAt         DateTime  @default(now())
+  dueDateAtCompletion DateTime? @db.Date
+
+  reminder    Reminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  completedBy User?    @relation("ReminderCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([reminderId, completedAt])
+  @@map("reminder_completions")
 }

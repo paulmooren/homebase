@@ -9,139 +9,104 @@ import { daysUntil } from "@/lib/vault";
 import { formatDate } from "@/lib/format";
 import { ChecklistRow } from "@/components/tasks/checklist-row";
 import { PRIORITY_ORDER } from "@/components/tasks/priority-pill";
-import { TaskRow, type Task, type Member, type FormValues } from "@/components/tasks/task-row";
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import type { Task, Member } from "@/components/tasks/types";
+import { ReminderRow, type ReminderData } from "@/components/reminders/reminder-row";
+import { useReminderActions } from "@/components/reminders/use-reminders";
+import { dueBucket, todayInHousehold } from "@/lib/schedule";
 
 /**
- * "What needs my attention" — tasks/reminders assigned to me or shared
- * (never another member's). Every overdue item, uncapped — hiding one would
- * defeat the point — then the next 5 upcoming by due date, then anything
- * with no due date at all (undated items aren't dropped, just deprioritized
- * below anything with a real deadline). Uses the exact same TaskRow as the
- * Tasks page — full inline editing (title, date, recurrence, assignee,
- * delete), not a read-only preview — so the dashboard is a real shortcut,
- * not a lesser copy.
+ * "What needs my attention": Reminders due today or overdue that are mine or
+ * everyone's, Vault expiries coming up, and my open Tasks (highest priority
+ * first). Never another member's reminder or task. It uses the same rows as
+ * the Tasks page, so everything is editable right here — and ticking a
+ * Reminder shows the same "Undo" toast.
  *
- * `justCompleted` keeps a one-off task visible (struck through) for this
- * render after you check it off, instead of it vanishing the instant the
- * refetch lands — otherwise ticking a task here gives no visible
- * confirmation at all before it's gone.
+ * `justCompleted` keeps a Task visible (struck through) for this render after
+ * you check it off, instead of it vanishing the instant the refetch lands.
  */
 export function TasksSnapshot({ showTasks = true, showVault = false }: { showTasks?: boolean; showVault?: boolean }) {
   const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery(undefined, { enabled: showTasks });
+  const { data: reminders } = trpc.reminder.list.useQuery(undefined, { enabled: showTasks });
   const { data: expiring } = trpc.vault.expiringSoon.useQuery(undefined, { enabled: showVault });
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
+  const reminderActions = useReminderActions();
 
-  const toggleComplete = trpc.task.toggleComplete.useMutation({
-    onSuccess: () => utils.task.list.invalidate(),
-  });
-  const updateTask = trpc.task.update.useMutation({
-    onSuccess: () => utils.task.list.invalidate(),
-  });
-  const deleteTask = trpc.task.delete.useMutation({
-    onSuccess: () => utils.task.list.invalidate(),
-  });
+  const toggleComplete = trpc.task.toggleComplete.useMutation({ onSuccess: () => utils.task.list.invalidate() });
+  const updateTask = trpc.task.update.useMutation({ onSuccess: () => utils.task.list.invalidate() });
+  const deleteTask = trpc.task.delete.useMutation({ onSuccess: () => utils.task.list.invalidate() });
 
-  if ((showTasks && !tasks) || !me) return null;
+  if ((showTasks && (!tasks || !reminders)) || !me) return null;
 
   const currentUserId = me.id;
   const members: Member[] = household?.members ?? [];
-  const today = startOfToday();
+  const today = todayInHousehold();
 
-  const relevant = ((showTasks ? tasks : []) as Task[]).filter(
-    (t) =>
-      (t.ownerId === null || t.ownerId === currentUserId) &&
-      (t.frequency || !t.completedAt || justCompleted.has(t.id)),
-  );
+  const mine = <T extends { ownerId: string | null }>(items: T[]) =>
+    items.filter((i) => i.ownerId === null || i.ownerId === currentUserId);
 
-  // Reminders repeat and have due dates; tasks are an undated checklist, highest priority first.
-  const reminders = relevant.filter((t) => t.frequency);
-  const checklist = relevant
-    .filter((t) => !t.frequency)
-    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+  const dueReminders = showTasks
+    ? mine((reminders ?? []) as ReminderData[]).filter((r) => {
+        const b = dueBucket(new Date(r.nextDueDate), today);
+        return b === "overdue" || b === "today";
+      })
+    : [];
 
-  const dated = reminders.filter((t) => t.dueDate);
-  const undated = reminders.filter((t) => !t.dueDate);
+  const checklist = showTasks
+    ? mine((tasks ?? []) as Task[])
+        .filter((t) => !t.completedAt || justCompleted.has(t.id))
+        .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+    : [];
 
-  const byDueDate = (a: Task, b: Task) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
-
-  const overdue = dated.filter((t) => new Date(t.dueDate!) < today).sort(byDueDate);
-  const upcoming = dated
-    .filter((t) => new Date(t.dueDate!) >= today)
-    .sort(byDueDate)
-    .slice(0, 5);
-
-  // Vault expiries ride along in the same dated list. They are never capped
-  // like tasks are — an expiring passport must not be pushed out by five tasks.
+  // Vault expiries are never capped — an expiring passport must not be pushed out by a long list.
   const vaultRows = (showVault ? (expiring ?? []) : []).map((e) => ({ ...e, date: new Date(e.expiresOn!) }));
-  const vaultOverdue = vaultRows.filter((e) => daysUntil(e.date) < 0);
-  const vaultUpcoming = vaultRows.filter((e) => daysUntil(e.date) >= 0);
 
-  type Row =
-    | { kind: "task" | "check"; task: Task; date: Date }
-    | { kind: "vault"; id: string; title: string; date: Date };
-  const byDate = (a: Row, b: Row) => a.date.getTime() - b.date.getTime();
-  const asTask = (task: Task): Row => ({ kind: "task", task, date: new Date(task.dueDate!) });
-  const asVault = (e: { id: string; title: string; date: Date }): Row => ({ kind: "vault", ...e });
-
-  const overdueRows = [...overdue.map(asTask), ...vaultOverdue.map(asVault)].sort(byDate);
-  const upcomingRows = [...upcoming.map(asTask), ...vaultUpcoming.map(asVault)].sort(byDate);
-  const undatedRows: Row[] = undated.map((task) => ({ kind: "task", task, date: new Date(0) }));
-  const checklistRows: Row[] = checklist.map((task) => ({ kind: "check", task, date: new Date(0) }));
-
-  const rows = [...overdueRows, ...upcomingRows, ...undatedRows, ...checklistRows];
-  if (rows.length === 0) return null;
+  if (dueReminders.length === 0 && checklist.length === 0 && vaultRows.length === 0) return null;
 
   return (
     <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+      {reminderActions.toast}
       <div className="mb-1 flex items-baseline justify-between px-6 pt-6">
         <h2 className="text-[15px] font-semibold">{showTasks ? "Tasks" : "Coming up"}</h2>
         <Link href={showTasks ? "/tasks" : "/vault"} className="text-[12.5px] font-medium text-accent hover:opacity-80">
           View all
         </Link>
       </div>
-      {rows.map((row) =>
-        row.kind === "vault" ? (
-          <VaultExpiryRow key={`vault-${row.id}`} title={row.title} date={row.date} />
-        ) : row.kind === "check" ? (
-          <ChecklistRow
-            key={row.task.id}
-            task={row.task}
-            members={members}
-            currentUserId={currentUserId}
-            onToggle={() => {
-              if (!row.task.completedAt) setJustCompleted((prev) => new Set(prev).add(row.task.id));
-              toggleComplete.mutate({ id: row.task.id });
-            }}
-            onUpdate={(values) => updateTask.mutate({ id: row.task.id, ...values })}
-            onDelete={() => deleteTask.mutate({ id: row.task.id })}
-          />
-        ) : (
-          <TaskRow
-            key={row.task.id}
-            task={row.task}
-            members={members}
-            currentUserId={currentUserId}
-            isOverdue={overdue.includes(row.task)}
-            onToggle={() => {
-              if (!row.task.frequency && !row.task.completedAt) {
-                setJustCompleted((prev) => new Set(prev).add(row.task.id));
-              }
-              toggleComplete.mutate({ id: row.task.id });
-            }}
-            onUpdate={(values: Partial<FormValues>) => updateTask.mutate({ id: row.task.id, ...values })}
-            onDelete={() => deleteTask.mutate({ id: row.task.id })}
-          />
-        ),
-      )}
+
+      {dueReminders.map((r) => (
+        <ReminderRow
+          key={r.id}
+          reminder={r}
+          members={members}
+          currentUserId={currentUserId}
+          today={today}
+          compact
+          onTick={() => reminderActions.tick(r)}
+          onUpdate={(patch) => reminderActions.update.mutate({ id: r.id, ...patch })}
+          onDelete={() => reminderActions.remove.mutate({ id: r.id })}
+        />
+      ))}
+
+      {vaultRows.map((e) => (
+        <VaultExpiryRow key={`vault-${e.id}`} title={e.title} date={e.date} />
+      ))}
+
+      {checklist.map((task) => (
+        <ChecklistRow
+          key={task.id}
+          task={task}
+          members={members}
+          currentUserId={currentUserId}
+          onToggle={() => {
+            if (!task.completedAt) setJustCompleted((prev) => new Set(prev).add(task.id));
+            toggleComplete.mutate({ id: task.id });
+          }}
+          onUpdate={(values) => updateTask.mutate({ id: task.id, ...values })}
+          onDelete={() => deleteTask.mutate({ id: task.id })}
+        />
+      ))}
     </section>
   );
 }

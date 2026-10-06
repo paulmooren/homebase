@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { InlineEdit } from "@/components/inline-edit";
 import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import { PriorityPill } from "@/components/tasks/priority-pill";
-import type { Member, Task, TaskPriority } from "@/components/tasks/task-row";
+import type { Member, Task, TaskPriority } from "@/components/tasks/types";
 
 /**
  * One line of the task checklist: tick box, a title you can click to rename,

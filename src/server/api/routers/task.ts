@@ -2,15 +2,13 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
-import { nextOccurrence } from "@/lib/recurring";
 
-const frequencySchema = z.enum(["WEEKLY", "MONTHLY", "YEARLY"]);
 const prioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
 export const taskRouter = createTRPCRouter({
   list: householdProcedure.query(({ ctx }) => {
     return ctx.prisma.task.findMany({
-      where: { householdId: ctx.householdId },
+      where: { householdId: ctx.householdId, frequency: null },
       include: { owner: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "asc" },
     });
@@ -21,8 +19,6 @@ export const taskRouter = createTRPCRouter({
       z.object({
         title: z.string().min(1).max(160),
         priority: prioritySchema.optional(),
-        dueDate: z.coerce.date().nullable().optional(),
-        frequency: frequencySchema.nullable().optional(),
         ownerId: z.string().nullable().optional(),
       }),
     )
@@ -41,8 +37,6 @@ export const taskRouter = createTRPCRouter({
           ownerId: input.ownerId ?? null,
           title: input.title,
           priority: input.priority ?? "MEDIUM",
-          dueDate: input.dueDate ?? null,
-          frequency: input.frequency ?? null,
         },
       });
     }),
@@ -53,8 +47,6 @@ export const taskRouter = createTRPCRouter({
         id: z.string(),
         title: z.string().min(1).max(160).optional(),
         priority: prioritySchema.optional(),
-        dueDate: z.coerce.date().nullable().optional(),
-        frequency: frequencySchema.nullable().optional(),
         ownerId: z.string().nullable().optional(),
       }),
     )
@@ -88,16 +80,6 @@ export const taskRouter = createTRPCRouter({
         where: { id: input.id, householdId: ctx.householdId },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
-
-      if (existing.frequency) {
-        return ctx.prisma.task.update({
-          where: { id: input.id },
-          data: {
-            completedAt: new Date(),
-            dueDate: nextOccurrence(existing.dueDate ?? new Date(), existing.frequency),
-          },
-        });
-      }
 
       return ctx.prisma.task.update({
         where: { id: input.id },

@@ -1,7 +1,7 @@
 "use client";
 
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
-import type { TaskPriority } from "@/components/tasks/task-row";
+import type { TaskPriority } from "@/components/tasks/types";
 
 export const PRIORITIES: { value: TaskPriority; label: string; dot: string }[] = [
   { value: "HIGH", label: "High", dot: "#e5484d" },

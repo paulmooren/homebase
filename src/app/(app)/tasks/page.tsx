@@ -3,27 +3,15 @@
 import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
-import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/constants";
 import { PlusIcon, CloseIcon, CheckIcon } from "@/components/action-icons";
 import { ChecklistRow } from "@/components/tasks/checklist-row";
 import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import { PriorityPill, PRIORITY_ORDER } from "@/components/tasks/priority-pill";
-import {
-  TaskRow,
-  InlineSelect,
-  FREQUENCIES,
-  CELL_TEXT,
-  type Task,
-  type Member,
-  type FormValues,
-  type TaskPriority,
-} from "@/components/tasks/task-row";
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import { CELL_TEXT, type Task, type Member, type TaskPriority } from "@/components/tasks/types";
+import { ReminderRow, ScheduleForm, type ReminderData } from "@/components/reminders/reminder-row";
+import { useReminderActions } from "@/components/reminders/use-reminders";
+import { PopoverMenu } from "@/components/popover-menu";
+import { dueBucket, describeSchedule, todayInHousehold, type DueBucket, type ScheduleMode, type ScheduleUnit } from "@/lib/schedule";
 
 export default function TasksPage() {
   const utils = trpc.useUtils();
@@ -32,7 +20,6 @@ export default function TasksPage() {
   const { data: me } = trpc.user.me.useQuery();
 
   const invalidate = () => utils.task.list.invalidate();
-
   const createTask = trpc.task.create.useMutation({ onSuccess: invalidate });
   const updateTask = trpc.task.update.useMutation({ onSuccess: invalidate });
   const toggleComplete = trpc.task.toggleComplete.useMutation({ onSuccess: invalidate });
@@ -41,122 +28,110 @@ export default function TasksPage() {
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
 
-  const today = startOfToday();
-  const all = (tasks ?? []) as Task[];
-
-  // Two lists, split on the one thing that actually distinguishes them: does
-  // it repeat. A one-off task's checkbox stays checked once done; a reminder
-  // never "finishes" — completing it just rolls the due date forward (see
-  // task.ts toggleComplete), so it has no Completed section of its own.
-  const adHoc = all.filter((t) => !t.frequency);
-  const reminders = all.filter((t) => !!t.frequency);
-
-  const reminderOverdue = reminders.filter((t) => t.dueDate && new Date(t.dueDate) < today);
-  const reminderUpcoming = reminders.filter((t) => !(t.dueDate && new Date(t.dueDate) < today));
-
   return (
     <div className="grid grid-cols-1 gap-10 md:[&>section]:-mx-6 lg:grid-cols-2 lg:gap-x-8 lg:[&>section:first-child]:mr-0 lg:[&>section:last-child]:ml-0">
       <TaskChecklist
-        tasks={adHoc}
+        tasks={(tasks ?? []) as Task[]}
         members={members}
         currentUserId={currentUserId}
         onToggle={(id) => toggleComplete.mutate({ id })}
         onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
         onDelete={(id) => deleteTask.mutate({ id })}
-        onCreate={(values) => createTask.mutate({ ...values, frequency: null, dueDate: null })}
+        onCreate={(values) => createTask.mutate(values)}
       />
-
-      <TaskColumn
-        title="Reminders"
-        emptyLabel="Nothing recurring yet — add one below."
-        overdue={reminderOverdue}
-        upcoming={reminderUpcoming}
-        completed={[]}
-        members={members}
-        currentUserId={currentUserId}
-        onToggle={(id) => toggleComplete.mutate({ id })}
-        onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
-        onDelete={(id) => deleteTask.mutate({ id })}
-        addRow={(onDone) => (
-          <InlineTaskRow
-            members={members}
-            currentUserId={currentUserId}
-            kind="reminder"
-            onSubmit={(values) => createTask.mutate(values, { onSuccess: onDone })}
-            onCancel={onDone}
-          />
-        )}
-        addLabel="New reminder"
-      />
+      <RemindersPanel members={members} currentUserId={currentUserId} />
     </div>
   );
 }
 
-function TaskColumn({
-  title,
-  emptyLabel,
-  overdue,
-  upcoming,
-  completed,
-  members,
-  currentUserId,
-  onToggle,
-  onUpdate,
-  onDelete,
-  addRow,
-  addLabel,
-}: {
-  title: string;
-  emptyLabel: string;
-  overdue: Task[];
-  upcoming: Task[];
-  completed: Task[];
-  members: Member[];
-  currentUserId: string;
-  onToggle: (id: string) => void;
-  onUpdate: (id: string, values: Partial<FormValues>) => void;
-  onDelete: (id: string) => void;
-  addRow: (onDone: () => void) => React.ReactNode;
-  addLabel: string;
-}) {
+const BUCKETS: { key: DueBucket; title: string; titleClass?: string }[] = [
+  { key: "overdue", title: "Overdue", titleClass: "text-critical" },
+  { key: "today", title: "Due today" },
+  { key: "week", title: "This week" },
+  { key: "later", title: "Later" },
+];
+
+/**
+ * Recurring chores, grouped by how soon they're due, with pills to look at
+ * everyone's, yours, or one person's. Ticking one off records who did it and
+ * schedules the next; a toast offers to undo a mis-tap.
+ */
+function RemindersPanel({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+  const { data: reminders } = trpc.reminder.list.useQuery();
+  const actions = useReminderActions();
+  const [filter, setFilter] = useState<"all" | string>("all");
   const [adding, setAdding] = useState(false);
+  const today = todayInHousehold();
+
+  const shown = ((reminders ?? []) as ReminderData[]).filter(
+    (r) => filter === "all" || r.ownerId === filter || r.ownerId === null,
+  );
+  const multiMember = members.length > 1;
 
   return (
     <section>
-      <h2 className="px-6 pb-4 text-[17px] font-semibold">{title}</h2>
+      {actions.toast}
+      <h2 className="px-6 pb-3 text-[17px] font-semibold">Reminders</h2>
 
-      {overdue.length === 0 && upcoming.length === 0 && !adding && (
-        <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">{emptyLabel}</p>
+      {multiMember && (
+        <div className="flex flex-wrap items-center gap-2 px-6 pb-4" role="group" aria-label="Show reminders for">
+          {[{ id: "all", label: "All" }, ...members.map((m) => ({ id: m.user.id, label: m.user.id === currentUserId ? "You" : m.user.name || m.user.email }))].map(
+            (p) => (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={filter === p.id}
+                onClick={() => setFilter(p.id)}
+                className={`inline-flex h-8 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
+                  filter === p.id
+                    ? "border-text bg-text text-bg"
+                    : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
+                }`}
+              >
+                {p.label}
+              </button>
+            ),
+          )}
+        </div>
       )}
 
-      {overdue.length > 0 && (
-        <TaskGroup
-          title="Overdue"
-          titleClass="text-critical"
-          tasks={overdue}
-          members={members}
-          currentUserId={currentUserId}
-          isOverdue
-          onToggle={onToggle}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-        />
+      {reminders && shown.length === 0 && !adding && (
+        <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">
+          Nothing recurring yet — add hoovering, watering the plants, worming the dog…
+        </p>
       )}
 
-      {upcoming.length > 0 && (
-        <TaskGroup
-          tasks={upcoming}
-          members={members}
-          currentUserId={currentUserId}
-          isOverdue={false}
-          onToggle={onToggle}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-        />
-      )}
+      {BUCKETS.map(({ key, title, titleClass }) => {
+        const inBucket = shown.filter((r) => dueBucket(new Date(r.nextDueDate), today) === key);
+        if (inBucket.length === 0) return null;
+        return (
+          <div key={key}>
+            <div className={`px-6 pt-3 pb-1 text-[10.5px] font-semibold tracking-[0.09em] uppercase ${titleClass ?? "text-text-faint"}`}>
+              {title}
+            </div>
+            {inBucket.map((r) => (
+              <ReminderRow
+                key={r.id}
+                reminder={r}
+                members={members}
+                currentUserId={currentUserId}
+                today={today}
+                onTick={() => actions.tick(r)}
+                onUpdate={(patch) => actions.update.mutate({ id: r.id, ...patch })}
+                onDelete={() => actions.remove.mutate({ id: r.id })}
+              />
+            ))}
+          </div>
+        );
+      })}
 
       {adding ? (
-        addRow(() => setAdding(false))
+        <NewReminderRow
+          members={members}
+          currentUserId={currentUserId}
+          onAdd={(values) => actions.create.mutate(values)}
+          onClose={() => setAdding(false)}
+        />
       ) : (
         <button
           onClick={() => setAdding(true)}
@@ -165,150 +140,106 @@ function TaskColumn({
           <span className="block h-2.5 w-2.5 shrink-0">
             <PlusIcon />
           </span>
-          <span className={CELL_TEXT}>{addLabel}</span>
+          <span className={CELL_TEXT}>New reminder</span>
         </button>
-      )}
-
-      {completed.length > 0 && (
-        <div className="border-t border-border-soft">
-          <TaskGroup
-            title="Completed"
-            tasks={completed}
-            members={members}
-            currentUserId={currentUserId}
-            isOverdue={false}
-            onToggle={onToggle}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-          />
-        </div>
       )}
     </section>
   );
 }
 
-function TaskGroup({
-  title,
-  titleClass,
-  tasks,
+/** "+ New reminder": what, how often, who, and when it's first due (today unless you say otherwise). */
+function NewReminderRow({
   members,
   currentUserId,
-  isOverdue,
-  onToggle,
-  onUpdate,
-  onDelete,
-}: {
-  title?: string;
-  titleClass?: string;
-  tasks: Task[];
-  members: Member[];
-  currentUserId: string;
-  isOverdue: boolean;
-  onToggle: (id: string) => void;
-  onUpdate: (id: string, values: Partial<FormValues>) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <>
-      {title && (
-        <div
-          className={`px-6 pt-3 pb-1 text-[10.5px] font-semibold tracking-[0.09em] uppercase ${titleClass ?? "text-text-faint"}`}
-        >
-          {title}
-        </div>
-      )}
-      {tasks.map((task) => (
-        <TaskRow
-          key={task.id}
-          task={task}
-          members={members}
-          currentUserId={currentUserId}
-          isOverdue={isOverdue}
-          onToggle={() => onToggle(task.id)}
-          onUpdate={(values) => onUpdate(task.id, values)}
-          onDelete={() => onDelete(task.id)}
-        />
-      ))}
-    </>
-  );
-}
-
-function InlineTaskRow({
-  members,
-  currentUserId,
-  kind,
-  onSubmit,
-  onCancel,
+  onAdd,
+  onClose,
 }: {
   members: Member[];
   currentUserId: string;
-  kind: "task" | "reminder";
-  onSubmit: (values: FormValues) => void;
-  onCancel: () => void;
+  onAdd: (values: {
+    title: string;
+    intervalCount: number;
+    intervalUnit: ScheduleUnit;
+    mode: ScheduleMode;
+    ownerId: string | null;
+    firstDueDate?: Date;
+  }) => void;
+  onClose: () => void;
 }) {
-  const [frequency, setFrequency] = useState<RecurringFrequency>("YEARLY");
-  const [ownerId, setOwnerId] = useState(currentUserId);
+  const [title, setTitle] = useState("");
+  const [schedule, setSchedule] = useState<{ intervalCount: number; intervalUnit: ScheduleUnit; mode: ScheduleMode }>({
+    intervalCount: 1,
+    intervalUnit: "WEEK",
+    mode: "FROM_DONE",
+  });
+  const [ownerId, setOwnerId] = useState<string | null>(currentUserId);
   const multiMember = members.length > 1;
 
   return (
     <form
-      className="flex flex-col gap-2 border-b border-border-soft bg-surface px-6 py-3 last:border-b-0"
+      className="flex flex-col gap-3 border-b border-border-soft bg-surface px-6 py-3 last:border-b-0"
       onSubmit={(e) => {
         e.preventDefault();
+        if (!title.trim()) return;
         const form = new FormData(e.currentTarget);
-        const dueDateRaw = String(form.get("dueDate") || "");
-        onSubmit({
-          title: String(form.get("title")),
-          dueDate: dueDateRaw ? new Date(dueDateRaw) : null,
-          frequency: kind === "reminder" ? frequency : null,
-          ownerId: multiMember ? ownerId || null : currentUserId,
+        const first = String(form.get("firstDue") || "");
+        onAdd({
+          title: title.trim(),
+          ...schedule,
+          ownerId: multiMember ? ownerId : currentUserId,
+          firstDueDate: first ? new Date(first) : undefined,
         });
+        setTitle("");
+        onClose();
       }}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <input
-        name="title"
-        required
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
         autoFocus
-        placeholder={kind === "reminder" ? "Reminder title" : "Task title"}
-        className={`w-full bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:text-text-faint`}
+        required
+        maxLength={160}
+        placeholder="e.g. Water the plants"
+        aria-label="New reminder"
+        className={`w-full bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:font-normal placeholder:text-text-faint`}
       />
-      <div className="flex flex-wrap items-center gap-2.5 text-[12px]">
-        <input
-          name="dueDate"
-          type="date"
-          required={kind === "reminder"}
-          className="w-[142px] rounded-md border border-border bg-surface px-2 py-1 text-text outline-none focus:border-accent"
-        />
-        {kind === "reminder" && (
-          <InlineSelect
-            value={frequency}
-            onChange={(v) => setFrequency(v as RecurringFrequency)}
-            options={FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] }))}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-text-muted">
+        <PopoverMenu
+          align="left"
+          trigger={({ toggle }) => (
+            <button type="button" onClick={toggle} className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text hover:bg-border-soft">
+              {describeSchedule(schedule.intervalCount, schedule.intervalUnit)}
+            </button>
+          )}
+        >
+          {({ close }) => (
+            <ScheduleForm
+              initial={schedule}
+              onSave={(patch) => {
+                setSchedule(patch);
+                close();
+              }}
+            />
+          )}
+        </PopoverMenu>
+        <label className="flex items-center gap-2">
+          First due
+          <input
+            type="date"
+            name="firstDue"
+            defaultValue={new Date().toLocaleDateString("en-CA")}
+            className="rounded-lg border border-border bg-surface px-2 py-1 text-[12.5px] text-text outline-none focus:border-accent"
           />
-        )}
+        </label>
         {multiMember && (
-          <InlineSelect
-            value={ownerId}
-            onChange={setOwnerId}
-            options={[
-              { value: "", label: "Shared" },
-              ...members.map((m) => ({
-                value: m.user.id,
-                label: m.user.id === currentUserId ? "You" : m.user.name || m.user.email,
-              })),
-            ]}
-          />
+          <AssigneeAvatar ownerId={ownerId} members={members} currentUserId={currentUserId} onChange={setOwnerId} size={26} />
         )}
         <div className="ml-auto flex items-center gap-3">
-          <button type="submit" aria-label="Save" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+          <button type="submit" aria-label="Add reminder" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
             <CheckIcon />
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="Cancel"
-            className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
-          >
+          <button type="button" onClick={onClose} aria-label="Cancel" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
             <CloseIcon />
           </button>
         </div>
