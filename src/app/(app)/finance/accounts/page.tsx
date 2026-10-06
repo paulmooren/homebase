@@ -9,6 +9,7 @@ import { formatEUR } from "@/lib/format";
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { groupLabel, groupOrder, type Member } from "@/components/finance/ownership-groups";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
+import { Modal } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
@@ -67,20 +68,19 @@ export default function AccountsPage() {
     <section className="rounded-[20px] border border-border-soft bg-surface p-6">
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold">Accounts</h2>
-        {!showAccountForm && (
-          <button
-            onClick={() => {
-              setEditingAccount(null);
-              setShowAccountForm(true);
-            }}
-            className="text-[12.5px] font-medium text-accent hover:opacity-80"
-          >
-            + Add account
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setEditingAccount(null);
+            setShowAccountForm(true);
+          }}
+          className="text-[12.5px] font-medium text-accent hover:opacity-80"
+        >
+          + Add account
+        </button>
       </div>
 
       {showAccountForm && (
+        <Modal title="New account" onClose={() => setShowAccountForm(false)}>
         <AccountForm
           submitLabel="Create account"
           members={members}
@@ -89,9 +89,11 @@ export default function AccountsPage() {
           onCancel={() => setShowAccountForm(false)}
           pending={createAccount.isPending}
         />
+        </Modal>
       )}
 
       {editingAccount && (
+        <Modal title="Edit account" onClose={() => setEditingAccount(null)}>
         <AccountForm
           submitLabel="Save"
           initial={editingAccount}
@@ -101,6 +103,7 @@ export default function AccountsPage() {
           onCancel={() => setEditingAccount(null)}
           pending={updateAccount.isPending}
         />
+        </Modal>
       )}
 
       {assets && assets.length > 0 && (
@@ -276,7 +279,7 @@ function AccountForm({
 
   return (
     <form
-      className="mb-6 grid grid-cols-1 gap-x-5 gap-y-4 rounded-2xl border border-border-soft bg-surface p-5 sm:grid-cols-2"
+      className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
