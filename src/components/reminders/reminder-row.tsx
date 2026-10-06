@@ -140,7 +140,7 @@ export function ReminderRow({
             type="button"
             onClick={() => setConfirming(true)}
             aria-label={`Delete ${reminder.title}`}
-            className="mt-1 h-4 w-4 shrink-0 text-text-faint hover:text-critical md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+            className="mt-1 h-4 w-4 shrink-0 text-text-faint hover:text-critical"
           >
             <TrashIcon />
           </button>

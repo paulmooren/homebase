@@ -96,6 +96,7 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
       {checklist.map((task) => (
         <ChecklistRow
           key={task.id}
+          compact
           task={task}
           members={members}
           currentUserId={currentUserId}

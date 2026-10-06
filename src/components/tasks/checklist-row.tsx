@@ -21,6 +21,7 @@ export function ChecklistRow({
   onToggle,
   onUpdate,
   onDelete,
+  compact,
 }: {
   task: Task;
   members: Member[];
@@ -28,6 +29,8 @@ export function ChecklistRow({
   onToggle: () => void;
   onUpdate: (values: { title?: string; priority?: TaskPriority; ownerId?: string | null }) => void;
   onDelete: () => void;
+  /** The dashboard's version: no delete (that lives on the Tasks page), so the row lines up with the card's edge. */
+  compact?: boolean;
 }) {
   const done = !!task.completedAt;
   const [confirming, setConfirming] = useState(false);
@@ -71,14 +74,16 @@ export function ChecklistRow({
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        aria-label={`Delete ${task.title}`}
-        className="h-4 w-4 shrink-0 text-text-faint hover:text-critical md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-      >
-        <TrashIcon />
-      </button>
+      {!compact && (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label={`Delete ${task.title}`}
+          className="h-4 w-4 shrink-0 text-text-faint hover:text-critical"
+        >
+          <TrashIcon />
+        </button>
+      )}
 
       {confirming && (
         <ConfirmDialog
