@@ -162,46 +162,48 @@ function TransactionsPageInner() {
           </div>
         </div>
 
-        {accounts && accounts.length > 1 && (
-          <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter by account">
-            <FilterChip active={!accountFilter} onClick={() => setAccountFilter("")}>
-              All
-            </FilterChip>
-            {accounts.map((a) => {
-              const active = accountFilter === a.id;
-              return (
-                <FilterChip
-                  key={a.id}
-                  active={active}
-                  onClick={() => setAccountFilter(active ? "" : a.id)}
-                  title={`${a.name} · ${groupLabel(a.ownerId, members, currentUserId)}`}
-                >
-                  {multiMember && (
-                    <Avatar
-                      name={ownerName(a.ownerId, members, currentUserId)}
-                      image={members.find((m) => m.user.id === a.ownerId)?.user.image}
-                    />
-                  )}
-                  {a.name}
-                  {multiMember && (
-                    <span className={active ? "text-bg/70" : "text-text-faint"}>
-                      · {groupLabel(a.ownerId, members, currentUserId)}
-                    </span>
-                  )}
-                </FilterChip>
-              );
-            })}
-          </div>
-        )}
-
-        <TransactionFilterBar
-          filters={filters}
-          onChange={(next) => {
-            setFilters(next);
-            setLimit(PAGE_SIZE);
-          }}
-          categories={categories ?? []}
-        />
+        {/* Accounts on the left, what to look for on the right. */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          {accounts && accounts.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by account">
+              <FilterChip active={!accountFilter} onClick={() => setAccountFilter("")}>
+                All
+              </FilterChip>
+              {accounts.map((a) => {
+                const active = accountFilter === a.id;
+                return (
+                  <FilterChip
+                    key={a.id}
+                    active={active}
+                    onClick={() => setAccountFilter(active ? "" : a.id)}
+                    title={`${a.name} · ${groupLabel(a.ownerId, members, currentUserId)}`}
+                  >
+                    {multiMember && (
+                      <Avatar
+                        name={ownerName(a.ownerId, members, currentUserId)}
+                        image={members.find((m) => m.user.id === a.ownerId)?.user.image}
+                      />
+                    )}
+                    {a.name}
+                    {multiMember && (
+                      <span className={active ? "text-bg/70" : "text-text-faint"}>
+                        · {groupLabel(a.ownerId, members, currentUserId)}
+                      </span>
+                    )}
+                  </FilterChip>
+                );
+              })}
+            </div>
+          )}
+          <TransactionFilterBar
+            filters={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setLimit(PAGE_SIZE);
+            }}
+            categories={categories ?? []}
+          />
+        </div>
 
         {filtering && transactions && (
           <FilterSummary transactions={transactions} limit={limit} />
@@ -350,7 +352,7 @@ function FilterSummary({
     else if (t.type === "INCOME") income += Number(t.amount);
   }
   return (
-    <p className="mt-3 text-[12.5px] text-text-muted">
+    <p className="mt-3 text-[12.5px] text-text-muted md:text-right">
       {truncated ? `${transactions.length}+` : transactions.length} transaction{transactions.length === 1 ? "" : "s"}
       {truncated
         ? " — load more for exact totals"

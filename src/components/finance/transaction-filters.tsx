@@ -119,7 +119,7 @@ export function TransactionFilterBar({
     categoryNames.length > 1 ? `${categoryNames[0]} +${categoryNames.length - 1}` : (categoryNames[0] ?? "");
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filter transactions">
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Filter transactions">
       <FilterChipWithPanel
         label="Date"
         summary={dateOn ? dateSummary(filters) : ""}
