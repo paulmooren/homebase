@@ -88,18 +88,17 @@ How urgent a Task is: Low, Medium or High. Open Tasks are listed highest first.
 _Avoid_: Importance, urgency
 
 **Reminder**:
-Something that comes back on a schedule — hoovering, watering the plants — and is ticked off each time it is done, which schedules the next one. Not a Task.
+Something that comes back on a Schedule — hoovering, watering the plants, worming the dog — assigned to one Member or to everyone. Ticking it off records a Completion and works out when it is next due. Not a Task.
 _Avoid_: Recurring task, chore
 
-### Vault
+**Schedule**:
+How often a Reminder comes back: every N days, weeks, months or years. It is counted either from when the Reminder was last done (flexible, the default) or on a fixed rhythm regardless of when it was done.
+_Avoid_: Frequency, repeat, interval
 
-**Vault**:
-The encrypted store for a Household's important numbers and notes — not files.
-_Avoid_: Documents, records
+**Completion**:
+The record that a Reminder was done: when, and by which Member. Anyone in the Household may tick off a Reminder, not only its assignee.
+_Avoid_: Check-in, log entry
 
-**Vault entry**:
-One thing worth remembering, such as "Passport": a category, any number of labelled hidden values, a note, and an optional expiry date.
-_Avoid_: Document, record
-
-**Reveal**:
-Showing a hidden Vault value. Anyone who can see the entry can Reveal it.
+**Notification**:
+The one daily message a Member gets on their phone listing what is due for them today, with a single nudge once something is 2 days overdue. Overdue Reminders after that stay red in the app but do not notify again.
+_Avoid_: Alert, ping
