@@ -32,7 +32,7 @@ export function HouseholdSetupForm() {
   return (
     <div className="w-full">
       <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill md:hidden">
-        <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">K</span>
+        <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">H</span>
       </div>
 
       <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">

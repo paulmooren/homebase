@@ -1,4 +1,4 @@
-# Kontor
+# Homebase
 
 A single environment for everything a household needs to run its shared life — money, chores, and (soon) lists and records — built for a couple living together.
 
@@ -7,7 +7,7 @@ A single environment for everything a household needs to run its shared life —
 ### People
 
 **Household**:
-The group of people who share one Kontor environment. Everything in the app belongs to exactly one Household.
+The group of people who share one Homebase environment. Everything in the app belongs to exactly one Household.
 _Avoid_: Family, team, workspace
 
 **Member**:

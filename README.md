@@ -1,4 +1,4 @@
-# Kontor
+# Homebase
 
 A household finance app: shared and personal accounts, transactions (manual
 entry + CSV import), recurring income/expense tracking, category budgets,

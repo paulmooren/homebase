@@ -19,7 +19,7 @@ export async function GET() {
           fontWeight: 700,
         }}
       >
-        K
+        H
       </div>
     ),
     { width: 512, height: 512 },

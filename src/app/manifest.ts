@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Kontor",
-    short_name: "Kontor",
+    name: "Homebase",
+    short_name: "Homebase",
     description: "An overview of your accounts, budgets, and spending.",
     start_url: "/",
     scope: "/",

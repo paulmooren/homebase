@@ -8,7 +8,7 @@ export default function DataSettingsPage() {
 
   async function exportJson() {
     const data = await utils.user.exportData.fetch();
-    downloadBlob(JSON.stringify(data, null, 2), "kontor-export.json", "application/json");
+    downloadBlob(JSON.stringify(data, null, 2), "homebase-export.json", "application/json");
   }
 
   async function exportCsv() {
@@ -25,7 +25,7 @@ export default function DataSettingsPage() {
         ].join(","),
       )
       .join("\n");
-    downloadBlob(header + body, "kontor-transactions.csv", "text/csv");
+    downloadBlob(header + body, "homebase-transactions.csv", "text/csv");
   }
 
   return (
