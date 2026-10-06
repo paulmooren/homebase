@@ -38,7 +38,7 @@ const COL_AMOUNT = "w-[110px] shrink-0";
 
 /** Shared text size for every transaction property, so merchant/date/category/amount all read at the same scale. */
 const CELL_TEXT = "text-[14px]";
-const COL_ACTIONS = "flex w-[52px] shrink-0 items-center justify-end gap-3";
+const COL_ACTIONS = "flex w-[56px] shrink-0 items-center justify-end gap-2.5";
 
 export default function TransactionsPage() {
   return (
@@ -346,19 +346,11 @@ function TransactionsPageInner() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className={`truncate ${CELL_TEXT} font-medium`}>{label}</div>
-                    {(multiMember || recurringItem) && (
+                    {multiMember && (
                       <div className="flex items-center gap-1.5 truncate text-[11px] text-text-faint">
                         {multiMember && (
                           <span className="truncate">
                             {t.account.name} · {groupLabel(t.account.ownerId, members, currentUserId)}
-                          </span>
-                        )}
-                        {recurringItem && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 font-medium text-text-muted">
-                            <span className="block h-2.5 w-2.5">
-                              <RepeatIcon />
-                            </span>
-                            {RECURRING_FREQUENCY_LABELS[recurringItem.frequency]}
                           </span>
                         )}
                       </div>
@@ -394,6 +386,17 @@ function TransactionsPageInner() {
                     {isInflow ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
+                    {!isTransfer && recurringItem && (
+                      // Active: this transaction belongs to a recurring item. Hovering says how often.
+                      <span className="group/rec relative flex h-6 w-6 items-center justify-center rounded-full bg-text text-bg">
+                        <span className="block h-3.5 w-3.5">
+                          <RepeatIcon />
+                        </span>
+                        <span className="pointer-events-none absolute right-0 bottom-full z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-text px-2.5 py-1.5 text-[11.5px] font-medium text-bg shadow-lg group-hover/rec:block">
+                          Recurring · {RECURRING_FREQUENCY_LABELS[recurringItem.frequency]}
+                        </span>
+                      </span>
+                    )}
                     {canEdit && !isTransfer && !recurringItem && (
                       <button
                         type="button"
@@ -411,9 +414,11 @@ function TransactionsPageInner() {
                         }
                         aria-label={`Mark ${t.merchant} as recurring`}
                         title={isIncome ? "Mark as recurring income" : "Mark as recurring expense"}
-                        className="h-4 w-4 text-text-faint hover:text-text md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
                       >
-                        <RepeatIcon />
+                        <span className="block h-3.5 w-3.5">
+                          <RepeatIcon />
+                        </span>
                       </button>
                     )}
                     {canEdit && (
