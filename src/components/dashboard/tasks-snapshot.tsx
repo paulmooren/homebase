@@ -90,7 +90,7 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
   if (rows.length === 0) return null;
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+    <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
       <div className="mb-1 flex items-baseline justify-between px-6 pt-6">
         <h2 className="text-[15px] font-semibold">{showTasks ? "Tasks" : "Coming up"}</h2>
         <Link href={showTasks ? "/tasks" : "/vault"} className="text-[12.5px] font-medium text-accent hover:opacity-80">

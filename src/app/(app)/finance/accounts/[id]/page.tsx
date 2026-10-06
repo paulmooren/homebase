@@ -95,7 +95,7 @@ export default function AccountDetailPage() {
         onRangeChange={setRange}
       />
 
-      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+      <section className="md:-mx-6">
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
             <div className="flex items-center gap-3.5 px-6 pt-5 pb-2.5 text-[10.5px] font-semibold tracking-[0.08em] text-text-faint uppercase">

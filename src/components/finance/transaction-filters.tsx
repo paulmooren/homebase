@@ -367,7 +367,7 @@ function FilterChipWithPanel({
     <div ref={wrapRef} className="relative">
       <span
         className={`inline-flex h-8 items-center rounded-full border text-[13px] font-medium transition-colors ${
-          active ? "border-text bg-text text-bg" : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+          active ? "border-text bg-text text-bg" : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
         }`}
       >
         <button

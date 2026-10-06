@@ -10,6 +10,7 @@ import { TRANSFER_COLOR } from "@/lib/constants";
 import { parseAmount, parseFlexibleDate, detectColumns } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
+import { PageActions } from "@/components/page-actions";
 import { CategoryCell } from "@/components/finance/category-cell";
 import {
   NO_FILTERS,
@@ -121,49 +122,42 @@ function TransactionsPageInner() {
   return (
     <div className="flex flex-col gap-5">
       {categoryToast}
-      <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface px-6 pt-6">
-        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-[15px] font-semibold">Transactions</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode(mode === "manual" ? "none" : "manual")}
-              className="text-[12.5px] font-medium text-accent hover:opacity-80"
-            >
-              {mode === "manual" ? "Cancel" : "+ Transaction"}
-            </button>
-            <span className="text-text-faint">·</span>
-            <button
-              onClick={() => setMode(mode === "import" ? "none" : "import")}
-              className="text-[12.5px] font-medium text-accent hover:opacity-80"
-            >
-              {mode === "import" ? "Cancel" : "Import CSV"}
-            </button>
-            {removableCount > 0 && !filtering && (
-              <>
-                <span className="text-text-faint">·</span>
-                <button
-                  onClick={() => {
-                    const scope = filteredAccount ? `on ${filteredAccount.name}` : "on your accounts";
-                    if (
-                      confirm(
-                        `Delete all transactions ${scope}? This cannot be undone and will reset the affected account balances.`,
-                      )
-                    ) {
-                      removeAllTransactions.mutate(accountFilter ? { accountId: accountFilter } : undefined);
-                    }
-                  }}
-                  disabled={removeAllTransactions.isPending}
-                  className="text-[12.5px] font-medium text-critical hover:opacity-80 disabled:opacity-60"
-                >
-                  Remove all
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      <PageActions>
+        {removableCount > 0 && !filtering && (
+          <button
+            onClick={() => {
+              const scope = filteredAccount ? `on ${filteredAccount.name}` : "on your accounts";
+              if (
+                confirm(
+                  `Delete all transactions ${scope}? This cannot be undone and will reset the affected account balances.`,
+                )
+              ) {
+                removeAllTransactions.mutate(accountFilter ? { accountId: accountFilter } : undefined);
+              }
+            }}
+            disabled={removeAllTransactions.isPending}
+            className="px-2 text-[13px] font-medium text-critical hover:opacity-80 disabled:opacity-60"
+          >
+            Remove all
+          </button>
+        )}
+        <button
+          onClick={() => setMode(mode === "import" ? "none" : "import")}
+          className="rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-medium hover:bg-surface-hover"
+        >
+          {mode === "import" ? "Cancel import" : "Import CSV"}
+        </button>
+        <button
+          onClick={() => setMode(mode === "manual" ? "none" : "manual")}
+          className="rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
+        >
+          {mode === "manual" ? "Cancel" : "+ Transaction"}
+        </button>
+      </PageActions>
 
+      <section>
         {/* Accounts on the left, what to look for on the right. */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           {accounts && accounts.length > 1 && (
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by account">
               <FilterChip active={!accountFilter} onClick={() => setAccountFilter("")}>
@@ -227,7 +221,7 @@ function TransactionsPageInner() {
           />
         )}
 
-        <div className="-mx-6 mt-5 overflow-x-auto border-t border-border-soft">
+        <div className="-mx-4 mt-5 overflow-x-auto border-t border-border-soft md:-mx-6">
           <div className="min-w-[640px]">
             <div className="flex items-center gap-3.5 px-6 pt-5 pb-2.5 text-[10.5px] font-semibold tracking-[0.08em] text-text-faint uppercase">
               <span className="block w-[3px] shrink-0" />
@@ -388,7 +382,7 @@ function FilterChip({
       className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${
         active
           ? "border-text bg-text text-bg"
-          : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+          : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
       }`}
     >
       {children}

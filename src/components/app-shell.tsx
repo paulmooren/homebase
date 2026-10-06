@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
 import { useModules } from "@/components/use-modules";
+import { PAGE_ACTIONS_ID } from "@/components/page-actions";
 import type { ModuleKey } from "@/lib/modules";
 
 import {
@@ -57,8 +58,6 @@ export function AppShell({
   // The dashboard greets you; every other page is titled by its section.
   const title = section?.href === "/dashboard" || !section ? `${greeting()}, ${userName}` : section.label;
 
-  const settingsActive = pathname.startsWith("/settings");
-
   return (
     <div className="flex min-h-screen bg-bg">
       {/* Desktop sidebar — same grey as the shell, no panel of its own */}
@@ -94,16 +93,10 @@ export function AppShell({
 
         <Link
           href="/settings"
-          className={`mb-3 px-3 py-1.5 text-[13.5px] transition-colors ${
-            settingsActive ? "font-semibold text-text" : "font-medium text-text-muted hover:text-text"
-          }`}
-        >
-          Settings
-        </Link>
-        <Link
-          href="/settings"
           aria-label="Your profile and settings"
-          className="flex items-center gap-2.5 rounded-xl border border-border-soft bg-surface px-3 py-2.5 transition-colors hover:border-border"
+          className={`flex items-center gap-2.5 rounded-xl border bg-surface px-3 py-2.5 transition-colors ${
+            pathname.startsWith("/settings") ? "border-border" : "border-border-soft hover:border-border"
+          }`}
         >
           <Avatar name={userName} image={me?.image} size={26} />
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{userName}</span>
@@ -136,7 +129,11 @@ export function AppShell({
       <main className="w-full min-w-0 md:ml-[240px] md:py-3 md:pr-3">
         <div className="min-h-screen bg-surface px-4 pt-7 pb-28 md:min-h-[calc(100vh-1.5rem)] md:rounded-[24px] md:px-10 md:pt-9 md:pb-14">
           <div className="mx-auto max-w-[1180px]">
-            <h1 className="mb-7 font-display text-[26px] font-bold tracking-tight md:text-[32px]">{title}</h1>
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+              <h1 className="font-display text-[26px] font-bold tracking-tight md:text-[32px]">{title}</h1>
+              {/* Pages put their main actions here with <PageActions>. */}
+              <div id={PAGE_ACTIONS_ID} className="flex flex-wrap items-center gap-2" />
+            </div>
             {children}
           </div>
         </div>

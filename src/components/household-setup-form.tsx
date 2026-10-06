@@ -30,8 +30,8 @@ export function HouseholdSetupForm() {
   const error = create.error?.message ?? join.error?.message;
 
   return (
-    <div className="w-full max-w-md rounded-[20px] border border-border-soft bg-surface p-8">
-      <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill">
+    <div className="w-full">
+      <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill md:hidden">
         <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">K</span>
       </div>
 
@@ -78,7 +78,7 @@ export function HouseholdSetupForm() {
             name="name"
             required
             placeholder="e.g. The Mooren Household"
-            className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
+            className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
           <button
             type="submit"
@@ -102,7 +102,7 @@ export function HouseholdSetupForm() {
             required
             defaultValue={prefillCode}
             placeholder="Invite code"
-            className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] tracking-[0.08em] text-text uppercase placeholder:text-text-faint placeholder:normal-case outline-none focus:border-accent"
+            className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] tracking-[0.08em] text-text uppercase placeholder:text-text-faint placeholder:normal-case outline-none focus:border-accent"
           />
           <button
             type="submit"

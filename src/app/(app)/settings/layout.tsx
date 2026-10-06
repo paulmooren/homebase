@@ -11,9 +11,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           { href: "/settings/data", label: "Data" },
         ]}
       />
-      <div className="rounded-[20px] border border-border-soft bg-surface px-6 py-6 md:px-10 md:py-8">
-        <div className="max-w-[560px]">{children}</div>
-      </div>
+      <div className="max-w-[560px]">{children}</div>
     </div>
   );
 }

@@ -83,7 +83,7 @@ function Wishlists() {
               className={`inline-flex h-9 items-center gap-2 rounded-full border pr-4 pl-1.5 text-[13.5px] font-medium transition-colors ${
                 isActive
                   ? "border-text bg-text text-bg"
-                  : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+                  : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
               }`}
             >
               <Avatar name={m.user.name || m.user.email} image={m.user.image} size={24} />
@@ -101,15 +101,15 @@ function Wishlists() {
           className={`inline-flex h-9 items-center rounded-full border px-4 text-[13.5px] font-medium transition-colors ${
             isHome
               ? "border-text bg-text text-bg"
-              : "border-border bg-surface text-text-muted hover:border-text-faint hover:text-text"
+              : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
           }`}
         >
           Home
         </button>
       </div>
 
-      <section className="rounded-[20px] border border-border-soft bg-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 pb-3 md:px-6">
+      <section className="md:-mx-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 md:px-6">
           <div className="min-w-0">
             <h2 className="truncate text-[17px] font-semibold">
               {isHome ? "Home" : ownList ? "Your wishlist" : `${ownerName}'s wishlist`}

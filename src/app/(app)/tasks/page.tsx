@@ -56,7 +56,7 @@ export default function TasksPage() {
   const reminderUpcoming = reminders.filter((t) => !(t.dueDate && new Date(t.dueDate) < today));
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-10 md:[&>section]:-mx-6 lg:grid-cols-2 lg:gap-x-8 lg:[&>section:first-child]:mr-0 lg:[&>section:last-child]:ml-0">
       <TaskColumn
         title="Tasks"
         emptyLabel="Nothing here yet — add one below."
@@ -136,8 +136,8 @@ function TaskColumn({
   const [adding, setAdding] = useState(false);
 
   return (
-    <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
-      <h1 className="px-6 pt-6 pb-4 text-[15px] font-semibold">{title}</h1>
+    <section>
+      <h2 className="px-6 pb-4 text-[17px] font-semibold">{title}</h2>
 
       {overdue.length === 0 && upcoming.length === 0 && !adding && (
         <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">{emptyLabel}</p>

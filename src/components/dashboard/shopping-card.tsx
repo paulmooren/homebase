@@ -28,7 +28,7 @@ export function ShoppingCard() {
   const shown = open.slice(0, MAX_ROWS);
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[20px] border border-border-soft bg-surface">
+    <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
       <div className="mb-3 flex items-baseline justify-between px-6 pt-6">
         <h2 className="text-[15px] font-semibold">{main.name}</h2>
         <Link href="/lists/shopping" className="text-[12.5px] font-medium text-accent hover:opacity-80">

@@ -62,17 +62,17 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               name="name"
               required
               placeholder="Account name, e.g. Checking"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <input
               name="institution"
               placeholder="Bank (optional)"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <select
               name="type"
               defaultValue="CHECKING"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             >
               {ACCOUNT_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -86,7 +86,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               step="0.01"
               required
               placeholder="Starting balance (€)"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <button
               type="submit"
@@ -124,13 +124,13 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               name="merchant"
               required
               placeholder="Description, e.g. Supermarket"
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <div className="flex gap-3">
               <select
                 name="type"
                 defaultValue="EXPENSE"
-                className="flex-1 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+                className="flex-1 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
               >
                 <option value="EXPENSE">Expense</option>
                 <option value="INCOME">Income</option>
@@ -141,13 +141,13 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 step="0.01"
                 required
                 placeholder="Amount (€)"
-                className="flex-1 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+                className="flex-1 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
               />
             </div>
             <select
               name="categoryId"
               defaultValue=""
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             >
               <option value="">Category (optional)</option>
               {categories?.map((c) => (
@@ -160,7 +160,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               name="date"
               type="date"
               defaultValue={new Date().toISOString().slice(0, 10)}
-              className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <div className="mt-1 flex gap-3">
               <button

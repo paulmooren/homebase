@@ -50,12 +50,15 @@ export default function DashboardPage() {
     );
   }
 
+  // The glance (net worth) leads; the two working lists sit side by side on a wide screen.
   return (
-    <>
+    <div className="flex flex-col gap-5">
       {finance && <MissingStatementsCard />}
-      {shopping && <ShoppingCard />}
-      {(tasks || vault) && <TasksSnapshot showTasks={tasks} showVault={vault} />}
       {finance && <NetWorthSnapshot />}
-    </>
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        {shopping && <ShoppingCard />}
+        {(tasks || vault) && <TasksSnapshot showTasks={tasks} showVault={vault} />}
+      </div>
+    </div>
   );
 }

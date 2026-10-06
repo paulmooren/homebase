@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
+import { PageActions } from "@/components/page-actions";
 import { ModuleGate } from "@/components/use-modules";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 import { VaultEntryForm } from "@/components/vault/entry-form";
@@ -84,18 +85,18 @@ function Vault() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[13px] text-text-muted">
-          Numbers and notes are encrypted and stay hidden until you reveal them.
-        </p>
+      <PageActions>
         <button
           type="button"
           onClick={() => setCreating((c) => !c)}
-          className="shrink-0 rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
+          className="rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
         >
           {creating ? "Cancel" : "+ New entry"}
         </button>
-      </div>
+      </PageActions>
+      <p className="text-[13px] text-text-muted">
+        Numbers and notes are encrypted and stay hidden until you reveal them.
+      </p>
 
       {creating && (
         <section className="rounded-[20px] border border-border-soft bg-surface">

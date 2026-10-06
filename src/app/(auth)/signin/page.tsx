@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { AuthFrame } from "@/components/auth-frame";
+
 import { signInWithGoogle, signInWithPassword } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -17,9 +19,9 @@ export default async function SignInPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? "Something went wrong. Please try again.") : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-[380px] rounded-[20px] border border-border-soft bg-surface p-8">
-        <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill">
+    <AuthFrame>
+      <div>
+        <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill md:hidden">
           <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">
             K
           </span>
@@ -39,7 +41,7 @@ export default async function SignInPage({
         <form action={signInWithGoogle}>
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface-2 py-2.5 text-[14px] font-semibold text-text transition-colors hover:bg-surface-hover"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-2.5 text-[14px] font-semibold text-text transition-colors hover:bg-surface-hover"
           >
             <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]">
               <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3.01h3.87c2.27-2.09 3.58-5.17 3.58-8.83Z" />
@@ -63,14 +65,14 @@ export default async function SignInPage({
             name="email"
             required
             placeholder="you@example.com"
-            className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
+            className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
           <input
             type="password"
             name="password"
             required
             placeholder="Password"
-            className="w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
+            className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
           <button
             type="submit"
@@ -87,6 +89,6 @@ export default async function SignInPage({
           </Link>
         </p>
       </div>
-    </div>
+    </AuthFrame>
   );
 }

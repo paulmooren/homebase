@@ -117,7 +117,7 @@ export function MissingStatementsCard() {
       />
 
       {hasBanners && (
-        <div className="mb-5 flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {missingStatements.map((r) => (
             <div
               key={r.accountId}
