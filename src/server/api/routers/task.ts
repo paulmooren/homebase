@@ -5,6 +5,7 @@ import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { nextOccurrence } from "@/lib/recurring";
 
 const frequencySchema = z.enum(["WEEKLY", "MONTHLY", "YEARLY"]);
+const prioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
 export const taskRouter = createTRPCRouter({
   list: householdProcedure.query(({ ctx }) => {
@@ -19,6 +20,7 @@ export const taskRouter = createTRPCRouter({
     .input(
       z.object({
         title: z.string().min(1).max(160),
+        priority: prioritySchema.optional(),
         dueDate: z.coerce.date().nullable().optional(),
         frequency: frequencySchema.nullable().optional(),
         ownerId: z.string().nullable().optional(),
@@ -38,6 +40,7 @@ export const taskRouter = createTRPCRouter({
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
           title: input.title,
+          priority: input.priority ?? "MEDIUM",
           dueDate: input.dueDate ?? null,
           frequency: input.frequency ?? null,
         },
@@ -49,6 +52,7 @@ export const taskRouter = createTRPCRouter({
       z.object({
         id: z.string(),
         title: z.string().min(1).max(160).optional(),
+        priority: prioritySchema.optional(),
         dueDate: z.coerce.date().nullable().optional(),
         frequency: frequencySchema.nullable().optional(),
         ownerId: z.string().nullable().optional(),

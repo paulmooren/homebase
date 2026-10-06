@@ -80,11 +80,15 @@ _Avoid_: Reserve, bought, assign
 ### Tasks
 
 **Task**:
-Something to do at some point, with an optional date.
-_Avoid_: To-do
+Something to do once: a title, a Priority and an assignee, with no date. Tasks form a simple checklist.
+_Avoid_: To-do, chore
+
+**Priority**:
+How urgent a Task is: Low, Medium or High. Open Tasks are listed highest first.
+_Avoid_: Importance, urgency
 
 **Reminder**:
-A Task that repeats; ticking it off reschedules it rather than completing it.
+Something that comes back on a schedule — hoovering, watering the plants — and is ticked off each time it is done, which schedules the next one. Not a Task.
 _Avoid_: Recurring task, chore
 
 ### Vault

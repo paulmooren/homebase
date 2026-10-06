@@ -7,6 +7,8 @@ import { trpc } from "@/trpc/react";
 import { VaultIcon } from "@/components/nav-icons";
 import { daysUntil } from "@/lib/vault";
 import { formatDate } from "@/lib/format";
+import { ChecklistRow } from "@/components/tasks/checklist-row";
+import { PRIORITY_ORDER } from "@/components/tasks/priority-pill";
 import { TaskRow, type Task, type Member, type FormValues } from "@/components/tasks/task-row";
 
 function startOfToday() {
@@ -60,8 +62,14 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
       (t.frequency || !t.completedAt || justCompleted.has(t.id)),
   );
 
-  const dated = relevant.filter((t) => t.dueDate);
-  const undated = relevant.filter((t) => !t.dueDate);
+  // Reminders repeat and have due dates; tasks are an undated checklist, highest priority first.
+  const reminders = relevant.filter((t) => t.frequency);
+  const checklist = relevant
+    .filter((t) => !t.frequency)
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+
+  const dated = reminders.filter((t) => t.dueDate);
+  const undated = reminders.filter((t) => !t.dueDate);
 
   const byDueDate = (a: Task, b: Task) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
 
@@ -77,7 +85,9 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
   const vaultOverdue = vaultRows.filter((e) => daysUntil(e.date) < 0);
   const vaultUpcoming = vaultRows.filter((e) => daysUntil(e.date) >= 0);
 
-  type Row = { kind: "task"; task: Task; date: Date } | { kind: "vault"; id: string; title: string; date: Date };
+  type Row =
+    | { kind: "task" | "check"; task: Task; date: Date }
+    | { kind: "vault"; id: string; title: string; date: Date };
   const byDate = (a: Row, b: Row) => a.date.getTime() - b.date.getTime();
   const asTask = (task: Task): Row => ({ kind: "task", task, date: new Date(task.dueDate!) });
   const asVault = (e: { id: string; title: string; date: Date }): Row => ({ kind: "vault", ...e });
@@ -85,8 +95,9 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
   const overdueRows = [...overdue.map(asTask), ...vaultOverdue.map(asVault)].sort(byDate);
   const upcomingRows = [...upcoming.map(asTask), ...vaultUpcoming.map(asVault)].sort(byDate);
   const undatedRows: Row[] = undated.map((task) => ({ kind: "task", task, date: new Date(0) }));
+  const checklistRows: Row[] = checklist.map((task) => ({ kind: "check", task, date: new Date(0) }));
 
-  const rows = [...overdueRows, ...upcomingRows, ...undatedRows];
+  const rows = [...overdueRows, ...upcomingRows, ...undatedRows, ...checklistRows];
   if (rows.length === 0) return null;
 
   return (
@@ -100,6 +111,19 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
       {rows.map((row) =>
         row.kind === "vault" ? (
           <VaultExpiryRow key={`vault-${row.id}`} title={row.title} date={row.date} />
+        ) : row.kind === "check" ? (
+          <ChecklistRow
+            key={row.task.id}
+            task={row.task}
+            members={members}
+            currentUserId={currentUserId}
+            onToggle={() => {
+              if (!row.task.completedAt) setJustCompleted((prev) => new Set(prev).add(row.task.id));
+              toggleComplete.mutate({ id: row.task.id });
+            }}
+            onUpdate={(values) => updateTask.mutate({ id: row.task.id, ...values })}
+            onDelete={() => deleteTask.mutate({ id: row.task.id })}
+          />
         ) : (
           <TaskRow
             key={row.task.id}

@@ -306,11 +306,18 @@ model NetWorthSnapshot {
   @@map("net_worth_snapshots")
 }
 
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model Task {
   id          String              @id @default(cuid())
   householdId String
   ownerId     String?
   title       String
+  priority    TaskPriority        @default(MEDIUM)
   dueDate     DateTime?           @db.Date
   frequency   RecurringFrequency?
   completedAt DateTime?

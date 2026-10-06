@@ -13,16 +13,19 @@ export const FREQUENCIES = Object.keys(RECURRING_FREQUENCY_LABELS) as RecurringF
 /** Shared text size for a task's title, so it reads at a consistent scale everywhere. */
 export const CELL_TEXT = "text-[14px]";
 
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
+
 export type Task = {
   id: string;
   title: string;
+  priority: TaskPriority;
   dueDate: string | Date | null;
   frequency: RecurringFrequency | null;
   completedAt: string | Date | null;
   ownerId: string | null;
 };
 
-export type Member = { user: { id: string; name: string | null; email: string } };
+export type Member = { user: { id: string; name: string | null; email: string; image?: string | null } };
 
 export type FormValues = {
   title: string;
