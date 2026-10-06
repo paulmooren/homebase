@@ -114,7 +114,17 @@ export const recurringRouter = createTRPCRouter({
     return candidates.filter((c) => !knownNames.has(normalize(c.name)));
   }),
 
-  create: householdProcedure.input(candidateInput).mutation(async ({ ctx, input }) => {
+  create: householdProcedure
+    .input(
+      candidateInput.extend({
+        // When marking a transaction as recurring: the merchant text it came from
+        // (so the same suggestion doesn't pop up again) and its date (so the
+        // next due date counts from it, not from today).
+        detectedName: z.string().max(120).optional(),
+        lastDate: z.coerce.date().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
     const linked = await resolveAccountOwner(ctx, input.accountId);
     if (!linked && input.ownerId) {
       const isMember = await ctx.prisma.householdMember.findFirst({
@@ -132,13 +142,14 @@ export const recurringRouter = createTRPCRouter({
           accountId: linked?.accountId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
+          detectedName: input.detectedName ?? null,
           type: input.type,
           amount: input.amount,
           frequency: input.frequency,
           categoryId: input.categoryId ?? null,
           source: "MANUAL",
           status: "ACTIVE",
-          lastSeenAt: new Date(),
+          lastSeenAt: input.lastDate ?? new Date(),
         },
       });
     } catch {

@@ -12,7 +12,11 @@ import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
 import { Modal, ModalFooter } from "@/components/modal";
-import { Toast, toastPrimary } from "@/components/toast";
+import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
+import Link from "next/link";
+import { RepeatIcon } from "@/components/action-icons";
+import { MarkRecurringModal, type RecurringSource } from "@/components/finance/mark-recurring-modal";
+import { RECURRING_FREQUENCY_LABELS } from "@/lib/constants";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { CategoryCell } from "@/components/finance/category-cell";
 import {
@@ -34,7 +38,7 @@ const COL_AMOUNT = "w-[110px] shrink-0";
 
 /** Shared text size for every transaction property, so merchant/date/category/amount all read at the same scale. */
 const CELL_TEXT = "text-[14px]";
-const COL_ACTIONS = "flex w-[24px] shrink-0 items-center justify-end";
+const COL_ACTIONS = "flex w-[52px] shrink-0 items-center justify-end gap-3";
 
 export default function TransactionsPage() {
   return (
@@ -58,6 +62,22 @@ function TransactionsPageInner() {
   const filtering = hasFilters(filters);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [imported, setImported] = useState<number | null>(null);
+  const { data: recurring } = trpc.recurring.list.useQuery();
+  const [recurringFor, setRecurringFor] = useState<RecurringSource | null>(null);
+  const [recurringAdded, setRecurringAdded] = useState<{ name: string; type: "EXPENSE" | "INCOME" } | null>(null);
+
+  // A transaction counts as recurring when an active recurring item carries its
+  // merchant text (as its name or the text it was detected from) on the same
+  // account, or on no particular account.
+  const recurringByMerchant = new Map<string, NonNullable<typeof recurring>[number]>();
+  for (const item of recurring ?? []) {
+    for (const text of [item.name, item.detectedName]) {
+      if (text) recurringByMerchant.set(`${normalizeText(text)}|${item.accountId ?? ""}`, item);
+    }
+  }
+  const recurringFor_ = (merchant: string, accountId: string) =>
+    recurringByMerchant.get(`${normalizeText(merchant)}|${accountId}`) ??
+    recurringByMerchant.get(`${normalizeText(merchant)}|`);
   const { data: transactions } = trpc.transaction.list.useQuery(
     {
       limit,
@@ -235,6 +255,39 @@ function TransactionsPageInner() {
           </Modal>
         )}
 
+        {recurringFor && (
+          <MarkRecurringModal
+            source={recurringFor}
+            categories={categories ?? []}
+            onClose={() => setRecurringFor(null)}
+            onDone={(result) => {
+              setRecurringFor(null);
+              setRecurringAdded(result);
+            }}
+          />
+        )}
+
+        {recurringAdded && (
+          <Toast
+            onClose={() => setRecurringAdded(null)}
+            actions={
+              <>
+                <Link href="/finance/budgets" onClick={() => setRecurringAdded(null)} className={toastPrimary}>
+                  View in Budgets
+                </Link>
+                <button type="button" onClick={() => setRecurringAdded(null)} className={toastSecondary}>
+                  Close
+                </button>
+              </>
+            }
+          >
+            <p className="font-semibold">
+              ✓ Added to recurring {recurringAdded.type === "INCOME" ? "income" : "expenses"}
+            </p>
+            <p className="mt-0.5 text-bg/75">{recurringAdded.name}</p>
+          </Toast>
+        )}
+
         {imported !== null && (
           <Toast
             onClose={() => setImported(null)}
@@ -281,10 +334,11 @@ function TransactionsPageInner() {
                   : t.merchant;
               const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
               const canEdit = t.account.ownerId === null || t.account.ownerId === currentUserId;
+              const recurringItem = isTransfer ? undefined : recurringFor_(t.merchant, t.accountId);
               return (
                 <div
                   key={t.id}
-                  className="flex items-center gap-3.5 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover"
+                  className="group flex items-center gap-3.5 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover"
                 >
                   <span
                     className="block w-[3px] shrink-0 self-stretch rounded-full"
@@ -292,9 +346,21 @@ function TransactionsPageInner() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className={`truncate ${CELL_TEXT} font-medium`}>{label}</div>
-                    {multiMember && (
-                      <div className="truncate text-[11px] text-text-faint">
-                        {t.account.name} · {groupLabel(t.account.ownerId, members, currentUserId)}
+                    {(multiMember || recurringItem) && (
+                      <div className="flex items-center gap-1.5 truncate text-[11px] text-text-faint">
+                        {multiMember && (
+                          <span className="truncate">
+                            {t.account.name} · {groupLabel(t.account.ownerId, members, currentUserId)}
+                          </span>
+                        )}
+                        {recurringItem && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 font-medium text-text-muted">
+                            <span className="block h-2.5 w-2.5">
+                              <RepeatIcon />
+                            </span>
+                            {RECURRING_FREQUENCY_LABELS[recurringItem.frequency]}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -328,6 +394,28 @@ function TransactionsPageInner() {
                     {isInflow ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
+                    {canEdit && !isTransfer && !recurringItem && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRecurringFor({
+                            id: t.id,
+                            merchant: t.merchant,
+                            type: t.type as "EXPENSE" | "INCOME",
+                            amount: Number(t.amount),
+                            date: t.date,
+                            categoryId: t.categoryId,
+                            accountId: t.accountId,
+                            accountName: t.account.name,
+                          })
+                        }
+                        aria-label={`Mark ${t.merchant} as recurring`}
+                        title={isIncome ? "Mark as recurring income" : "Mark as recurring expense"}
+                        className="h-4 w-4 text-text-faint hover:text-text md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                      >
+                        <RepeatIcon />
+                      </button>
+                    )}
                     {canEdit && (
                       <button
                         onClick={() => {
@@ -831,4 +919,8 @@ function FileIcon() {
       <path d="M9 13h6M9 17h4" />
     </svg>
   );
+}
+
+function normalizeText(text: string) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
