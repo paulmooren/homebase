@@ -211,6 +211,7 @@ function TransactionsPageInner() {
           <Modal title="New transaction" onClose={() => setMode("none")}>
             <ManualTransactionForm
               accounts={writableAccounts}
+              initialAccountId={accountFilter || undefined}
               categories={categories ?? []}
               pending={createTransaction.isPending}
               onSubmit={(values) => createTransaction.mutate(values)}
@@ -224,7 +225,7 @@ function TransactionsPageInner() {
             <CsvImportForm
               accounts={writableAccounts}
               categories={categories ?? []}
-              initialAccountId={importAccountId ?? undefined}
+              initialAccountId={accountFilter || importAccountId || undefined}
               onImported={(count) => {
                 setImported(count);
                 setMode("none");
@@ -420,12 +421,14 @@ function FilterChip({
 
 function ManualTransactionForm({
   accounts,
+  initialAccountId,
   categories,
   pending,
   onSubmit,
   onCancel,
 }: {
   accounts: { id: string; name: string }[];
+  initialAccountId?: string;
   categories: { id: string; name: string }[];
   pending: boolean;
   onCancel: () => void;
@@ -440,7 +443,9 @@ function ManualTransactionForm({
   }) => void;
 }) {
   const [type, setType] = useState<TxType>("EXPENSE");
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [accountId, setAccountId] = useState(
+    initialAccountId && accounts.some((a) => a.id === initialAccountId) ? initialAccountId : (accounts[0]?.id ?? ""),
+  );
 
   return (
     <form
@@ -560,6 +565,7 @@ function CsvImportForm({
   const [categoryOverrides, setCategoryOverrides] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
+  const [dragging, setDragging] = useState(false);
 
   const importCsv = trpc.transaction.importCsv.useMutation({
     onSuccess: (result) => {
@@ -637,29 +643,57 @@ function CsvImportForm({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-        <Field label="Import into">
-          <SelectInput value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
-        <div className="flex flex-col gap-2">
-          <span className="text-[12.5px] text-text-muted">Bank statement (CSV)</span>
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border px-3.5 py-3 text-[14px] transition-colors hover:border-text-faint hover:bg-surface-hover">
-            <span className="rounded-lg bg-surface-2 px-3 py-1 text-[13px] font-medium">Choose file</span>
-            <span className="min-w-0 flex-1 truncate text-text-muted">{fileName || "No file chosen"}</span>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="sr-only"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-            />
-          </label>
-        </div>
+      <Field label="Account">
+        <SelectInput value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[12.5px] text-text-muted">Bank statement</span>
+        <label
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) handleFile(file);
+          }}
+          className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
+            dragging ? "border-text bg-surface-2" : "border-border hover:border-text-faint hover:bg-surface-hover"
+          }`}
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-text-muted">
+            {fileName ? <FileIcon /> : <UploadIcon />}
+          </span>
+          {fileName ? (
+            <>
+              <span className="max-w-full truncate text-[14px] font-medium">{fileName}</span>
+              <span className="text-[12.5px] text-text-muted">Drop or click to choose a different file</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[14px] font-medium">
+                Drag and drop your statement here, or <span className="underline">browse</span>
+              </span>
+              <span className="text-[12.5px] text-text-muted">CSV file from your bank</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="sr-only"
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          />
+        </label>
       </div>
 
       {error && <p className="text-[13px] text-critical">{error}</p>}
@@ -780,5 +814,25 @@ function ColumnSelect({
         ))}
       </SelectInput>
     </Field>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
   );
 }
