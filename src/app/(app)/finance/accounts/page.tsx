@@ -9,6 +9,7 @@ import { formatEUR } from "@/lib/format";
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { groupLabel, groupOrder, type Member } from "@/components/finance/ownership-groups";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
+import { Field, SelectInput, inputClass } from "@/components/settings/form";
 
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
@@ -66,15 +67,17 @@ export default function AccountsPage() {
     <section className="rounded-[20px] border border-border-soft bg-surface p-6">
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold">Accounts</h2>
-        <button
-          onClick={() => {
-            setEditingAccount(null);
-            setShowAccountForm((v) => !v);
-          }}
-          className="text-[12.5px] font-medium text-accent hover:opacity-80"
-        >
-          {showAccountForm ? "Cancel" : "+ Add account"}
-        </button>
+        {!showAccountForm && (
+          <button
+            onClick={() => {
+              setEditingAccount(null);
+              setShowAccountForm(true);
+            }}
+            className="text-[12.5px] font-medium text-accent hover:opacity-80"
+          >
+            + Add account
+          </button>
+        )}
       </div>
 
       {showAccountForm && (
@@ -83,6 +86,7 @@ export default function AccountsPage() {
           members={members}
           currentUserId={currentUserId}
           onSubmit={(values) => createAccount.mutate(values)}
+          onCancel={() => setShowAccountForm(false)}
           pending={createAccount.isPending}
         />
       )}
@@ -94,6 +98,7 @@ export default function AccountsPage() {
           members={members}
           currentUserId={currentUserId}
           onSubmit={(values) => updateAccount.mutate({ id: editingAccount.id, ...values })}
+          onCancel={() => setEditingAccount(null)}
           pending={updateAccount.isPending}
         />
       )}
@@ -251,12 +256,14 @@ function AccountForm({
   members,
   currentUserId,
   onSubmit,
+  onCancel,
 }: {
   initial?: Account;
   submitLabel: string;
   pending: boolean;
   members: Member[];
   currentUserId: string;
+  onCancel: () => void;
   onSubmit: (values: {
     name: string;
     institution?: string;
@@ -269,7 +276,7 @@ function AccountForm({
 
   return (
     <form
-      className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-border-soft bg-surface-2 p-4 sm:grid-cols-2"
+      className="mb-6 grid grid-cols-1 gap-x-5 gap-y-4 rounded-2xl border border-border-soft bg-surface p-5 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
@@ -288,66 +295,78 @@ function AccountForm({
         });
       }}
     >
-      <input
-        name="name"
-        required
-        defaultValue={initial?.name}
-        placeholder="Account name"
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      />
-      <input
-        name="institution"
-        defaultValue={initial?.institution ?? ""}
-        placeholder="Bank (optional)"
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      />
-      <select
-        name="type"
-        defaultValue={initial?.type ?? "CHECKING"}
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      >
-        {ACCOUNT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {ACCOUNT_TYPE_LABELS[t]}
-          </option>
-        ))}
-      </select>
-      <div className="sm:col-span-1">
+      <Field label="Account name">
         <input
-          name="startingBalance"
-          type="number"
-          step="0.01"
+          name="name"
           required
-          defaultValue={initial ? Number(initial.startingBalance) : undefined}
-          placeholder="Starting balance (€)"
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
+          autoFocus
+          defaultValue={initial?.name}
+          placeholder="e.g. Daily spending"
+          className={inputClass}
         />
-        <p className="mt-1 text-[11.5px] text-text-muted">
-          The balance before any transactions — the current balance is
-          calculated from this plus your transaction history.
-        </p>
-      </div>
-      {showOwnerPicker && (
-        <select
-          name="ownerId"
-          defaultValue={initial ? (initial.ownerId ?? "") : currentUserId}
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-        >
-          <option value="">Shared / Joint</option>
-          {members.map((m) => (
-            <option key={m.user.id} value={m.user.id}>
-              {m.user.id === currentUserId ? "You" : (m.user.name ?? m.user.email)}
+      </Field>
+      <Field label="Bank (optional)">
+        <input
+          name="institution"
+          defaultValue={initial?.institution ?? ""}
+          placeholder="e.g. bunq"
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Type">
+        <SelectInput name="type" defaultValue={initial?.type ?? "CHECKING"}>
+          {ACCOUNT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {ACCOUNT_TYPE_LABELS[t]}
             </option>
           ))}
-        </select>
+        </SelectInput>
+      </Field>
+      {showOwnerPicker && (
+        <Field label="Owner">
+          <SelectInput name="ownerId" defaultValue={initial ? (initial.ownerId ?? "") : currentUserId}>
+            <option value="">Shared / Joint</option>
+            {members.map((m) => (
+              <option key={m.user.id} value={m.user.id}>
+                {m.user.id === currentUserId ? "You" : (m.user.name ?? m.user.email)}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
       )}
-      <button
-        type="submit"
-        disabled={pending}
-        className="col-span-full rounded-lg bg-accent-fill py-2 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
-      >
-        {submitLabel}
-      </button>
+      <div className="flex flex-col gap-2">
+        <Field label="Starting balance (€)">
+          <input
+            name="startingBalance"
+            type="number"
+            step="0.01"
+            required
+            defaultValue={initial ? Number(initial.startingBalance) : undefined}
+            placeholder="0.00"
+            className={inputClass}
+          />
+        </Field>
+        <p className="text-[12px] text-text-muted">
+          The balance before any transactions — the current balance is calculated from this plus your
+          transaction history.
+        </p>
+      </div>
+      <div className="col-span-full flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+        >
+          {submitLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

@@ -39,3 +39,30 @@ export function SettingsSection({ title, children }: { title: string; children: 
     </section>
   );
 }
+
+/** A native select that matches `inputClass`: same height and border, with our own chevron instead of the browser's. */
+export function SelectInput({
+  className = "",
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="relative block">
+      <select {...props} className={`${inputClass} appearance-none pr-10 ${className}`}>
+        {children}
+      </select>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-text-muted"
+        aria-hidden
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </span>
+  );
+}
