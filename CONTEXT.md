@@ -79,16 +79,16 @@ _Avoid_: Reserve, bought, assign
 
 ### Tasks
 
-**Task**:
-Something to do once: a title, a Priority and an assignee, with no date. Tasks form a simple checklist.
-_Avoid_: To-do, chore
+**Todo**:
+Something to do once: a title, a Priority and an assignee, with no date. Todos form a simple checklist. The Tasks area of the app holds Todos and Reminders.
+_Avoid_: Task (that is the area, not the item), to-do, chore
 
 **Priority**:
-How urgent a Task is: Low, Medium or High. Open Tasks are listed highest first.
+How urgent a Todo is: Low, Medium or High. Open Todos are listed highest first.
 _Avoid_: Importance, urgency
 
 **Reminder**:
-Something that comes back on a Schedule — hoovering, watering the plants, worming the dog — assigned to one Member or to everyone. Ticking it off records a Completion and works out when it is next due. Not a Task.
+Something that comes back on a Schedule — hoovering, watering the plants, worming the dog — assigned to one Member or to everyone. Ticking it off records a Completion and works out when it is next due. Not a Todo.
 _Avoid_: Recurring task, chore
 
 **Schedule**:

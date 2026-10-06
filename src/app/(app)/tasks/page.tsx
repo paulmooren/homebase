@@ -249,7 +249,7 @@ function NewReminderRow({
 }
 
 /**
- * Tasks as a plain checklist: priority and who it's for, nothing else. Open
+ * Todos as a plain checklist: priority and who it's for, nothing else. Open
  * tasks come highest priority first; done ones fold away under "Completed".
  */
 function TaskChecklist({
@@ -291,11 +291,11 @@ function TaskChecklist({
 
   return (
     <section>
-      <h2 className="px-6 pb-4 text-[17px] font-semibold">Tasks</h2>
+      <h2 className="px-6 pb-4 text-[17px] font-semibold">Todos</h2>
 
       {open.length === 0 && !adding && (
         <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">
-          Nothing to do — add a task below.
+          Nothing to do — add a todo below.
         </p>
       )}
 
@@ -316,7 +316,7 @@ function TaskChecklist({
           <span className="block h-2.5 w-2.5 shrink-0">
             <PlusIcon />
           </span>
-          <span className={CELL_TEXT}>New task</span>
+          <span className={CELL_TEXT}>New todo</span>
         </button>
       )}
 
@@ -340,7 +340,7 @@ function TaskChecklist({
   );
 }
 
-/** "+ New task": title, priority and assignee on one line; Enter adds it and leaves a fresh line open. */
+/** "+ New todo": title, priority and assignee on one line; Enter adds it and leaves a fresh line open. */
 function NewTaskRow({
   members,
   currentUserId,
@@ -376,14 +376,14 @@ function NewTaskRow({
         required
         maxLength={160}
         placeholder="What needs doing?"
-        aria-label="New task"
+        aria-label="New todo"
         className={`min-w-0 flex-1 bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:font-normal placeholder:text-text-faint`}
       />
       <PriorityPill value={priority} onChange={setPriority} />
       {multiMember && (
         <AssigneeAvatar ownerId={ownerId} members={members} currentUserId={currentUserId} onChange={setOwnerId} />
       )}
-      <button type="submit" aria-label="Add task" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+      <button type="submit" aria-label="Add todo" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
       </button>
       <button type="button" onClick={onClose} aria-label="Done adding" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">

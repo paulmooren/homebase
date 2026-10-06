@@ -52,7 +52,7 @@ export function ChecklistRow({
       <div className="min-w-0 flex-1">
         <InlineEdit
           value={task.title}
-          ariaLabel="Task"
+          ariaLabel="Todo"
           onCommit={(title) => onUpdate({ title })}
           display={<span className={done ? "line-through" : ""}>{task.title}</span>}
           className={`text-[14px] font-medium ${done ? "text-text-faint" : ""}`}
