@@ -11,6 +11,9 @@ import { parseAmount, parseFlexibleDate, detectColumns } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
+import { Modal } from "@/components/modal";
+import { Toast, toastPrimary } from "@/components/toast";
+import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { CategoryCell } from "@/components/finance/category-cell";
 import {
   NO_FILTERS,
@@ -54,6 +57,7 @@ function TransactionsPageInner() {
   const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
   const filtering = hasFilters(filters);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [imported, setImported] = useState<number | null>(null);
   const { data: transactions } = trpc.transaction.list.useQuery(
     {
       limit,
@@ -142,16 +146,16 @@ function TransactionsPageInner() {
           </button>
         )}
         <button
-          onClick={() => setMode(mode === "import" ? "none" : "import")}
+          onClick={() => setMode("import")}
           className="rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-medium hover:bg-surface-hover"
         >
-          {mode === "import" ? "Cancel import" : "Import CSV"}
+          Import CSV
         </button>
         <button
-          onClick={() => setMode(mode === "manual" ? "none" : "manual")}
+          onClick={() => setMode("manual")}
           className="rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
         >
-          {mode === "manual" ? "Cancel" : "+ Transaction"}
+          + Transaction
         </button>
       </PageActions>
 
@@ -204,21 +208,45 @@ function TransactionsPageInner() {
         )}
 
         {mode === "manual" && writableAccounts.length > 0 && (
-          <ManualTransactionForm
-            accounts={writableAccounts}
-            categories={categories ?? []}
-            pending={createTransaction.isPending}
-            onSubmit={(values) => createTransaction.mutate(values)}
-          />
+          <Modal title="New transaction" onClose={() => setMode("none")}>
+            <ManualTransactionForm
+              accounts={writableAccounts}
+              categories={categories ?? []}
+              pending={createTransaction.isPending}
+              onSubmit={(values) => createTransaction.mutate(values)}
+              onCancel={() => setMode("none")}
+            />
+          </Modal>
         )}
 
         {mode === "import" && writableAccounts.length > 0 && (
-          <CsvImportForm
-            accounts={writableAccounts}
-            categories={categories ?? []}
-            initialAccountId={importAccountId ?? undefined}
-            onDone={() => setMode("none")}
-          />
+          <Modal title="Import bank statement" onClose={() => setMode("none")} width="max-w-3xl">
+            <CsvImportForm
+              accounts={writableAccounts}
+              categories={categories ?? []}
+              initialAccountId={importAccountId ?? undefined}
+              onImported={(count) => {
+                setImported(count);
+                setMode("none");
+              }}
+              onCancel={() => setMode("none")}
+            />
+          </Modal>
+        )}
+
+        {imported !== null && (
+          <Toast
+            onClose={() => setImported(null)}
+            actions={
+              <button type="button" onClick={() => setImported(null)} className={toastPrimary}>
+                Done
+              </button>
+            }
+          >
+            <p className="font-semibold">
+              ✓ Imported {imported} transaction{imported === 1 ? "" : "s"}
+            </p>
+          </Toast>
         )}
 
         <div className="-mx-4 mt-5 overflow-x-auto border-t border-border-soft md:-mx-6">
@@ -395,10 +423,12 @@ function ManualTransactionForm({
   categories,
   pending,
   onSubmit,
+  onCancel,
 }: {
   accounts: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   pending: boolean;
+  onCancel: () => void;
   onSubmit: (values: {
     accountId: string;
     type: TxType;
@@ -414,7 +444,7 @@ function ManualTransactionForm({
 
   return (
     <form
-      className="mb-2 grid grid-cols-1 gap-3 rounded-xl border border-border-soft bg-surface-2 p-4 sm:grid-cols-2"
+      className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
@@ -430,80 +460,72 @@ function ManualTransactionForm({
         });
       }}
     >
-      <select
-        value={accountId}
-        onChange={(e) => setAccountId(e.target.value)}
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      >
-        {accounts.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </select>
-      <select
-        value={type}
-        onChange={(e) => setType(e.target.value as TxType)}
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      >
-        <option value="EXPENSE">Expense</option>
-        <option value="INCOME">Income</option>
-        <option value="TRANSFER">Transfer</option>
-      </select>
-      <input
-        name="merchant"
-        required
-        placeholder="Description"
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      />
-      <input
-        name="amount"
-        type="number"
-        step="0.01"
-        required
-        placeholder="Amount (€)"
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      />
-      {type === "TRANSFER" ? (
-        <select
-          name="transferToAccountId"
-          required
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-        >
-          <option value="">Choose destination account</option>
-          {accounts.filter((a) => a.id !== accountId).map((a) => (
+      <Field label="Account">
+        <SelectInput value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
             </option>
           ))}
-        </select>
+        </SelectInput>
+      </Field>
+      <Field label="Type">
+        <SelectInput value={type} onChange={(e) => setType(e.target.value as TxType)}>
+          <option value="EXPENSE">Expense</option>
+          <option value="INCOME">Income</option>
+          <option value="TRANSFER">Transfer</option>
+        </SelectInput>
+      </Field>
+      <Field label="Description">
+        <input name="merchant" required autoFocus placeholder="e.g. Albert Heijn" className={inputClass} />
+      </Field>
+      <Field label="Amount (€)">
+        <input name="amount" type="number" step="0.01" required placeholder="0.00" className={inputClass} />
+      </Field>
+      {type === "TRANSFER" ? (
+        <Field label="To account">
+          <SelectInput name="transferToAccountId" required defaultValue="">
+            <option value="">Choose destination account</option>
+            {accounts
+              .filter((a) => a.id !== accountId)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </SelectInput>
+        </Field>
       ) : (
-        <select
-          name="categoryId"
-          defaultValue=""
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-        >
-          <option value="">Category (optional)</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <Field label="Category (optional)">
+          <SelectInput name="categoryId" defaultValue="">
+            <option value="">No category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
       )}
-      <input
-        name="date"
-        type="date"
-        defaultValue={new Date().toISOString().slice(0, 10)}
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="col-span-full rounded-lg bg-accent-fill py-2 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
-      >
-        Add
-      </button>
+      <Field label="Date">
+        <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+      </Field>
+      <div className="col-span-full flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+        >
+          Add transaction
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }
@@ -514,12 +536,14 @@ function CsvImportForm({
   accounts,
   categories,
   initialAccountId,
-  onDone,
+  onImported,
+  onCancel,
 }: {
   accounts: { id: string; name: string }[];
   categories: { id: string; name: string; color: string }[];
   initialAccountId?: string;
-  onDone: () => void;
+  onImported: (count: number) => void;
+  onCancel: () => void;
 }) {
   const utils = trpc.useUtils();
   const [accountId, setAccountId] = useState(
@@ -535,19 +559,22 @@ function CsvImportForm({
   const [amountCol, setAmountCol] = useState("");
   const [categoryOverrides, setCategoryOverrides] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
 
   const importCsv = trpc.transaction.importCsv.useMutation({
     onSuccess: (result) => {
       utils.transaction.list.invalidate();
       utils.dashboard.summary.invalidate();
       utils.dashboard.netWorthHistory.invalidate();
-      alert(`${result.imported} transactions imported.`);
-      onDone();
+      utils.account.list.invalidate();
+      utils.dashboard.missingStatements.invalidate();
+      onImported(result.imported);
     },
   });
 
   async function handleFile(file: File) {
     setError(null);
+    setFileName(file.name);
     const text = await file.text();
     Papa.parse<ParsedRow>(text, {
       header: true,
@@ -609,32 +636,37 @@ function CsvImportForm({
   }
 
   return (
-    <div className="mb-2 rounded-xl border border-border-soft bg-surface-2 p-4">
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row">
-        <select
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-[14px] outline-none focus:border-accent"
-        >
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-          className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-text-muted outline-none"
-        />
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+        <Field label="Import into">
+          <SelectInput value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <div className="flex flex-col gap-2">
+          <span className="text-[12.5px] text-text-muted">Bank statement (CSV)</span>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border px-3.5 py-3 text-[14px] transition-colors hover:border-text-faint hover:bg-surface-hover">
+            <span className="rounded-lg bg-surface-2 px-3 py-1 text-[13px] font-medium">Choose file</span>
+            <span className="min-w-0 flex-1 truncate text-text-muted">{fileName || "No file chosen"}</span>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+            />
+          </label>
+        </div>
       </div>
 
-      {error && <p className="mb-3 text-[13px] text-critical">{error}</p>}
+      {error && <p className="text-[13px] text-critical">{error}</p>}
 
       {headers.length > 0 && (
         <>
-          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-3">
             <ColumnSelect label="Date column" headers={headers} value={dateCol} onChange={setDateCol} />
             <ColumnSelect
               label="Description column"
@@ -645,7 +677,7 @@ function CsvImportForm({
             <ColumnSelect label="Amount column" headers={headers} value={amountCol} onChange={setAmountCol} />
           </div>
 
-          <div className="mb-3 max-h-[360px] overflow-y-auto overflow-x-auto rounded-lg border border-border-soft">
+          <div className="max-h-[320px] overflow-auto rounded-xl border border-border-soft">
             <table className="w-full text-left text-[12.5px]">
               <thead className="sticky top-0 bg-surface-2 text-text-faint">
                 <tr>
@@ -667,15 +699,10 @@ function CsvImportForm({
                       <td className="px-3 py-2">{p.merchant}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <span
-                            className="block h-2 w-2 shrink-0 rounded-full"
-                            style={{ background: color }}
-                          />
+                          <span className="block h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
                           <select
                             value={categoryId}
-                            onChange={(e) =>
-                              setCategoryOverrides((prev) => ({ ...prev, [i]: e.target.value }))
-                            }
+                            onChange={(e) => setCategoryOverrides((prev) => ({ ...prev, [i]: e.target.value }))}
                             className="w-full min-w-[120px] rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent"
                           >
                             <option value="">No category</option>
@@ -697,26 +724,37 @@ function CsvImportForm({
             </table>
           </div>
 
-          <p className="mb-3 text-[12px] text-text-muted">
-            {rows.length} rows detected · {categorizedCount} categorized automatically — review
-            before importing · negative amount = expense, positive amount = income
-          </p>
-          {skippedCount > 0 && (
-            <p className="mb-3 text-[12px] font-medium text-critical">
-              {skippedCount} row{skippedCount === 1 ? "" : "s"} will be skipped — unreadable date or
-              amount. Check the column mapping above.
+          <div className="-mt-1 flex flex-col gap-1.5">
+            <p className="text-[12px] text-text-muted">
+              {rows.length} rows detected · {categorizedCount} categorized automatically — review before
+              importing · negative amount = expense, positive amount = income
             </p>
-          )}
-
-          <button
-            onClick={handleImport}
-            disabled={importCsv.isPending}
-            className="rounded-lg bg-accent-fill px-4 py-2 text-[14px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
-          >
-            Import {rows.length} transactions
-          </button>
+            {skippedCount > 0 && (
+              <p className="text-[12px] font-medium text-critical">
+                {skippedCount} row{skippedCount === 1 ? "" : "s"} will be skipped — unreadable date or amount. Check
+                the column mapping above.
+              </p>
+            )}
+          </div>
         </>
       )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleImport}
+          disabled={importCsv.isPending || headers.length === 0}
+          className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
+        >
+          {headers.length > 0 ? `Import ${rows.length} transactions` : "Import"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -733,19 +771,14 @@ function ColumnSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[12px] text-text-muted">
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-border bg-surface px-3 py-2 text-[13.5px] text-text outline-none focus:border-accent"
-      >
+    <Field label={label}>
+      <SelectInput value={value} onChange={(e) => onChange(e.target.value)}>
         {headers.map((h) => (
           <option key={h} value={h}>
             {h}
           </option>
         ))}
-      </select>
-    </label>
+      </SelectInput>
+    </Field>
   );
 }
