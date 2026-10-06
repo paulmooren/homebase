@@ -388,7 +388,7 @@ function TransactionsPageInner() {
                   <div className={COL_ACTIONS}>
                     {!isTransfer && recurringItem && (
                       // Active: this transaction belongs to a recurring item. Hovering says how often.
-                      <span className="group/rec relative flex h-6 w-6 items-center justify-center rounded-full bg-text text-bg">
+                      <span className="group/rec relative flex h-6 w-6 items-center justify-center text-good">
                         <span className="block h-3.5 w-3.5">
                           <RepeatIcon />
                         </span>
