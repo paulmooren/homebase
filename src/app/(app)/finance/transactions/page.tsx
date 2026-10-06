@@ -2,12 +2,12 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Papa from "papaparse";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
 import { parseAmount, parseFlexibleDate, detectColumns, cleanMerchant } from "@/lib/csv";
+import { parseStatementText } from "@/lib/statement-import";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
@@ -581,26 +581,18 @@ function CsvImportForm({
   async function handleFile(file: File) {
     setError(null);
     setFileName(file.name);
-    const text = await file.text();
-    Papa.parse<ParsedRow>(text, {
-      header: true,
-      skipEmptyLines: true,
-      delimiter: "",
-      complete: (result) => {
-        const fields = result.meta.fields ?? [];
-        if (fields.length === 0 || result.data.length === 0) {
-          setError("Couldn't read the file. Is it a valid CSV file?");
-          return;
-        }
-        setHeaders(fields);
-        setRows(result.data);
-        const cols = detectColumns(fields);
-        setDateCol(cols.dateCol);
-        setMerchantCol(cols.merchantCol);
-        setMerchantFallbackCol(cols.merchantFallbackCol);
-        setAmountCol(cols.amountCol);
-      },
-    });
+    const parsed = parseStatementText(await file.text());
+    if (!parsed) {
+      setError("Couldn't read the file. Is it a valid CSV file?");
+      return;
+    }
+    setHeaders(parsed.fields);
+    setRows(parsed.rows);
+    const cols = detectColumns(parsed.fields);
+    setDateCol(cols.dateCol);
+    setMerchantCol(cols.merchantCol);
+    setMerchantFallbackCol(cols.merchantFallbackCol);
+    setAmountCol(cols.amountCol);
   }
 
   const parsedRows = useMemo(
