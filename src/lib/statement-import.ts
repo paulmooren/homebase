@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 
-import { detectColumns, parseAmount, parseFlexibleDate } from "@/lib/csv";
+import { cleanMerchant, detectColumns, parseAmount, parseFlexibleDate } from "@/lib/csv";
 
 export type StatementRow = { date: Date; merchant: string; amount: number };
 
@@ -29,7 +29,9 @@ export async function readStatement(file: File): Promise<StatementResult> {
     const date = parseFlexibleDate(row[dateCol] ?? "");
     const amount = parseAmount(row[amountCol] ?? "");
     const merchant =
-      (row[merchantCol] ?? "").trim() || (merchantFallbackCol ? (row[merchantFallbackCol] ?? "").trim() : "") || "Transaction";
+      cleanMerchant(row[merchantCol] ?? "") ||
+      (merchantFallbackCol ? cleanMerchant(row[merchantFallbackCol] ?? "") : "") ||
+      "Transaction";
     if (!date || Number.isNaN(amount)) {
       skipped += 1;
       continue;

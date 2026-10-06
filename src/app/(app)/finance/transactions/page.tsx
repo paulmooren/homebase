@@ -7,7 +7,7 @@ import Papa from "papaparse";
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
-import { parseAmount, parseFlexibleDate, detectColumns } from "@/lib/csv";
+import { parseAmount, parseFlexibleDate, detectColumns, cleanMerchant } from "@/lib/csv";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
@@ -606,8 +606,8 @@ function CsvImportForm({
   const parsedRows = useMemo(
     () =>
       rows.map((row) => {
-        const primary = merchantCol ? (row[merchantCol] ?? "").trim() : "";
-        const fallback = merchantFallbackCol ? (row[merchantFallbackCol] ?? "").trim() : "";
+        const primary = merchantCol ? cleanMerchant(row[merchantCol] ?? "") : "";
+        const fallback = merchantFallbackCol ? cleanMerchant(row[merchantFallbackCol] ?? "") : "";
         return {
           date: dateCol ? parseFlexibleDate(row[dateCol] ?? "") : null,
           merchant: primary || fallback || "Transaction",
@@ -696,7 +696,11 @@ function CsvImportForm({
         </label>
       </div>
 
-      {error && <p className="text-[13px] text-critical">{error}</p>}
+      {(error || importCsv.error) && (
+        <p className="rounded-xl border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
+          {error ?? "The import didn't go through. Please try again, or check the column mapping."}
+        </p>
+      )}
 
       {headers.length > 0 && (
         <>
@@ -779,7 +783,7 @@ function CsvImportForm({
           disabled={importCsv.isPending || headers.length === 0}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
         >
-          {headers.length > 0 ? `Import ${rows.length} transactions` : "Import"}
+          {importCsv.isPending ? "Importing…" : headers.length > 0 ? `Import ${rows.length} transactions` : "Import"}
         </button>
         <button
           type="button"

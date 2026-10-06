@@ -5,6 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
 import { suggestCategoryId } from "@/lib/categorize";
+import { MAX_MERCHANT_LENGTH, cleanMerchant } from "@/lib/csv";
 
 type Ctx = { householdId: string; userId: string; prisma: PrismaClient };
 
@@ -305,7 +306,11 @@ export const transactionRouter = createTRPCRouter({
           .array(
             z.object({
               date: z.coerce.date(),
-              merchant: z.string().min(1).max(120),
+              // Cleaned rather than rejected: one long description must not fail the whole import.
+              merchant: z
+                .string()
+                .transform((m) => cleanMerchant(m) || "Transaction")
+                .pipe(z.string().min(1).max(MAX_MERCHANT_LENGTH)),
               amount: z.number().finite(),
               categoryId: z.string().optional(),
             }),

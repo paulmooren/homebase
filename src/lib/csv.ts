@@ -83,3 +83,14 @@ export function detectColumns(fields: string[]) {
     amountCol: guessColumn(fields, ["betrag", "amount", "wert"]) ?? fields[fields.length - 1],
   };
 }
+
+export const MAX_MERCHANT_LENGTH = 120;
+
+/**
+ * Tidies a bank's description text into a merchant name: stray double quotes
+ * (some exports wrap or repeat them), runs of spaces, and anything past the
+ * length limit — a single long description must never reject a whole import.
+ */
+export function cleanMerchant(raw: string): string {
+  return raw.replace(/"/g, "").replace(/\s+/g, " ").trim().slice(0, MAX_MERCHANT_LENGTH).trim();
+}
