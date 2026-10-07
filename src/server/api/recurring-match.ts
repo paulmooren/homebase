@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { onSchedule } from "@/lib/on-schedule";
 import { cleanText, referenceOf } from "@/lib/recurring-detect";
 
 /**
@@ -37,21 +38,35 @@ export async function attachRecurringTransactions(prisma: PrismaClient, househol
       select: { id: true, amount: true, date: true, merchant: true, counterpartyName: true },
     });
 
-    // A price change should still be recognised, so a payment may be up to 10% off the item's amount or its latest payment.
-    // The odd one-off to the same party (double the rent) is further out and stays unlinked.
-    const latestPayment = await prisma.transaction.findFirst({
+    // The payments already linked say where the item's rhythm is. A candidate is judged against the one
+    // nearest to it in time, so the rhythm can't drift over a long stretch.
+    const linked = await prisma.transaction.findMany({
       where: { recurringItemId: item.id, recurringExcluded: false },
-      orderBy: { date: "desc" },
-      select: { amount: true },
+      select: { amount: true, date: true },
     });
+    const nearestLinked = (date: Date) =>
+      linked.reduce<(typeof linked)[number] | null>(
+        (best, p) => (best === null || Math.abs(+p.date - +date) < Math.abs(+best.date - +date) ? p : best),
+        null,
+      );
     const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 0.1);
     const itemAmount = Number(item.amount);
-    const latestAmount = latestPayment ? Number(latestPayment.amount) : null;
     const matches = candidates.filter((t) => {
       if (item.matchRef && referenceOf(t.merchant) !== item.matchRef) return false;
       if (item.matchText && cleanText(t.counterpartyName || t.merchant) !== item.matchText) return false;
       const amount = Number(t.amount);
-      return item.amountVaries || near(amount, itemAmount) || (latestAmount !== null && near(amount, latestAmount));
+
+      const neighbour = nearestLinked(t.date);
+      if (neighbour) {
+        // Once an item has payments, WHEN decides: one on its rhythm is the next occurrence, whatever its size
+        // (a changed amount is then proposed to the Member). One in the same period as a payment it already has, or
+        // off the rhythm — an extra, a pass-through — is not.
+        if (!onSchedule(neighbour.date, t.date, item.intervalCount, item.intervalUnit)) return false;
+        const base = Number(neighbour.amount);
+        return item.amountVaries || (amount >= base * 0.25 && amount <= base * 4);
+      }
+      // Nothing linked yet to tell the rhythm from: the amount has to carry it.
+      return item.amountVaries || near(amount, itemAmount);
     });
     if (matches.length === 0) continue;
 
