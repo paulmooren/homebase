@@ -122,3 +122,9 @@ _Avoid_: Check-in, log entry
 **Notification**:
 The one daily message a Member gets on their phone listing what is due for them today, with a single nudge once something is 2 days overdue. Overdue Reminders after that stay red in the app but do not notify again.
 _Avoid_: Alert, ping
+
+### Showing the app
+
+**Demo**:
+A separate copy of Homebase, with its own data, secrets and address, filled with made-up people and money so the app can be shown without showing a real Household. It can be reset to a clean state at any time, and it never shares data or sign-in with the real app.
+_Avoid_: Test environment, sandbox, staging (those are places to try out changes, not to show the app)
