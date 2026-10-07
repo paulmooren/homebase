@@ -32,7 +32,7 @@ export type ScheduleGuess = { count: number; unit: "WEEK" | "MONTH" };
 export type DetectedItem = {
   type: "EXPENSE" | "INCOME" | "TRANSFER";
   name: string;
-  /** The usual amount: the fixed one, or the average of the last three when it varies. */
+  /** The usual amount: the fixed one, or the latest payment when it varies. */
   amount: number;
   amountVaries: boolean;
   intervalCount: number;
@@ -203,9 +203,8 @@ function buildItem(
   const amounts = sorted.map((r) => r.amount);
   const mid = median(amounts);
   const amountVaries = currentAmount === null && !amounts.every((a) => amountWithin(a, mid));
-  const lastThree = amounts.slice(-3);
-  const amount =
-    currentAmount ?? (amountVaries ? round2(lastThree.reduce((a, b) => a + b, 0) / lastThree.length) : round2(mid));
+  // A new item starts on the Latest basis: the most recent payment. The Member can pick another basis afterwards.
+  const amount = currentAmount ?? (amountVaries ? round2(amounts[amounts.length - 1]) : round2(mid));
 
   // A wildly swinging amount with no IBAN to vouch for it is more likely habit than obligation.
   const spread = Math.max(...amounts) / Math.max(Math.min(...amounts), 0.01);

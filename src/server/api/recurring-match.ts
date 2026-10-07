@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { amountWithin, cleanText, referenceOf } from "@/lib/recurring-detect";
+import { cleanText, referenceOf } from "@/lib/recurring-detect";
 
 /**
  * Links transactions to the Recurring items they are occurrences of, by the
@@ -37,11 +37,21 @@ export async function attachRecurringTransactions(prisma: PrismaClient, househol
       select: { id: true, amount: true, date: true, merchant: true, counterpartyName: true },
     });
 
+    // A price change should still be recognised, so a payment may be up to 10% off the item's amount or its latest payment.
+    // The odd one-off to the same party (double the rent) is further out and stays unlinked.
+    const latestPayment = await prisma.transaction.findFirst({
+      where: { recurringItemId: item.id, recurringExcluded: false },
+      orderBy: { date: "desc" },
+      select: { amount: true },
+    });
+    const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 0.1);
     const itemAmount = Number(item.amount);
+    const latestAmount = latestPayment ? Number(latestPayment.amount) : null;
     const matches = candidates.filter((t) => {
       if (item.matchRef && referenceOf(t.merchant) !== item.matchRef) return false;
       if (item.matchText && cleanText(t.counterpartyName || t.merchant) !== item.matchText) return false;
-      return item.amountVaries || amountWithin(Number(t.amount), itemAmount);
+      const amount = Number(t.amount);
+      return item.amountVaries || near(amount, itemAmount) || (latestAmount !== null && near(amount, latestAmount));
     });
     if (matches.length === 0) continue;
 

@@ -4,10 +4,12 @@ import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { nextOccurrence } from "@/lib/recurring";
+import { BASES, amountForBasis, reviewAmount } from "@/lib/budget-basis";
 import { cleanText, detectRecurring, type DetectedItem } from "@/lib/recurring-detect";
 import { attachRecurringTransactions } from "@/server/api/recurring-match";
 
 const intervalUnitSchema = z.enum(["DAY", "WEEK", "MONTH", "YEAR"]);
+const basisSchema = z.enum(BASES as [typeof BASES[number], ...typeof BASES[number][]]);
 
 const itemInput = z.object({
   name: z.string().min(1).max(120),
@@ -60,6 +62,31 @@ async function assertHouseholdAccount(ctx: Ctx, accountId: string | null | undef
 
 function normalize(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** The Payments of each item, oldest first. `counted` leaves out the ones set aside. */
+async function paymentsByItem(ctx: Ctx, itemIds: string[]) {
+  const rows = await ctx.prisma.transaction.findMany({
+    where: { householdId: ctx.householdId, recurringItemId: { in: itemIds } },
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+    select: { id: true, recurringItemId: true, amount: true, date: true, merchant: true, recurringExcluded: true },
+  });
+  const byItem = new Map<string, { id: string; amount: number; date: Date; merchant: string; excluded: boolean }[]>();
+  for (const r of rows) {
+    const list = byItem.get(r.recurringItemId!) ?? [];
+    list.push({ id: r.id, amount: Number(r.amount), date: r.date, merchant: r.merchant, excluded: r.recurringExcluded });
+    byItem.set(r.recurringItemId!, list);
+  }
+  return byItem;
+}
+
+/** An item the caller may edit (own or Shared), or a NOT_FOUND. */
+async function editableItem(ctx: Ctx, id: string) {
+  const item = await ctx.prisma.recurringItem.findFirst({
+    where: { id, householdId: ctx.householdId, OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
+  });
+  if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+  return item;
 }
 
 /** Detects over everything the caller may edit (own accounts and Shared). */
@@ -134,12 +161,105 @@ export const recurringRouter = createTRPCRouter({
       include: { category: true },
       orderBy: { createdAt: "asc" },
     });
-    return items.map((item) => ({
-      ...item,
-      amount: Number(item.amount),
-      nextDueDate: item.lastSeenAt ? nextOccurrence(item.lastSeenAt, item.intervalCount, item.intervalUnit) : null,
-    }));
+    const payments = await paymentsByItem(ctx, items.map((i) => i.id));
+    return items.map((item) => {
+      const counted = (payments.get(item.id) ?? []).filter((p) => !p.excluded).map((p) => p.amount);
+      const amount = Number(item.amount);
+      const keptAmount = item.keptAmount === null ? null : Number(item.keptAmount);
+      return {
+        ...item,
+        amount,
+        keptAmount,
+        paymentCount: counted.length,
+        ...reviewAmount({ basis: item.basis, amount, keptAmount, payments: counted }),
+        nextDueDate: item.lastSeenAt ? nextOccurrence(item.lastSeenAt, item.intervalCount, item.intervalUnit) : null,
+      };
+    });
   }),
+
+  /** Everything the history panel shows: every Payment (set-aside ones included) and the item itself. */
+  history: householdProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+    const item = await ctx.prisma.recurringItem.findFirst({
+      where: {
+        id: input.id,
+        householdId: ctx.householdId,
+        OR: [{ ownerId: null }, { ownerId: ctx.userId }, { ownerId: { not: null }, visibleToHousehold: true }],
+      },
+    });
+    if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+    const payments = (await paymentsByItem(ctx, [item.id])).get(item.id) ?? [];
+    return {
+      id: item.id,
+      name: item.name,
+      basis: item.basis,
+      amount: Number(item.amount),
+      intervalCount: item.intervalCount,
+      intervalUnit: item.intervalUnit,
+      canEdit: item.ownerId === null || item.ownerId === ctx.userId,
+      payments,
+    };
+  }),
+
+  /** Picks how the Budgeted amount is taken. A derived basis applies its figure now; Fixed takes the typed amount. */
+  setBasis: householdProcedure
+    .input(z.object({ id: z.string(), basis: basisSchema, amount: z.number().positive().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      await editableItem(ctx, input.id);
+      let amount = input.amount;
+      if (input.basis !== "FIXED") {
+        const payments = (await paymentsByItem(ctx, [input.id])).get(input.id) ?? [];
+        amount = amountForBasis(input.basis, payments.filter((p) => !p.excluded).map((p) => p.amount)) ?? undefined;
+        if (amount === undefined) throw new TRPCError({ code: "BAD_REQUEST", message: "There are no payments to take an amount from." });
+      } else if (amount === undefined) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the amount to use." });
+      }
+      return ctx.prisma.recurringItem.update({
+        where: { id: input.id },
+        data: { basis: input.basis, amount, keptAmount: null },
+      });
+    }),
+
+  /** "Update": take the proposed amount. */
+  acceptProposal: householdProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const item = await editableItem(ctx, input.id);
+    const payments = (await paymentsByItem(ctx, [item.id])).get(item.id) ?? [];
+    const { proposal } = reviewAmount({
+      basis: item.basis,
+      amount: Number(item.amount),
+      keptAmount: item.keptAmount === null ? null : Number(item.keptAmount),
+      payments: payments.filter((p) => !p.excluded).map((p) => p.amount),
+    });
+    if (proposal === null) return item;
+    return ctx.prisma.recurringItem.update({ where: { id: item.id }, data: { amount: proposal, keptAmount: null } });
+  }),
+
+  /** "Keep": stay on the current amount, and don't ask about this proposed figure again. */
+  keepAmount: householdProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const item = await editableItem(ctx, input.id);
+    const payments = (await paymentsByItem(ctx, [item.id])).get(item.id) ?? [];
+    const { proposal } = reviewAmount({
+      basis: item.basis,
+      amount: Number(item.amount),
+      keptAmount: item.keptAmount === null ? null : Number(item.keptAmount),
+      payments: payments.filter((p) => !p.excluded).map((p) => p.amount),
+    });
+    if (proposal === null) return item;
+    return ctx.prisma.recurringItem.update({ where: { id: item.id }, data: { keptAmount: proposal } });
+  }),
+
+  /** Sets a one-off Payment aside (or takes it back). It stays linked, so an import never links it again. */
+  setPaymentExcluded: householdProcedure
+    .input(z.object({ transactionId: z.string(), excluded: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const tx = await ctx.prisma.transaction.findFirst({
+        where: { id: input.transactionId, householdId: ctx.householdId, recurringItemId: { not: null } },
+        select: { recurringItemId: true },
+      });
+      if (!tx) throw new TRPCError({ code: "NOT_FOUND" });
+      await editableItem(ctx, tx.recurringItemId!);
+      await ctx.prisma.transaction.update({ where: { id: input.transactionId }, data: { recurringExcluded: input.excluded } });
+      return { success: true };
+    }),
 
   suggestions: householdProcedure.query(async ({ ctx }) => {
     // Suggestions are drafts, not confirmed facts about anyone's finances —
@@ -298,6 +418,8 @@ export const recurringRouter = createTRPCRouter({
             type: input.type,
             amount: input.amount,
             amountVaries: input.amountVaries ?? false,
+            // Marked from a transaction: follow the payments. Typed in by hand: that amount stays.
+            basis: input.fromTransactionId ? "LATEST" : "FIXED",
             intervalCount: input.intervalCount,
             intervalUnit: input.intervalUnit,
             categoryId: input.categoryId ?? null,
@@ -372,6 +494,8 @@ export const recurringRouter = createTRPCRouter({
         where: { id },
         data: {
           ...data,
+          // Typing an amount means "use this one".
+          ...(data.amount !== undefined ? { basis: "FIXED" as const, keptAmount: null } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
           ...(accountId !== undefined ? { accountId: linked?.accountId ?? null } : {}),
         },
@@ -394,6 +518,8 @@ export const recurringRouter = createTRPCRouter({
         select: { id: true },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      // Payments set aside belong to nobody once the item is gone.
+      await ctx.prisma.transaction.updateMany({ where: { recurringItemId: input.id }, data: { recurringExcluded: false } });
       await ctx.prisma.recurringItem.delete({ where: { id: input.id } });
       return { success: true };
     }),

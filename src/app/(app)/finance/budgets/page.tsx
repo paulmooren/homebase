@@ -17,7 +17,8 @@ import {
   type ScopeKey,
 } from "@/lib/budget-scope";
 import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
-import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon } from "@/components/action-icons";
+import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon, ChartIcon } from "@/components/action-icons";
+import { PaymentHistoryModal } from "@/components/finance/payment-history-modal";
 import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { InlineEdit } from "@/components/inline-edit";
@@ -49,6 +50,11 @@ type Item = {
   amountVaries: boolean;
   intervalCount: number;
   intervalUnit: ScheduleUnit;
+  paymentCount: number;
+  /** A different amount the payments suggest, waiting for the Member to approve it. */
+  proposal: number | null;
+  /** For a Fixed item: what its latest payment was, when that has drifted from the typed amount. */
+  drift: number | null;
   source: "MANUAL" | "DETECTED";
   nextDueDate: string | Date | null;
   lastSeenAt: string | Date | null;
@@ -122,6 +128,7 @@ export default function BudgetsPage() {
           setAccountFilter("");
         }}
         hasItems={(items ?? []).length > 0}
+        changed={new Set(scopeEntries.filter((e) => (e.item as Item).proposal !== null).map((e) => e.item.id)).size}
       />
       <AccountCards
         accounts={scopeAccounts}
@@ -152,6 +159,7 @@ function LeftEachMonth({
   scope,
   onScope,
   hasItems,
+  changed,
 }: {
   entries: Entry[];
   scopes: { key: ScopeKey; label: string }[];
@@ -159,6 +167,8 @@ function LeftEachMonth({
   scope: ScopeKey;
   onScope: (key: ScopeKey) => void;
   hasItems: boolean;
+  /** How many items have a proposed new amount waiting. */
+  changed: number;
 }) {
   const { income, expenses, left } = totalsOf(entries);
   const sofar = soFarThisMonth(entries, todayInHousehold());
@@ -198,6 +208,15 @@ function LeftEachMonth({
           ? `left each month after fixed costs — ${formatEUR(income)} comes in, ${formatEUR(expenses)} goes out (${label.toLowerCase() === "you" ? "your accounts" : label})`
           : "Add your recurring income and expenses below, or confirm the suggestions, to see what is left each month."}
       </p>
+      {changed > 0 && (
+        <button
+          type="button"
+          onClick={() => document.querySelector("[data-proposal]")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+          className="mt-3 rounded-lg bg-surface-2 px-3 py-1.5 text-[12.5px] font-medium text-text hover:bg-surface-hover"
+        >
+          {changed} amount{changed === 1 ? "" : "s"} changed — review
+        </button>
+      )}
       {hasItems && (
         <p className="mt-1 text-[12px] text-text-faint">
           So far this month: {formatEUR(sofar.income)} in, {formatEUR(sofar.expenses)} out · everyday spending such as
@@ -620,6 +639,11 @@ function RecurringRow({
   onToggleVisibility: (visible: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const utils = trpc.useUtils();
+  const refresh = () => utils.recurring.list.invalidate();
+  const acceptProposal = trpc.recurring.acceptProposal.useMutation({ onSuccess: refresh });
+  const keepAmount = trpc.recurring.keepAmount.useMutation({ onSuccess: refresh });
   const isTransfer = item.type === "TRANSFER";
   // Due, but not in the transactions yet: say so quietly — it still counts.
   const notSeen = item.nextDueDate !== null && new Date(item.nextDueDate).getTime() < todayInHousehold().getTime();
@@ -635,7 +659,9 @@ function RecurringRow({
         currentUserId={currentUserId}
         accounts={accounts}
         onSubmit={(values) => {
-          onUpdate(values);
+          // Only a changed amount counts as typing one (which makes the item Fixed); a rename or new schedule must not.
+          const { amount, ...rest } = values;
+          onUpdate(amount === item.amount ? rest : values);
           setEditing(false);
         }}
         onCancel={() => setEditing(false)}
@@ -644,6 +670,7 @@ function RecurringRow({
   }
 
   return (
+    <>
     <div className="flex items-center gap-3 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
       <span
         className="block w-[3px] shrink-0 self-stretch rounded-full"
@@ -679,6 +706,37 @@ function RecurringRow({
               <> · next {formatDate(item.nextDueDate)}</>
             ))}
         </div>
+        {item.proposal !== null && (
+          <div data-proposal className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px]">
+            <span className="font-medium text-text">
+              New amount {formatEUR(item.proposal)}
+              <span className="font-normal text-text-faint"> · was {formatEUR(item.amount)}</span>
+            </span>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  disabled={acceptProposal.isPending}
+                  onClick={() => acceptProposal.mutate({ id: item.id })}
+                  className="rounded-md bg-accent-fill px-2 py-0.5 font-semibold text-accent-ink hover:opacity-90"
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  disabled={keepAmount.isPending}
+                  onClick={() => keepAmount.mutate({ id: item.id })}
+                  className="rounded-md border border-border-soft px-2 py-0.5 font-medium text-text-muted hover:text-text"
+                >
+                  Keep
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {item.drift !== null && (
+          <p className="mt-1 text-[12px] text-text-faint">Payments are now {formatEUR(item.drift)}</p>
+        )}
       </div>
       {item.amountVaries && (
         <span
@@ -712,6 +770,16 @@ function RecurringRow({
         ) : (
           <VisibilityBadge />
         ))}
+      {item.paymentCount > 0 && (
+        <button
+          onClick={() => setShowHistory(true)}
+          aria-label={`Payment history of ${item.name}`}
+          title="Payment history"
+          className="h-4 w-4 shrink-0 text-text-muted hover:text-text"
+        >
+          <ChartIcon />
+        </button>
+      )}
       {canEdit && (
         <>
           <button
@@ -731,6 +799,8 @@ function RecurringRow({
         </>
       )}
     </div>
+    {showHistory && <PaymentHistoryModal itemId={item.id} onClose={() => setShowHistory(false)} />}
+    </>
   );
 }
 

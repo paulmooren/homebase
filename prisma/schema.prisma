@@ -30,6 +30,15 @@ enum RecurringFrequency {
   YEARLY
 }
 
+// How a Recurring item's Budgeted amount is taken from its Payments.
+enum BudgetBasis {
+  LATEST
+  LOWEST
+  HIGHEST
+  AVERAGE
+  FIXED
+}
+
 enum RecurringSource {
   MANUAL
   DETECTED
@@ -237,6 +246,8 @@ model Transaction {
   counterpartyName    String?
   // The Recurring item this transaction is an occurrence of.
   recurringItemId     String?
+  // A one-off Payment set aside: still linked to the item (so an import never re-links it) but not part of its history.
+  recurringExcluded   Boolean         @default(false)
   createdAt           DateTime        @default(now())
 
   household         Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -293,6 +304,9 @@ model RecurringItem {
   intervalUnit       ScheduleUnit       @default(MONTH)
   // The amount moves from payment to payment (salary, a phone bill); `amount` is then the recent average.
   amountVaries       Boolean            @default(false)
+  basis              BudgetBasis        @default(LATEST)
+  // The amount the Member last said "Keep" to when a different one was proposed; not proposed again.
+  keptAmount         Decimal?           @db.Decimal(14, 2)
   // For a recurring transfer: the account the money arrives in.
   toAccountId        String?
   // How to recognise its transactions: the other party's IBAN, or failing that its description with the changing numbers stripped.

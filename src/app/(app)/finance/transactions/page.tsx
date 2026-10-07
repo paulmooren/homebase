@@ -332,7 +332,7 @@ function TransactionsPageInner() {
                   : t.merchant;
               const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
               const canEdit = t.account.ownerId === null || t.account.ownerId === currentUserId;
-              const recurringItem = t.recurringItemId ? recurringById.get(t.recurringItemId) : undefined;
+              const recurringItem = t.recurringItemId && !t.recurringExcluded ? recurringById.get(t.recurringItemId) : undefined;
               return (
                 <div
                   key={t.id}
