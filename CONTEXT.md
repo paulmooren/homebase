@@ -42,6 +42,18 @@ _Avoid_: Account (alone, ambiguous with login)
 A confirmed income, expense or transfer that comes back on a Schedule, linked to a Financial account and remembering how to recognise its transactions (the other party, or its description with the changing numbers stripped out).
 _Avoid_: Subscription, standing order, budget item
 
+**Payment**:
+One transaction that is an occurrence of a Recurring item — one month's salary, one month's rent. A Payment that was a one-off (a bonus, a refund) can be set aside: it stays an ordinary transaction but no longer belongs to the item or its history.
+_Avoid_: Occurrence, instance
+
+**Budgeted amount**:
+The figure a Recurring item contributes to Left each month. It is chosen by the Member from the item's Payments and never changes on its own: when new Payments suggest a different figure, the Member is asked to approve it.
+_Avoid_: Amount (alone — ambiguous with what a single Payment was), expected amount
+
+**Basis**:
+The rule that turns a Recurring item's Payments into its Budgeted amount: Latest (the most recent Payment), Lowest, Highest or Average (each over the last 6 Payments), or Fixed (an amount the Member typed). Latest is the default.
+_Avoid_: Strategy, mode, method
+
 **Transfer**:
 Money moved between two accounts the Household tracks. It is neither income nor spending, so it never counts toward budgets — unless it is recurring: then it counts as an expense for the account it leaves and as income for the account it enters.
 _Avoid_: Internal payment, own-account payment
