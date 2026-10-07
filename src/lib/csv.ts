@@ -84,6 +84,48 @@ export function detectColumns(fields: string[]) {
   };
 }
 
+const IBAN_PATTERN = /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/;
+
+/** An IBAN without spaces in capitals, or null when the text isn't one. */
+export function normalizeIban(raw: string | null | undefined): string | null {
+  const iban = (raw ?? "").replace(/\s+/g, "").toUpperCase();
+  return IBAN_PATTERN.test(iban) ? iban : null;
+}
+
+function exactColumn(headers: string[], names: string[]): string {
+  return headers.find((h) => names.includes(h.trim().toLowerCase())) ?? "";
+}
+
+/**
+ * The columns that say who a transaction was with: the statement's own IBAN
+ * (bunq: "Account"), the other party's IBAN ("Counterparty") and name
+ * ("Name"). Matched by whole header so a "Counterparty name" column is never
+ * mistaken for the IBAN. Empty string when a bank doesn't export one.
+ */
+export function detectPartyColumns(fields: string[]) {
+  return {
+    accountIbanCol: exactColumn(fields, ["account", "iban", "account number", "rekeningnummer", "konto"]),
+    counterpartyIbanCol: exactColumn(fields, [
+      "counterparty",
+      "counterparty iban",
+      "tegenrekening",
+      "tegenrekeningnummer",
+      "iban/bic",
+    ]),
+    counterpartyNameCol: exactColumn(fields, [
+      "name",
+      "counterparty name",
+      "naam tegenpartij",
+      "naam",
+      "tegenpartij",
+      "gegenpartei",
+      "empfänger",
+      "begünstigter",
+      "payee",
+    ]),
+  };
+}
+
 export const MAX_MERCHANT_LENGTH = 120;
 
 /**

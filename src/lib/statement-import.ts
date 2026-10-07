@@ -1,8 +1,32 @@
 import Papa from "papaparse";
 
-import { cleanMerchant, detectColumns, parseAmount, parseFlexibleDate } from "@/lib/csv";
+import {
+  cleanMerchant,
+  detectColumns,
+  detectPartyColumns,
+  normalizeIban,
+  parseAmount,
+  parseFlexibleDate,
+} from "@/lib/csv";
 
-export type StatementRow = { date: Date; merchant: string; amount: number };
+export type StatementRow = {
+  date: Date;
+  merchant: string;
+  amount: number;
+  counterpartyIban: string | null;
+  counterpartyName: string | null;
+};
+
+/** The IBAN the statement says it is for: the most common valid one in its account column. */
+export function statementIban(rows: Record<string, string>[], accountIbanCol: string): string | null {
+  if (!accountIbanCol) return null;
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const iban = normalizeIban(row[accountIbanCol]);
+    if (iban) counts.set(iban, (counts.get(iban) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
 
 export type ParsedStatementText = { fields: string[]; rows: Record<string, string>[] };
 
@@ -40,7 +64,7 @@ export function parseStatementText(text: string): ParsedStatementText | null {
 }
 
 export type StatementResult =
-  | { ok: true; rows: StatementRow[]; skipped: number }
+  | { ok: true; rows: StatementRow[]; skipped: number; accountIban: string | null }
   | { ok: false; error: string };
 
 /**
@@ -58,6 +82,7 @@ export async function readStatement(file: File): Promise<StatementResult> {
   const { fields } = parsed;
 
   const { dateCol, merchantCol, merchantFallbackCol, amountCol } = detectColumns(fields);
+  const { accountIbanCol, counterpartyIbanCol, counterpartyNameCol } = detectPartyColumns(fields);
   const rows: StatementRow[] = [];
   let skipped = 0;
   for (const row of parsed.rows) {
@@ -71,11 +96,44 @@ export async function readStatement(file: File): Promise<StatementResult> {
       skipped += 1;
       continue;
     }
-    rows.push({ date, merchant, amount });
+    rows.push({
+      date,
+      merchant,
+      amount,
+      counterpartyIban: counterpartyIbanCol ? normalizeIban(row[counterpartyIbanCol]) : null,
+      counterpartyName: counterpartyNameCol ? cleanMerchant(row[counterpartyNameCol] ?? "") || null : null,
+    });
   }
 
   if (rows.length === 0) {
     return { ok: false, error: "Couldn't find dates and amounts in that file." };
   }
-  return { ok: true, rows, skipped };
+  return { ok: true, rows, skipped, accountIban: statementIban(parsed.rows, accountIbanCol) };
+}
+
+export type ImportResult = {
+  added: number;
+  updated: number;
+  unchanged: number;
+  transfers: number;
+  removed: number;
+};
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** What an import did, in words: "Added 12 new, updated 3 existing". */
+export function describeImport(result: ImportResult): { headline: string; detail: string | null } {
+  const parts = [
+    result.added > 0 ? `added ${result.added} new` : null,
+    result.updated > 0 ? `updated ${result.updated} existing` : null,
+  ].filter(Boolean) as string[];
+  const headline =
+    parts.length > 0
+      ? parts.join(", ").replace(/^./, (c) => c.toUpperCase())
+      : "Nothing new — it was all imported already";
+  const detail =
+    result.transfers > 0
+      ? `${plural(result.transfers, "move")} between your accounts kept as one transfer`
+      : null;
+  return { headline, detail };
 }

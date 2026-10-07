@@ -182,6 +182,9 @@ model FinancialAccount {
   visibleToHousehold Boolean     @default(true)
   name               String
   institution        String?
+  // The account's own IBAN, filled from bank exports. Lets the importer
+  // recognise a move between two tracked accounts as a Transfer.
+  iban               String?
   type               AccountType
   startingBalance    Decimal     @default(0) @db.Decimal(14, 2)
   balance            Decimal     @default(0) @db.Decimal(14, 2)
@@ -227,6 +230,10 @@ model Transaction {
   merchant            String
   note                String?
   transferToAccountId String?
+  // The other party as the bank reports it. Recognising a recurring item by
+  // this is far steadier than by the free-text description.
+  counterpartyIban    String?
+  counterpartyName    String?
   createdAt           DateTime        @default(now())
 
   household         Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)

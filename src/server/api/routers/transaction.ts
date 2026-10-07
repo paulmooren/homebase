@@ -5,7 +5,8 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
 import { suggestCategoryId } from "@/lib/categorize";
-import { MAX_MERCHANT_LENGTH, cleanMerchant } from "@/lib/csv";
+import { MAX_MERCHANT_LENGTH, cleanMerchant, normalizeIban } from "@/lib/csv";
+import { planImport } from "@/lib/import-match";
 
 type Ctx = { householdId: string; userId: string; prisma: PrismaClient };
 
@@ -302,6 +303,8 @@ export const transactionRouter = createTRPCRouter({
     .input(
       z.object({
         accountId: z.string(),
+        // The statement's own IBAN (bunq: the "Account" column), when it has one.
+        accountIban: z.string().nullish(),
         rows: z
           .array(
             z.object({
@@ -313,6 +316,11 @@ export const transactionRouter = createTRPCRouter({
                 .pipe(z.string().min(1).max(MAX_MERCHANT_LENGTH)),
               amount: z.number().finite(),
               categoryId: z.string().optional(),
+              counterpartyIban: z.string().nullish(),
+              counterpartyName: z
+                .string()
+                .nullish()
+                .transform((n) => cleanMerchant(n ?? "") || null),
             }),
           )
           .min(1)
@@ -320,37 +328,85 @@ export const transactionRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const account = await ctx.prisma.financialAccount.findFirst({
-        where: {
-          id: input.accountId,
-          householdId: ctx.householdId,
-          OR: [{ ownerId: null }, { ownerId: ctx.userId }],
-        },
-        select: { id: true },
+      const accessible = await ctx.prisma.financialAccount.findMany({
+        where: { householdId: ctx.householdId, OR: [{ ownerId: null }, { ownerId: ctx.userId }] },
+        select: { id: true, iban: true },
       });
+      const account = accessible.find((a) => a.id === input.accountId);
       if (!account) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // The file says which account it is for: remember that on first import,
+      // and refuse a statement that belongs to a different account.
+      const fileIban = normalizeIban(input.accountIban);
+      if (fileIban && account.iban && fileIban !== account.iban) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `This statement is for ${fileIban}, but the account is ${account.iban}. Pick the matching account, or correct its IBAN.`,
+        });
+      }
+      if (fileIban && !account.iban) {
+        if (accessible.some((a) => a.iban === fileIban)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Another account already has the IBAN in this statement." });
+        }
+        await ctx.prisma.financialAccount.update({ where: { id: account.id }, data: { iban: fileIban } });
+        account.iban = fileIban;
+      }
 
       const categories = await ctx.prisma.category.findMany({
         where: { householdId: ctx.householdId },
         select: { id: true, name: true },
       });
 
-      const rows = input.rows.map((row) => {
-        // Convention (matches manual entry): negative = money-out (expense), positive = money-in (income).
-        const type = row.amount < 0 ? ("EXPENSE" as const) : ("INCOME" as const);
-        return {
+      const time = input.rows.map((r) => r.date.getTime());
+      const existing = await ctx.prisma.transaction.findMany({
+        where: {
           householdId: ctx.householdId,
-          accountId: input.accountId,
-          type,
-          amount: Math.abs(row.amount),
-          date: row.date,
-          merchant: row.merchant,
-          categoryId: row.categoryId ?? suggestCategoryId(row.merchant, categories),
-        };
+          date: { gte: new Date(Math.min(...time)), lte: new Date(Math.max(...time)) },
+          OR: [{ accountId: { in: accessible.map((a) => a.id) } }, { transferToAccountId: { in: accessible.map((a) => a.id) } }],
+        },
+        select: {
+          id: true,
+          accountId: true,
+          transferToAccountId: true,
+          type: true,
+          amount: true,
+          date: true,
+          merchant: true,
+          counterpartyIban: true,
+          counterpartyName: true,
+        },
       });
 
-      await ctx.prisma.transaction.createMany({ data: rows });
+      const plan = planImport({
+        accountId: account.id,
+        accountIban: account.iban,
+        accounts: accessible.map((a) => ({ id: a.id, iban: a.iban, editable: true })),
+        existing: existing.map((e) => ({ ...e, amount: Number(e.amount) })),
+        rows: input.rows.map((r) => ({
+          date: r.date,
+          merchant: r.merchant,
+          amount: r.amount,
+          categoryId: r.categoryId ?? suggestCategoryId(r.merchant, categories) ?? null,
+          counterpartyIban: normalizeIban(r.counterpartyIban),
+          counterpartyName: r.counterpartyName,
+        })),
+      });
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.transaction.createMany({
+          data: plan.create.map((t) => ({ ...t, householdId: ctx.householdId })),
+        }),
+        ...plan.update.map((u) => ctx.prisma.transaction.update({ where: { id: u.id }, data: u.data })),
+        ctx.prisma.transaction.deleteMany({ where: { id: { in: plan.remove }, householdId: ctx.householdId } }),
+      ]);
       await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);
-      return { imported: rows.length };
+      return {
+        added: plan.create.length,
+        updated: plan.update.length,
+        unchanged: plan.unchanged,
+        transfers: plan.transfers,
+        removed: plan.remove.length,
+        ibanLearned: Boolean(fileIban),
+      };
     }),
 });

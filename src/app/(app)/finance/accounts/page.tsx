@@ -18,6 +18,7 @@ type Account = {
   id: string;
   name: string;
   institution: string | null;
+  iban: string | null;
   type: string;
   startingBalance: unknown;
   balance: unknown;
@@ -88,6 +89,7 @@ export default function AccountsPage() {
           onSubmit={(values) => createAccount.mutate(values)}
           onCancel={() => setShowAccountForm(false)}
           pending={createAccount.isPending}
+          error={createAccount.error?.message}
         />
         </Modal>
       )}
@@ -102,6 +104,7 @@ export default function AccountsPage() {
           onSubmit={(values) => updateAccount.mutate({ id: editingAccount.id, ...values })}
           onCancel={() => setEditingAccount(null)}
           pending={updateAccount.isPending}
+          error={updateAccount.error?.message}
         />
         </Modal>
       )}
@@ -256,6 +259,7 @@ function AccountForm({
   initial,
   submitLabel,
   pending,
+  error,
   members,
   currentUserId,
   onSubmit,
@@ -264,12 +268,14 @@ function AccountForm({
   initial?: Account;
   submitLabel: string;
   pending: boolean;
+  error?: string;
   members: Member[];
   currentUserId: string;
   onCancel: () => void;
   onSubmit: (values: {
     name: string;
     institution?: string;
+    iban: string | null;
     type: (typeof ACCOUNT_TYPES)[number];
     startingBalance: number;
     ownerId?: string | null;
@@ -292,6 +298,7 @@ function AccountForm({
         onSubmit({
           name: String(form.get("name")),
           institution: String(form.get("institution") || "") || undefined,
+          iban: String(form.get("iban") || "").trim() || null,
           type: String(form.get("type")) as (typeof ACCOUNT_TYPES)[number],
           startingBalance: Number(form.get("startingBalance") || 0),
           ownerId,
@@ -313,6 +320,15 @@ function AccountForm({
           name="institution"
           defaultValue={initial?.institution ?? ""}
           placeholder="e.g. bunq"
+          className={inputClass}
+        />
+      </Field>
+      <Field label="IBAN (optional)">
+        <input
+          name="iban"
+          defaultValue={initial?.iban ?? ""}
+          placeholder="Filled in from your first bank statement"
+          autoComplete="off"
           className={inputClass}
         />
       </Field>
@@ -354,6 +370,11 @@ function AccountForm({
           transaction history.
         </p>
       </div>
+      {error && (
+        <p className="col-span-full rounded-xl border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
+          {error}
+        </p>
+      )}
       <ModalFooter className="col-span-full">
         <button
           type="submit"

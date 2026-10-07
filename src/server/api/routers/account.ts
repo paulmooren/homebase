@@ -3,6 +3,25 @@ import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
+import { normalizeIban } from "@/lib/csv";
+import type { PrismaClient } from "@prisma/client";
+
+/** A valid IBAN no other account in the household has, or null to clear it. */
+async function resolveIban(
+  ctx: { prisma: PrismaClient; householdId: string },
+  raw: string | null | undefined,
+  selfId?: string,
+) {
+  if (!raw?.trim()) return null;
+  const iban = normalizeIban(raw);
+  if (!iban) throw new TRPCError({ code: "BAD_REQUEST", message: "That doesn't look like a valid IBAN." });
+  const clash = await ctx.prisma.financialAccount.findFirst({
+    where: { householdId: ctx.householdId, iban, ...(selfId ? { id: { not: selfId } } : {}) },
+    select: { id: true },
+  });
+  if (clash) throw new TRPCError({ code: "BAD_REQUEST", message: "Another account already has this IBAN." });
+  return iban;
+}
 
 const accountTypeSchema = z.enum([
   "CHECKING",
@@ -34,6 +53,7 @@ export const accountRouter = createTRPCRouter({
       z.object({
         name: z.string().min(1).max(80),
         institution: z.string().max(80).optional(),
+        iban: z.string().max(60).nullish(),
         type: accountTypeSchema,
         startingBalance: z.number().finite(),
         ownerId: z.string().nullable().optional(),
@@ -49,9 +69,12 @@ export const accountRouter = createTRPCRouter({
         if (!isMember) throw new TRPCError({ code: "BAD_REQUEST", message: "Not a household member." });
       }
 
+      const iban = await resolveIban(ctx, input.iban);
+
       const account = await ctx.prisma.financialAccount.create({
         data: {
           householdId: ctx.householdId,
+          iban,
           ownerId: input.ownerId ?? null,
           visibleToHousehold: input.visibleToHousehold ?? true,
           name: input.name,
@@ -72,6 +95,7 @@ export const accountRouter = createTRPCRouter({
         id: z.string(),
         name: z.string().min(1).max(80).optional(),
         institution: z.string().max(80).optional(),
+        iban: z.string().max(60).nullish(),
         type: accountTypeSchema.optional(),
         startingBalance: z.number().finite().optional(),
         ownerId: z.string().nullable().optional(),
@@ -79,7 +103,7 @@ export const accountRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, ownerId, ...data } = input;
+      const { id, ownerId, iban: ibanInput, ...data } = input;
 
       if (ownerId) {
         const isMember = await ctx.prisma.householdMember.findFirst({
@@ -107,7 +131,11 @@ export const accountRouter = createTRPCRouter({
 
       const account = await ctx.prisma.financialAccount.update({
         where: { id },
-        data: { ...data, ...(ownerId !== undefined ? { ownerId } : {}) },
+        data: {
+          ...data,
+          ...(ownerId !== undefined ? { ownerId } : {}),
+          ...(ibanInput !== undefined ? { iban: await resolveIban(ctx, ibanInput, id) } : {}),
+        },
       });
       if (data.startingBalance !== undefined || data.type !== undefined) {
         await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);

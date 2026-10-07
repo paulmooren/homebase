@@ -6,8 +6,15 @@ import { useSearchParams } from "next/navigation";
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
-import { parseAmount, parseFlexibleDate, detectColumns, cleanMerchant } from "@/lib/csv";
-import { parseStatementText } from "@/lib/statement-import";
+import {
+  parseAmount,
+  parseFlexibleDate,
+  detectColumns,
+  detectPartyColumns,
+  cleanMerchant,
+  normalizeIban,
+} from "@/lib/csv";
+import { describeImport, parseStatementText, statementIban, type ImportResult } from "@/lib/statement-import";
 import { suggestCategoryId } from "@/lib/categorize";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
@@ -61,7 +68,7 @@ function TransactionsPageInner() {
   const [filters, setFilters] = useState<TransactionFilters>(NO_FILTERS);
   const filtering = hasFilters(filters);
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [imported, setImported] = useState<number | null>(null);
+  const [imported, setImported] = useState<ImportResult | null>(null);
   const { data: recurring } = trpc.recurring.list.useQuery();
   const [recurringFor, setRecurringFor] = useState<RecurringSource | null>(null);
   const [recurringAdded, setRecurringAdded] = useState<{ name: string; type: "EXPENSE" | "INCOME" } | null>(null);
@@ -246,8 +253,8 @@ function TransactionsPageInner() {
               accounts={writableAccounts}
               categories={categories ?? []}
               initialAccountId={accountFilter || importAccountId || undefined}
-              onImported={(count) => {
-                setImported(count);
+              onImported={(result) => {
+                setImported(result);
                 setMode("none");
               }}
               onCancel={() => setMode("none")}
@@ -297,9 +304,10 @@ function TransactionsPageInner() {
               </button>
             }
           >
-            <p className="font-semibold">
-              ✓ Imported {imported} transaction{imported === 1 ? "" : "s"}
-            </p>
+            <p className="font-semibold">✓ {describeImport(imported).headline}</p>
+            {describeImport(imported).detail && (
+              <p className="mt-0.5 text-bg/75">{describeImport(imported).detail}</p>
+            )}
           </Toast>
         )}
 
@@ -640,7 +648,7 @@ function CsvImportForm({
   accounts: { id: string; name: string }[];
   categories: { id: string; name: string; color: string }[];
   initialAccountId?: string;
-  onImported: (count: number) => void;
+  onImported: (result: ImportResult) => void;
   onCancel: () => void;
 }) {
   const utils = trpc.useUtils();
@@ -655,6 +663,8 @@ function CsvImportForm({
   const [merchantCol, setMerchantCol] = useState("");
   const [merchantFallbackCol, setMerchantFallbackCol] = useState("");
   const [amountCol, setAmountCol] = useState("");
+  // Who the statement is for and who each row was with; empty when the bank doesn't export them.
+  const [partyCols, setPartyCols] = useState({ accountIbanCol: "", counterpartyIbanCol: "", counterpartyNameCol: "" });
   const [categoryOverrides, setCategoryOverrides] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
@@ -667,7 +677,7 @@ function CsvImportForm({
       utils.dashboard.netWorthHistory.invalidate();
       utils.account.list.invalidate();
       utils.dashboard.missingStatements.invalidate();
-      onImported(result.imported);
+      onImported(result);
     },
   });
 
@@ -686,6 +696,7 @@ function CsvImportForm({
     setMerchantCol(cols.merchantCol);
     setMerchantFallbackCol(cols.merchantFallbackCol);
     setAmountCol(cols.amountCol);
+    setPartyCols(detectPartyColumns(parsed.fields));
   }
 
   const parsedRows = useMemo(
@@ -697,9 +708,13 @@ function CsvImportForm({
           date: dateCol ? parseFlexibleDate(row[dateCol] ?? "") : null,
           merchant: primary || fallback || "Transaction",
           amount: amountCol ? parseAmount(row[amountCol] ?? "") : NaN,
+          counterpartyIban: partyCols.counterpartyIbanCol ? normalizeIban(row[partyCols.counterpartyIbanCol]) : null,
+          counterpartyName: partyCols.counterpartyNameCol
+            ? cleanMerchant(row[partyCols.counterpartyNameCol] ?? "") || null
+            : null,
         };
       }),
-    [rows, dateCol, merchantCol, merchantFallbackCol, amountCol],
+    [rows, dateCol, merchantCol, merchantFallbackCol, amountCol, partyCols],
   );
 
   function categoryFor(i: number, merchant: string) {
@@ -717,13 +732,19 @@ function CsvImportForm({
       merchant: string;
       amount: number;
       categoryId?: string;
+      counterpartyIban: string | null;
+      counterpartyName: string | null;
     }[];
 
     if (parsed.length === 0) {
       setError("No valid rows found. Check the column mapping.");
       return;
     }
-    importCsv.mutate({ accountId, rows: parsed });
+    importCsv.mutate({
+      accountId,
+      accountIban: statementIban(rows, partyCols.accountIbanCol),
+      rows: parsed,
+    });
   }
 
   return (
@@ -783,7 +804,10 @@ function CsvImportForm({
 
       {(error || importCsv.error) && (
         <p className="rounded-xl border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
-          {error ?? "The import didn't go through. Please try again, or check the column mapping."}
+          {error ??
+            (importCsv.error?.data?.code === "BAD_REQUEST"
+              ? importCsv.error.message
+              : "The import didn't go through. Please try again, or check the column mapping.")}
         </p>
       )}
 

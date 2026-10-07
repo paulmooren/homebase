@@ -6,7 +6,9 @@ import Link from "next/link";
 import { trpc } from "@/trpc/react";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import { suggestCategoryId } from "@/lib/categorize";
-import { readStatement } from "@/lib/statement-import";
+import { TRPCClientError } from "@trpc/client";
+
+import { describeImport, readStatement, type ImportResult } from "@/lib/statement-import";
 
 function WarningIcon() {
   return (
@@ -29,7 +31,7 @@ function lastMonthName() {
 }
 
 type Outcome =
-  | { kind: "success"; accountId: string; accountName: string; imported: number; skipped: number }
+  | { kind: "success"; accountId: string; accountName: string; result: ImportResult; skipped: number }
   | { kind: "error"; accountId: string; message: string };
 
 /**
@@ -68,6 +70,7 @@ export function MissingStatementsCard() {
       }
       const result = await importCsv.mutateAsync({
         accountId: account.id,
+        accountIban: statement.accountIban,
         rows: statement.rows.map((r) => ({
           ...r,
           categoryId: suggestCategoryId(r.merchant, categories ?? []) ?? undefined,
@@ -86,11 +89,17 @@ export function MissingStatementsCard() {
         kind: "success",
         accountId: account.id,
         accountName: account.name,
-        imported: result.imported,
+        result,
         skipped: statement.skipped,
       });
-    } catch {
-      setOutcome({ kind: "error", accountId: account.id, message: "Something went wrong importing that file." });
+    } catch (e) {
+      // A refusal the server explains (e.g. a statement for another account) is worth showing as is.
+      const explained = e instanceof TRPCClientError && e.data?.code === "BAD_REQUEST" ? e.message : null;
+      setOutcome({
+        kind: "error",
+        accountId: account.id,
+        message: explained ?? "Something went wrong importing that file.",
+      });
     } finally {
       setBusyAccount(null);
     }
@@ -166,11 +175,10 @@ export function MissingStatementsCard() {
             </>
           }
         >
-          <p className="font-semibold">
-            ✓ Imported {outcome.imported} transaction{outcome.imported === 1 ? "" : "s"}
-          </p>
+          <p className="font-semibold">✓ {describeImport(outcome.result).headline}</p>
           <p className="mt-0.5 text-bg/75">
-            Added to {outcome.accountName}
+            {outcome.accountName}
+            {describeImport(outcome.result).detail && ` · ${describeImport(outcome.result).detail}`}
             {outcome.skipped > 0 && ` · ${outcome.skipped} row${outcome.skipped === 1 ? "" : "s"} skipped (no date or amount)`}
           </p>
         </Toast>
