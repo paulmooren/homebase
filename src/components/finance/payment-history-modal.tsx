@@ -73,30 +73,33 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
           <p className="mb-2 text-[12.5px] text-text-muted">
             {data.payments.length} payment{data.payments.length === 1 ? "" : "s"} · {describeSchedule(data.intervalCount, data.intervalUnit).toLowerCase()}
           </p>
-          <div className="flex h-28 items-end gap-1.5 rounded-xl bg-surface-2 px-3 pt-3 pb-2" aria-hidden>
+          {/* Headroom above the bars (pt-14) keeps the tooltip of the tallest one inside the chart. */}
+          <div className="flex h-40 items-stretch gap-1.5 rounded-xl bg-surface-2 px-3 pt-14 pb-2" aria-hidden>
             {data.payments.map((p) => {
               const inWindow = !p.excluded && seen++ >= recentStart;
+              const height = Math.max(4, (p.amount / maxAmount) * 100);
               return (
-                <div key={p.id} className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
-                  <div
-                    className={`w-full max-w-9 rounded-t-md transition-opacity group-hover:opacity-80 ${
-                      p.excluded ? "bg-text-faint/30" : inWindow ? "bg-text" : "bg-text-faint/60"
-                    }`}
-                    style={{ height: `${Math.max(4, (p.amount / maxAmount) * 100)}%` }}
-                  />
-                  <span className="text-[10px] text-text-faint">{MONTH.format(new Date(p.date))}</span>
-                  <span
-                    role="tooltip"
-                    className="pointer-events-none absolute left-1/2 z-20 hidden -translate-x-1/2 rounded-lg bg-text px-2.5 py-1.5 text-center text-[11.5px] font-medium whitespace-nowrap text-bg shadow-lg group-hover:block"
-                    // Sits just above the top of its bar: the bar's height plus the month label beneath it.
-                    style={{ bottom: `calc(${Math.max(4, (p.amount / maxAmount) * 100)}% + 1.4rem)` }}
-                  >
-                    {formatEUR(p.amount)}
-                    <span className="block text-[10.5px] font-normal text-bg/70">
-                      {DAY.format(new Date(p.date))}
-                      {p.excluded && " · set aside"}
+                <div key={p.id} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <div className="relative flex w-full flex-1 items-end justify-center">
+                    <div
+                      className={`w-full max-w-9 rounded-t-md transition-opacity group-hover:opacity-80 ${
+                        p.excluded ? "bg-text-faint/30" : inWindow ? "bg-text" : "bg-text-faint/60"
+                      }`}
+                      style={{ height: `${height}%` }}
+                    />
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-1/2 z-20 hidden -translate-x-1/2 rounded-lg bg-text px-2.5 py-1.5 text-center text-[11.5px] font-medium whitespace-nowrap text-bg shadow-lg group-hover:block"
+                      style={{ bottom: `calc(${height}% + 6px)` }}
+                    >
+                      {formatEUR(p.amount)}
+                      <span className="block text-[10.5px] font-normal text-bg/70">
+                        {DAY.format(new Date(p.date))}
+                        {p.excluded && " · set aside"}
+                      </span>
                     </span>
-                  </span>
+                  </div>
+                  <span className="text-[10px] text-text-faint">{MONTH.format(new Date(p.date))}</span>
                 </div>
               );
             })}
