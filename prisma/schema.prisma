@@ -304,6 +304,9 @@ model RecurringItem {
   intervalUnit       ScheduleUnit       @default(MONTH)
   // The amount moves from payment to payment (salary, a phone bill); `amount` is then the recent average.
   amountVaries       Boolean            @default(false)
+  // Position among the household's recurring items; lower comes first. Dragged by the Member, so it
+  // never changes on its own; new items take the next free number (the bottom of their group).
+  sortOrder          Int                @default(0)
   basis              BudgetBasis        @default(LATEST)
   // The amount the Member last said "Keep" to when a different one was proposed; not proposed again.
   keptAmount         Decimal?           @db.Decimal(14, 2)

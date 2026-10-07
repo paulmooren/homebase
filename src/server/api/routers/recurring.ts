@@ -89,6 +89,12 @@ async function editableItem(ctx: Ctx, id: string) {
   return item;
 }
 
+/** The next free position, so a new item lands at the bottom of its group. */
+async function nextSortOrder(ctx: Ctx) {
+  const last = await ctx.prisma.recurringItem.aggregate({ where: { householdId: ctx.householdId }, _max: { sortOrder: true } });
+  return (last._max.sortOrder ?? 0) + 1;
+}
+
 /** Detects over everything the caller may edit (own accounts and Shared). */
 async function detectFor(ctx: Ctx): Promise<DetectedItem[]> {
   const [transactions, accounts] = await Promise.all([
@@ -159,7 +165,7 @@ export const recurringRouter = createTRPCRouter({
         ],
       },
       include: { category: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     const payments = await paymentsByItem(ctx, items.map((i) => i.id));
     return items.map((item) => {
@@ -301,6 +307,7 @@ export const recurringRouter = createTRPCRouter({
       ]);
       const taken = new Set(existing.map((e) => normalize(e.name)));
       const visibility = new Map(accounts.map((a) => [a.id, a.visibleToHousehold]));
+      let sortOrder = await nextSortOrder(ctx);
 
       for (const d of chosen) {
         const name = uniqueName(d.name, d.amount, taken);
@@ -313,6 +320,7 @@ export const recurringRouter = createTRPCRouter({
             toAccountId: d.toAccountId,
             visibleToHousehold: visibility.get(d.accountId) ?? true,
             name,
+            sortOrder: sortOrder++,
             type: d.type,
             amount: d.amount,
             amountVaries: d.amountVaries,
@@ -415,6 +423,7 @@ export const recurringRouter = createTRPCRouter({
             toAccountId: input.type === "TRANSFER" ? input.toAccountId : null,
             visibleToHousehold: input.visibleToHousehold ?? true,
             name: input.name,
+            sortOrder: await nextSortOrder(ctx),
             type: input.type,
             amount: input.amount,
             amountVaries: input.amountVaries ?? false,
@@ -438,6 +447,32 @@ export const recurringRouter = createTRPCRouter({
       }
       await attachRecurringTransactions(ctx.prisma, ctx.householdId, [item.id]);
       return item;
+    }),
+
+  /**
+   * Puts these items in this order. They swap the positions they already hold, among themselves, so the
+   * items that weren't moved (hidden by a filter, or someone else's) keep exactly the places they had.
+   */
+  reorder: householdProcedure
+    .input(z.object({ ids: z.array(z.string()).min(2).max(200) }))
+    .mutation(async ({ ctx, input }) => {
+      if (new Set(input.ids).size !== input.ids.length) throw new TRPCError({ code: "BAD_REQUEST" });
+      const items = await ctx.prisma.recurringItem.findMany({
+        where: {
+          id: { in: input.ids },
+          householdId: ctx.householdId,
+          // Only what you may edit: your own and Shared.
+          OR: [{ ownerId: null }, { ownerId: ctx.userId }],
+        },
+        select: { id: true, sortOrder: true },
+      });
+      if (items.length !== input.ids.length) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const slots = items.map((i) => i.sortOrder).sort((a, b) => a - b);
+      await ctx.prisma.$transaction(
+        input.ids.map((id, index) => ctx.prisma.recurringItem.update({ where: { id }, data: { sortOrder: slots[index] } })),
+      );
+      return { success: true };
     }),
 
   update: householdProcedure

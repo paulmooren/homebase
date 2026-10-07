@@ -296,7 +296,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     { name: "Credit card payment", type: "TRANSFER", account: "daily", to: "card", owner: null, amount: 450, basis: "FIXED" },
   ];
   const createdItems = await Promise.all(
-    items.map(async (def) => {
+    items.map(async (def, index) => {
       const created = await prisma.recurringItem.create({
         data: {
           householdId,
@@ -305,6 +305,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
           toAccountId: def.to ? acc[def.to] : null,
           visibleToHousehold: true,
           name: def.name,
+          sortOrder: index + 1,
           type: def.type,
           amount: def.amount,
           amountVaries: def.varies ?? false,

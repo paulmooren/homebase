@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
@@ -17,8 +19,10 @@ import {
   type ScopeKey,
 } from "@/lib/budget-scope";
 import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
-import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon, ChartIcon } from "@/components/action-icons";
+import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon, ChartIcon, GripIcon } from "@/components/action-icons";
 import { PaymentHistoryModal } from "@/components/finance/payment-history-modal";
+import { SortableList } from "@/components/sortable-list";
+import { applyReorder } from "@/lib/recurring-order";
 import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { InlineEdit } from "@/components/inline-edit";
@@ -413,6 +417,19 @@ function RecurringItems({
   const createItem = trpc.recurring.create.useMutation({ onSuccess: invalidate });
   const updateItem = trpc.recurring.update.useMutation({ onSuccess: invalidate });
   const deleteItem = trpc.recurring.delete.useMutation({ onSuccess: invalidate });
+  // A drop shows at once; the server confirms, or the list goes back to how it was.
+  const reorder = trpc.recurring.reorder.useMutation({
+    onMutate: async ({ ids }) => {
+      await utils.recurring.list.cancel();
+      const previous = utils.recurring.list.getData();
+      utils.recurring.list.setData(undefined, (old) => (old ? applyReorder(old, ids) : old));
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous) utils.recurring.list.setData(undefined, context.previous);
+    },
+    onSettled: () => utils.recurring.list.invalidate(),
+  });
 
   const accountName = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? "another account";
 
@@ -447,6 +464,7 @@ function RecurringItems({
           onAdd={(values) => createItem.mutate({ ...values, type: "INCOME" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
+          onReorder={(ids) => reorder.mutate({ ids })}
           onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
         />
         <RecurringColumn
@@ -465,6 +483,7 @@ function RecurringItems({
           onAdd={(values) => createItem.mutate({ ...values, type: "EXPENSE" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
+          onReorder={(ids) => reorder.mutate({ ids })}
           onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
         />
       </div>
@@ -488,6 +507,7 @@ function RecurringColumn({
   onAdd,
   onUpdate,
   onDelete,
+  onReorder,
   onToggleVisibility,
 }: {
   type: TxType;
@@ -505,6 +525,8 @@ function RecurringColumn({
   onAdd: (values: FormValues) => void;
   onUpdate: (id: string, values: Partial<FormValues>) => void;
   onDelete: (id: string) => void;
+  /** The new order of these items, after one was dragged. */
+  onReorder: (ids: string[]) => void;
   onToggleVisibility: (id: string, visible: boolean) => void;
 }) {
   const [adding, setAdding] = useState(false);
@@ -553,7 +575,28 @@ function RecurringColumn({
                   </p>
                 )}
               </div>
-              {groupItems.map((entry) => (
+              <SortableList ids={groupItems.map((e) => e.item.id)} onReorder={onReorder}>
+                {groupItems.map((entry) => (
+                  <RecurringRow
+                    key={`${entry.item.id}-${entry.side}`}
+                    item={entry.item}
+                    side={entry.side}
+                    accountName={accountName}
+                    categories={categories}
+                    members={members}
+                    currentUserId={currentUserId}
+                    accounts={accounts}
+                    onUpdate={(values) => onUpdate(entry.item.id, values)}
+                    onDelete={() => onDelete(entry.item.id)}
+                    onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
+                  />
+              ))}
+              </SortableList>
+            </div>
+          ))
+        : (
+            <SortableList ids={entries.map((e) => e.item.id)} onReorder={onReorder}>
+              {entries.map((entry) => (
                 <RecurringRow
                   key={`${entry.item.id}-${entry.side}`}
                   item={entry.item}
@@ -568,23 +611,8 @@ function RecurringColumn({
                   onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
                 />
               ))}
-            </div>
-          ))
-        : entries.map((entry) => (
-            <RecurringRow
-              key={`${entry.item.id}-${entry.side}`}
-              item={entry.item}
-              side={entry.side}
-              accountName={accountName}
-              categories={categories}
-              members={members}
-              currentUserId={currentUserId}
-              accounts={accounts}
-              onUpdate={(values) => onUpdate(entry.item.id, values)}
-              onDelete={() => onDelete(entry.item.id)}
-              onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
-            />
-          ))}
+            </SortableList>
+          )}
 
       {adding ? (
         <InlineRecurringRow
@@ -649,6 +677,10 @@ function RecurringRow({
   const notSeen = item.nextDueDate !== null && new Date(item.nextDueDate).getTime() < todayInHousehold().getTime();
   const isOwn = item.ownerId === currentUserId;
   const canEdit = item.ownerId === null || isOwn;
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+    disabled: !canEdit || editing,
+  });
 
   if (editing) {
     return (
@@ -671,7 +703,30 @@ function RecurringRow({
 
   return (
     <>
-    <div className="flex items-center gap-3 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
+    <div
+      ref={setNodeRef}
+      // Up and down only: the row follows the pointer vertically.
+      style={{ transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null), transition }}
+      className={`relative flex items-center gap-3 border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover ${
+        isDragging ? "z-10 bg-surface shadow-lg" : ""
+      }`}
+    >
+      {/* The grip: the only part that drags, so scrolling and clicking the name or amount work as usual. */}
+      {canEdit ? (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Reorder ${item.name}`}
+          title="Drag to reorder"
+          className="-ml-3 flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-faint hover:text-text active:cursor-grabbing"
+        >
+          <GripIcon />
+        </button>
+      ) : (
+        <span className="-ml-3 block w-5 shrink-0" aria-hidden />
+      )}
       <span
         className="block w-[3px] shrink-0 self-stretch rounded-full"
         style={{ background: item.category?.color ?? "#5c5f66" }}
