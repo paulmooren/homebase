@@ -3,6 +3,9 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "@/server/api/root";
 import { createTRPCContext } from "@/server/api/trpc";
 
+// The Demo's "reset" re-creates the whole household in one request.
+export const maxDuration = 60;
+
 async function handler(req: Request) {
   const res = await fetchRequestHandler({
     endpoint: "/api/trpc",

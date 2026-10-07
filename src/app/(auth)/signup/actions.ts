@@ -6,8 +6,10 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { signIn } from "@/lib/auth";
+import { isDemoServer } from "@/lib/demo";
 
 export async function signUpWithPassword(formData: FormData) {
+  if (isDemoServer()) redirect("/signin");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const name = String(formData.get("name") ?? "").trim();

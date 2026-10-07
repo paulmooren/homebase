@@ -1,3 +1,5 @@
+import { DemoBadge } from "@/components/demo-badge";
+
 /**
  * The frame for screens before you're in the app (sign in, sign up, household
  * setup): the same grey shell and white panel as the app itself, with the form
@@ -11,6 +13,9 @@ export function AuthFrame({ children, width = "max-w-[380px]" }: { children: Rea
           <span className="font-display text-[16px] font-bold text-accent-ink">H</span>
         </div>
         <span className="font-display text-[17px] font-bold tracking-tight">Homebase</span>
+      </div>
+      <div className="absolute top-7 right-8 z-10 hidden md:block">
+        <DemoBadge />
       </div>
       <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12 md:min-h-[calc(100vh-1.5rem)] md:rounded-[24px]">
         <div className={`w-full ${width}`}>{children}</div>

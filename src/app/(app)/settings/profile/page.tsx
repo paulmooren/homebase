@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { IS_DEMO_CLIENT } from "@/lib/demo";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
@@ -12,7 +13,8 @@ export default function ProfileSettingsPage() {
   return (
     <>
       <ProfileSection />
-      <SecuritySection />
+      {/* The Demo has no real passwords to change. */}
+      {!IS_DEMO_CLIENT && <SecuritySection />}
       <SettingsSection title="Session">
         <form action={signOutAction}>
           <button

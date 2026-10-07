@@ -61,7 +61,8 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
 
   const maxAmount = Math.max(...data.payments.map((p) => p.amount), 1);
   const monthly = resulting ? monthlyEquivalent(resulting, data.intervalCount, data.intervalUnit) : null;
-  const unchanged = basis === data.basis && (basis !== "FIXED" || (fixedAmount !== null && fixedAmount === data.amount));
+  // Nothing to save when the same basis already gives the amount that is budgeted (a pending new amount is something to save).
+  const unchanged = basis === data.basis && resulting !== null && resulting === data.amount;
   const recentStart = Math.max(0, data.payments.filter((p) => !p.excluded).length - BASIS_WINDOW);
   let seen = 0;
 

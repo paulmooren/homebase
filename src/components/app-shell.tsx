@@ -7,6 +7,7 @@ import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
 import { useModules } from "@/components/use-modules";
 import { PAGE_ACTIONS_ID } from "@/components/page-actions";
+import { DemoBadge } from "@/components/demo-badge";
 import type { ModuleKey } from "@/lib/modules";
 
 import {
@@ -130,7 +131,10 @@ export function AppShell({
         <div className="min-h-screen bg-surface px-4 pt-7 pb-28 md:min-h-[calc(100vh-1.5rem)] md:rounded-[24px] md:px-10 md:pt-9 md:pb-14">
           <div className="mx-auto max-w-[1180px]">
             <div className="mb-7 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-              <h1 className="font-display text-[26px] font-bold tracking-tight md:text-[32px]">{title}</h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <h1 className="font-display text-[26px] font-bold tracking-tight md:text-[32px]">{title}</h1>
+                <DemoBadge />
+              </div>
               {/* Pages put their main actions here with <PageActions>. */}
               <div id={PAGE_ACTIONS_ID} className="flex flex-wrap items-center gap-2" />
             </div>

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { AuthFrame } from "@/components/auth-frame";
+import { isDemoServer } from "@/lib/demo";
 
 import { signUpWithPassword } from "./actions";
 
@@ -14,6 +16,8 @@ export default async function SignUpPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  // Nobody creates accounts in the Demo.
+  if (isDemoServer()) redirect("/signin");
   const { error } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? "Something went wrong. Please try again.") : null;
 

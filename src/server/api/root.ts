@@ -13,6 +13,7 @@ import { wishlistRouter } from "@/server/api/routers/wishlist";
 import { vaultRouter } from "@/server/api/routers/vault";
 import { reminderRouter } from "@/server/api/routers/reminder";
 import { notificationRouter } from "@/server/api/routers/notification";
+import { demoRouter } from "@/server/api/routers/demo";
 
 export const appRouter = createTRPCRouter({
   account: accountRouter,
@@ -29,6 +30,7 @@ export const appRouter = createTRPCRouter({
   vault: vaultRouter,
   reminder: reminderRouter,
   notification: notificationRouter,
+  demo: demoRouter,
 });
 
 export type AppRouter = typeof appRouter;

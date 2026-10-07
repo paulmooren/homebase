@@ -113,16 +113,15 @@ export async function recomputeNetWorthSnapshot(prisma: PrismaClient, householdI
       }),
     ),
     prisma.netWorthSnapshot.deleteMany({ where: { householdId } }),
-    ...Array.from(snapshots.entries()).map(([key, { totalAssets, totalLiabilities }]) =>
-      prisma.netWorthSnapshot.create({
-        data: {
-          householdId,
-          date: new Date(key),
-          totalAssets,
-          totalLiabilities,
-          netWorth: totalAssets - totalLiabilities,
-        },
-      }),
-    ),
+    // One insert for the whole history: a point per transaction date can run to hundreds of rows.
+    prisma.netWorthSnapshot.createMany({
+      data: Array.from(snapshots.entries()).map(([key, { totalAssets, totalLiabilities }]) => ({
+        householdId,
+        date: new Date(key),
+        totalAssets,
+        totalLiabilities,
+        netWorth: totalAssets - totalLiabilities,
+      })),
+    }),
   ]);
 }

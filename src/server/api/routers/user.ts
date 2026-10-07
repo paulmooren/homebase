@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { isDemoServer } from "@/lib/demo";
 
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createTRPCRouter, householdProcedure, protectedProcedure } from "@/server/api/trpc";
@@ -53,6 +54,9 @@ export const userRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (isDemoServer()) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Passwords can't be changed in the demo." });
+      }
       const user = await ctx.prisma.user.findUniqueOrThrow({
         where: { id: ctx.userId },
         select: { password: true },

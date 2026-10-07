@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { IS_DEMO_CLIENT } from "@/lib/demo";
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 
@@ -22,6 +23,8 @@ export const metadata: Metadata = {
   description: "An overview of your accounts, budgets, and spending.",
   // Lets iOS run the saved home-screen app full screen, with the right name.
   appleWebApp: { capable: true, title: "Homebase", statusBarStyle: "default" },
+  // The Demo is for showing, not for search results.
+  ...(IS_DEMO_CLIENT ? { robots: { index: false, follow: false } } : {}),
 };
 
 export const viewport: Viewport = {

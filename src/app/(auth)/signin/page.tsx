@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { AuthFrame } from "@/components/auth-frame";
 
-import { signInWithGoogle, signInWithPassword } from "./actions";
+import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
+
+import { signInAsPersona, signInWithGoogle, signInWithPassword } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   CredentialsSignin: "Incorrect email or password.",
@@ -38,6 +40,35 @@ export default async function SignInPage({
           </p>
         )}
 
+        {isDemoServer() ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-[13.5px] text-text-muted">
+              A household with made-up money. Sign in as either person — switch whenever you like.
+            </p>
+            {DEMO_PERSONAS.map((p) => (
+              <form key={p.key} action={signInAsPersona}>
+                <input type="hidden" name="persona" value={p.key} />
+                <button
+                  type="submit"
+                  className="flex w-full flex-col items-start rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-hover"
+                >
+                  <span className="text-[14.5px] font-semibold">Continue as {p.name}</span>
+                  <span className="text-[12.5px] text-text-muted">{p.blurb}</span>
+                </button>
+              </form>
+            ))}
+          </div>
+        ) : (
+          <SignInOptions />
+        )}
+      </div>
+    </AuthFrame>
+  );
+}
+
+function SignInOptions() {
+  return (
+    <>
         <form action={signInWithGoogle}>
           <button
             type="submit"
@@ -88,7 +119,6 @@ export default async function SignInPage({
             Create one
           </Link>
         </p>
-      </div>
-    </AuthFrame>
+    </>
   );
 }

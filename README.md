@@ -54,3 +54,31 @@ Postgres database (no code changes needed — it's already built against both):
 After the first deploy, run `npx prisma migrate deploy` against the
 production database (via `vercel env pull` locally, or a one-off Vercel
 CLI/GitHub Action step) so the schema is up to date.
+
+## The Demo
+
+A separate copy of the app with made-up people and money (Alex and Sam), for
+showing Homebase without showing a real household. It has its own database, its
+own secrets and its own address, and never shares anything with the real app
+(see `docs/adr/0005`). It runs the same code; setting `DEMO_MODE` turns on the
+"Demo — made-up data" marker, one-click sign-in as Alex or Sam, and a "Reset
+demo" button (Settings → Data), and hides sign-up, Google sign-in, password
+change and notifications.
+
+**Locally** (everything it needs is in the git-ignored `.env.demo`):
+
+| Command | What it does |
+| --- | --- |
+| `npm run demo:dev` | Runs the Demo at <http://127.0.0.1:3100>. Use `127.0.0.1`, not `localhost`: the browser then keeps its cookies apart from the real app's. |
+| `npm run demo:reset` | Re-creates the made-up household, with dates counted back from today. |
+| `npm run demo:migrate` | Applies schema changes to the Demo's database. Run it after every schema change, next to the real one. |
+
+**Hosted** (a second Vercel project from the same repo, so every push updates both):
+
+1. Vercel → Add New Project → import this repo again, name it `homebase-demo`.
+2. Environment variables, copied from `.env.demo`: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
+   `AUTH_SECRET`, `VAULT_KEY`, `DEMO_MODE=true`, `NEXT_PUBLIC_DEMO_MODE=true`. Set them
+   **before** the first deploy: `NEXT_PUBLIC_DEMO_MODE` is baked into the build. Leave out
+   everything else (Google, notifications, `CRON_SECRET`) — the Demo has no use for them.
+3. Keep the function region at Washington, D.C. (iad1): next to the database, so a reset takes seconds.
+4. Deploy, open the address, continue as Alex. The data is already there; "Reset demo" puts it back.
