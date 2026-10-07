@@ -14,6 +14,7 @@ import { vaultRouter } from "@/server/api/routers/vault";
 import { reminderRouter } from "@/server/api/routers/reminder";
 import { notificationRouter } from "@/server/api/routers/notification";
 import { demoRouter } from "@/server/api/routers/demo";
+import { budgetGroupRouter } from "@/server/api/routers/budget-group";
 
 export const appRouter = createTRPCRouter({
   account: accountRouter,
@@ -31,6 +32,7 @@ export const appRouter = createTRPCRouter({
   reminder: reminderRouter,
   notification: notificationRouter,
   demo: demoRouter,
+  budgetGroup: budgetGroupRouter,
 });
 
 export type AppRouter = typeof appRouter;

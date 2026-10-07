@@ -22,7 +22,8 @@ import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type Sch
 import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon, ChartIcon, GripIcon } from "@/components/action-icons";
 import { PaymentHistoryModal } from "@/components/finance/payment-history-modal";
 import { SortableList } from "@/components/sortable-list";
-import { applyReorder } from "@/lib/recurring-order";
+import { applyMove, applyReorder } from "@/lib/recurring-order";
+import { AddGroup, ExpenseSections, type BudgetGroup } from "@/components/finance/expense-sections";
 import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { InlineEdit } from "@/components/inline-edit";
@@ -30,6 +31,8 @@ import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
+
+const NEW_GROUP = "__new__";
 
 type Suggestion = {
   matchKey: string;
@@ -55,6 +58,8 @@ type Item = {
   intervalCount: number;
   intervalUnit: ScheduleUnit;
   paymentCount: number;
+  /** The Budget group of an expense; null is "Other". */
+  budgetGroupId: string | null;
   /** A different amount the payments suggest, waiting for the Member to approve it. */
   proposal: number | null;
   /** For a Fixed item: what its latest payment was, when that has drifted from the typed amount. */
@@ -78,6 +83,10 @@ type FormValues = {
   categoryId: string | null;
   ownerId: string | null;
   accountId: string | null;
+  /** An existing group, or null for "Other" (left out: unchanged). */
+  budgetGroupId?: string | null;
+  /** A group to create on the spot and use. */
+  newGroupName?: string;
 };
 
 type AccountOption = { id: string; name: string; institution: string | null; ownerId: string | null };
@@ -407,6 +416,13 @@ function RecurringItems({
   const utils = trpc.useUtils();
   const { data: suggestions } = trpc.recurring.suggestions.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
+  const { data: allItems } = trpc.recurring.list.useQuery();
+  const { data: budgetGroups } = trpc.budgetGroup.list.useQuery();
+  const groups: BudgetGroup[] = budgetGroups ?? [];
+  const usedGroupIds = useMemo(
+    () => new Set((allItems ?? []).map((i) => i.budgetGroupId).filter((id): id is string => !!id)),
+    [allItems],
+  );
 
   const invalidate = () => {
     utils.recurring.list.invalidate();
@@ -417,12 +433,21 @@ function RecurringItems({
   const createItem = trpc.recurring.create.useMutation({ onSuccess: invalidate });
   const updateItem = trpc.recurring.update.useMutation({ onSuccess: invalidate });
   const deleteItem = trpc.recurring.delete.useMutation({ onSuccess: invalidate });
+  const refreshGroups = () => {
+    utils.budgetGroup.list.invalidate();
+    utils.recurring.list.invalidate();
+  };
+  const createGroup = trpc.budgetGroup.create.useMutation({ onSuccess: refreshGroups });
+  const renameGroup = trpc.budgetGroup.rename.useMutation({ onSuccess: refreshGroups });
+  const deleteGroup = trpc.budgetGroup.delete.useMutation({ onSuccess: refreshGroups });
   // A drop shows at once; the server confirms, or the list goes back to how it was.
   const reorder = trpc.recurring.reorder.useMutation({
-    onMutate: async ({ ids }) => {
+    onMutate: async ({ ids, move }) => {
       await utils.recurring.list.cancel();
       const previous = utils.recurring.list.getData();
-      utils.recurring.list.setData(undefined, (old) => (old ? applyReorder(old, ids) : old));
+      utils.recurring.list.setData(undefined, (old) =>
+        old ? (move ? applyMove(old, ids, move) : applyReorder(old, ids)) : old,
+      );
       return { previous };
     },
     onError: (_error, _vars, context) => {
@@ -466,6 +491,13 @@ function RecurringItems({
           onDelete={(id) => deleteItem.mutate({ id })}
           onReorder={(ids) => reorder.mutate({ ids })}
           onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
+          groups={groups}
+          usedGroupIds={usedGroupIds}
+          onMove={({ id, groupId, ids }) => reorder.mutate({ ids, move: { id, groupId } })}
+          onAddGroup={(name) => createGroup.mutate({ name })}
+          addGroupError={createGroup.error?.message}
+          onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
+          onDeleteGroup={(id) => deleteGroup.mutate({ id })}
         />
         <RecurringColumn
           type="EXPENSE"
@@ -485,6 +517,13 @@ function RecurringItems({
           onDelete={(id) => deleteItem.mutate({ id })}
           onReorder={(ids) => reorder.mutate({ ids })}
           onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
+          groups={groups}
+          usedGroupIds={usedGroupIds}
+          onMove={({ id, groupId, ids }) => reorder.mutate({ ids, move: { id, groupId } })}
+          onAddGroup={(name) => createGroup.mutate({ name })}
+          addGroupError={createGroup.error?.message}
+          onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
+          onDeleteGroup={(id) => deleteGroup.mutate({ id })}
         />
       </div>
     </>
@@ -509,6 +548,13 @@ function RecurringColumn({
   onDelete,
   onReorder,
   onToggleVisibility,
+  groups: budgetGroups,
+  usedGroupIds,
+  onMove,
+  onAddGroup,
+  addGroupError,
+  onRenameGroup,
+  onDeleteGroup,
 }: {
   type: TxType;
   title: string;
@@ -528,6 +574,14 @@ function RecurringColumn({
   /** The new order of these items, after one was dragged. */
   onReorder: (ids: string[]) => void;
   onToggleVisibility: (id: string, visible: boolean) => void;
+  groups: BudgetGroup[];
+  usedGroupIds: Set<string>;
+  /** An item was dragged into another group; `ids` is the new order of the group it landed in. */
+  onMove: (move: { id: string; groupId: string | null; ids: string[] }) => void;
+  onAddGroup: (name: string) => void;
+  addGroupError?: string;
+  onRenameGroup: (id: string, name: string) => void;
+  onDeleteGroup: (id: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const multiMember = members.length > 1;
@@ -545,6 +599,46 @@ function RecurringColumn({
             (!accountFilter && (g.ownerId === currentUserId || g.ownerId === null)),
         )
     : [];
+
+  // A brand-new, still empty group is shown in the first owner group you can edit that has items to put in it.
+  const editable = (ownerId: string | null) => ownerId === null || ownerId === currentUserId;
+  const freshHost = (groups.find((g) => g.groupItems.length > 0 && editable(g.ownerId)) ?? groups.find((g) => editable(g.ownerId)))?.ownerId;
+
+  const renderRow = (entry: Entry<Item>) => (
+    <RecurringRow
+      key={`${entry.item.id}-${entry.side}`}
+      item={entry.item}
+      side={entry.side}
+      accountName={accountName}
+      categories={categories}
+      members={members}
+      currentUserId={currentUserId}
+      accounts={accounts}
+      groups={budgetGroups}
+      onUpdate={(values) => onUpdate(entry.item.id, values)}
+      onDelete={() => onDelete(entry.item.id)}
+      onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
+    />
+  );
+  // Expenses are split into Budget groups; income stays one flat, reorderable list.
+  const renderList = (list: Entry<Item>[], hostsFresh: boolean) =>
+    type === "EXPENSE" ? (
+      <ExpenseSections
+        entries={list}
+        groups={budgetGroups}
+        usedGroupIds={usedGroupIds}
+        hostsFresh={hostsFresh}
+        renderRow={renderRow}
+        onReorder={onReorder}
+        onMove={onMove}
+        onRename={onRenameGroup}
+        onDelete={onDeleteGroup}
+      />
+    ) : (
+      <SortableList ids={list.map((e) => e.item.id)} onReorder={onReorder}>
+        {list.map(renderRow)}
+      </SortableList>
+    );
 
   return (
     <section className="overflow-hidden rounded-[20px] border border-border-soft bg-surface">
@@ -575,47 +669,15 @@ function RecurringColumn({
                   </p>
                 )}
               </div>
-              <SortableList ids={groupItems.map((e) => e.item.id)} onReorder={onReorder}>
-                {groupItems.map((entry) => (
-                  <RecurringRow
-                    key={`${entry.item.id}-${entry.side}`}
-                    item={entry.item}
-                    side={entry.side}
-                    accountName={accountName}
-                    categories={categories}
-                    members={members}
-                    currentUserId={currentUserId}
-                    accounts={accounts}
-                    onUpdate={(values) => onUpdate(entry.item.id, values)}
-                    onDelete={() => onDelete(entry.item.id)}
-                    onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
-                  />
-              ))}
-              </SortableList>
+              {renderList(groupItems, ownerId === freshHost)}
             </div>
           ))
-        : (
-            <SortableList ids={entries.map((e) => e.item.id)} onReorder={onReorder}>
-              {entries.map((entry) => (
-                <RecurringRow
-                  key={`${entry.item.id}-${entry.side}`}
-                  item={entry.item}
-                  side={entry.side}
-                  accountName={accountName}
-                  categories={categories}
-                  members={members}
-                  currentUserId={currentUserId}
-                  accounts={accounts}
-                  onUpdate={(values) => onUpdate(entry.item.id, values)}
-                  onDelete={() => onDelete(entry.item.id)}
-                  onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
-                />
-              ))}
-            </SortableList>
-          )}
+        : renderList(entries, true)}
 
       {adding ? (
         <InlineRecurringRow
+          type={type}
+          groups={budgetGroups}
           categories={categories}
           members={members}
           currentUserId={currentUserId}
@@ -638,6 +700,7 @@ function RecurringColumn({
           <span className="text-[13.5px]">Add {type === "INCOME" ? "income" : "expense"}</span>
         </button>
       )}
+      {type === "EXPENSE" && <AddGroup onAdd={onAddGroup} error={addGroupError} />}
     </section>
   );
 }
@@ -650,6 +713,7 @@ function RecurringRow({
   members,
   currentUserId,
   accounts,
+  groups,
   onUpdate,
   onDelete,
   onToggleVisibility,
@@ -662,6 +726,7 @@ function RecurringRow({
   members: Member[];
   currentUserId: string;
   accounts: AccountOption[];
+  groups: BudgetGroup[];
   onUpdate: (values: Partial<FormValues>) => void;
   onDelete: () => void;
   onToggleVisibility: (visible: boolean) => void;
@@ -686,6 +751,8 @@ function RecurringRow({
     return (
       <InlineRecurringRow
         initial={item}
+        type={item.type}
+        groups={groups}
         categories={categories}
         members={members}
         currentUserId={currentUserId}
@@ -866,6 +933,8 @@ function RecurringRow({
  */
 function InlineRecurringRow({
   initial,
+  type,
+  groups,
   categories,
   members,
   currentUserId,
@@ -875,6 +944,9 @@ function InlineRecurringRow({
   onCancel,
 }: {
   initial?: Item;
+  /** What kind of item this is (known from the column when adding). Income has no Budget group. */
+  type: TxType;
+  groups: BudgetGroup[];
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
@@ -886,6 +958,9 @@ function InlineRecurringRow({
   const [intervalCount, setIntervalCount] = useState(String(initial?.intervalCount ?? 1));
   const [intervalUnit, setIntervalUnit] = useState<ScheduleUnit>(initial?.intervalUnit ?? "MONTH");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  // "" = Other, a group id, or NEW_GROUP to type the name of a new one.
+  const [groupChoice, setGroupChoice] = useState(initial?.budgetGroupId ?? "");
+  const [newGroupName, setNewGroupName] = useState("");
   // Only accounts you can edit (yours or shared) can carry a recurring item.
   const writable = accounts.filter((a) => a.ownerId === null || a.ownerId === currentUserId);
   const [accountId, setAccountId] = useState(
@@ -911,6 +986,13 @@ function InlineRecurringRow({
           intervalCount: Math.max(1, Math.min(365, Math.round(Number(intervalCount) || 1))),
           intervalUnit,
           categoryId: categoryId || null,
+          ...(type === "INCOME"
+            ? {}
+            : groupChoice === NEW_GROUP
+              ? newGroupName.trim()
+                ? { newGroupName: newGroupName.trim() }
+                : {}
+              : { budgetGroupId: groupChoice || null }),
           // With no partner yet, default to personal (not shared) — same
           // privacy-conserving default used by the account owner picker.
           ownerId: multiMember ? ownerId || null : currentUserId,
@@ -954,6 +1036,29 @@ function InlineRecurringRow({
               ...categories.map((c) => ({ value: c.id, label: c.name })),
             ]}
           />
+          {type !== "INCOME" && (
+            <>
+              <InlineSelect
+                value={groupChoice}
+                onChange={setGroupChoice}
+                options={[
+                  { value: "", label: "No group" },
+                  ...groups.map((g) => ({ value: g.id, label: g.name })),
+                  { value: NEW_GROUP, label: "New group…" },
+                ]}
+              />
+              {groupChoice === NEW_GROUP && (
+                <input
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  maxLength={60}
+                  placeholder="Group name"
+                  aria-label="New group name"
+                  className="w-32 rounded-md border border-border-soft bg-surface px-2 py-0.5 text-[12px] outline-none focus:border-text-faint"
+                />
+              )}
+            </>
+          )}
           {writable.length > 0 && (
             <InlineSelect
               value={accountId}

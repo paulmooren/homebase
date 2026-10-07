@@ -99,6 +99,7 @@ model Household {
   transactions      Transaction[]
   budgets           Budget[]
   recurringItems    RecurringItem[]
+  budgetGroups      BudgetGroup[]
   netWorthSnapshots NetWorthSnapshot[]
   tasks             Task[]
   shoppingLists     ShoppingList[]
@@ -286,6 +287,22 @@ model Budget {
   @@map("budgets")
 }
 
+// A named section of the recurring expenses — Rent, Insurances, Savings. One list per household.
+model BudgetGroup {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  // Creation order: groups are listed in the order they were made.
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     RecurringItem[]
+
+  @@unique([householdId, name])
+  @@map("budget_groups")
+}
+
 model RecurringItem {
   id                 String             @id @default(cuid())
   householdId        String
@@ -304,6 +321,8 @@ model RecurringItem {
   intervalUnit       ScheduleUnit       @default(MONTH)
   // The amount moves from payment to payment (salary, a phone bill); `amount` is then the recent average.
   amountVaries       Boolean            @default(false)
+  // Expenses only; null is "Other". Deleting the group puts its items back there.
+  budgetGroupId      String?
   // Position among the household's recurring items; lower comes first. Dragged by the Member, so it
   // never changes on its own; new items take the next free number (the bottom of their group).
   sortOrder          Int                @default(0)
@@ -333,11 +352,13 @@ model RecurringItem {
   owner     User?             @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   account   FinancialAccount? @relation("AccountRecurringItems", fields: [accountId], references: [id], onDelete: SetNull)
   toAccount FinancialAccount? @relation("RecurringItemDestination", fields: [toAccountId], references: [id], onDelete: SetNull)
+  budgetGroup BudgetGroup?    @relation(fields: [budgetGroupId], references: [id], onDelete: SetNull)
   category  Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transactions Transaction[]  @relation("RecurringItemTransactions")
 
   @@unique([householdId, name])
   @@index([householdId, status])
+  @@index([budgetGroupId])
   @@map("recurring_items")
 }
 

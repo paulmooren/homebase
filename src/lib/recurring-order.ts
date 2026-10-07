@@ -17,3 +17,12 @@ export function applyReorder<T extends { id: string; sortOrder: number; createdA
     .map((i) => (position.has(i.id) ? { ...i, sortOrder: position.get(i.id)! } : i))
     .sort((a, b) => a.sortOrder - b.sortOrder || +new Date(a.createdAt) - +new Date(b.createdAt));
 }
+
+/** Like `applyReorder`, and the item that was dragged into another group takes that group. */
+export function applyMove<T extends { id: string; sortOrder: number; createdAt: Date | string; budgetGroupId: string | null }>(
+  items: T[],
+  ids: string[],
+  move: { id: string; groupId: string | null },
+): T[] {
+  return applyReorder(items, ids).map((i) => (i.id === move.id ? { ...i, budgetGroupId: move.groupId } : i));
+}

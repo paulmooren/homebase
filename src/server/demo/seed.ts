@@ -276,6 +276,8 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     varies?: boolean;
     party?: { iban: string };
     category?: string;
+    /** The Budget group it is listed under (expenses only). */
+    group?: string;
     /** After linking, take the amount from the payments by the item's basis. */
     fromPayments?: boolean;
   };
@@ -283,18 +285,23 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     // Salary stays at the old figure on purpose: the newer, higher payments become a proposal to approve.
     { name: "Salary — Northwind Labs", type: "INCOME", account: "alexCur", owner: alex, amount: 3420, basis: "LATEST", varies: true, party: parties.northwind, category: "Income" },
     { name: "Salary — Brightside Studio", type: "INCOME", account: "samCur", owner: sam, amount: 2980, basis: "LATEST", party: parties.brightside, category: "Income" },
-    { name: "Rent", type: "EXPENSE", account: "daily", owner: null, amount: 1350, basis: "FIXED", party: parties.oakstone, category: "Housing & Utilities" },
-    { name: "Energy", type: "EXPENSE", account: "daily", owner: null, amount: 100, basis: "AVERAGE", varies: true, party: parties.power, category: "Housing & Utilities", fromPayments: true },
-    { name: "Internet", type: "EXPENSE", account: "daily", owner: null, amount: 49.95, basis: "FIXED", party: parties.fibre, category: "Housing & Utilities" },
-    { name: "Water", type: "EXPENSE", account: "daily", owner: null, amount: 24.5, basis: "FIXED", party: parties.water, category: "Housing & Utilities" },
-    { name: "Home and liability insurance", type: "EXPENSE", account: "daily", owner: null, amount: 86.4, basis: "FIXED", party: parties.greenfield, category: "Housing & Utilities" },
-    { name: "Transfer to Shared · Daily (Alex)", type: "TRANSFER", account: "alexCur", to: "daily", owner: alex, amount: 1650, basis: "FIXED" },
-    { name: "Transfer to Shared · Daily (Sam)", type: "TRANSFER", account: "samCur", to: "daily", owner: sam, amount: 1550, basis: "FIXED" },
-    { name: "Monthly savings", type: "TRANSFER", account: "alexCur", to: "alexSav", owner: alex, amount: 300, basis: "FIXED" },
-    { name: "Holiday fund", type: "TRANSFER", account: "daily", to: "holiday", owner: null, amount: 200, basis: "FIXED" },
-    { name: "Car loan", type: "TRANSFER", account: "daily", to: "loan", owner: null, amount: 320, basis: "FIXED" },
-    { name: "Credit card payment", type: "TRANSFER", account: "daily", to: "card", owner: null, amount: 450, basis: "FIXED" },
+    { name: "Rent", group: "Rent", type: "EXPENSE", account: "daily", owner: null, amount: 1350, basis: "FIXED", party: parties.oakstone, category: "Housing & Utilities" },
+    { name: "Energy", group: "Bills", type: "EXPENSE", account: "daily", owner: null, amount: 100, basis: "AVERAGE", varies: true, party: parties.power, category: "Housing & Utilities", fromPayments: true },
+    { name: "Internet", group: "Bills", type: "EXPENSE", account: "daily", owner: null, amount: 49.95, basis: "FIXED", party: parties.fibre, category: "Housing & Utilities" },
+    { name: "Water", group: "Bills", type: "EXPENSE", account: "daily", owner: null, amount: 24.5, basis: "FIXED", party: parties.water, category: "Housing & Utilities" },
+    { name: "Home and liability insurance", group: "Insurances", type: "EXPENSE", account: "daily", owner: null, amount: 86.4, basis: "FIXED", party: parties.greenfield, category: "Housing & Utilities" },
+    { name: "Transfer to Shared · Daily (Alex)", group: "Shared Money", type: "TRANSFER", account: "alexCur", to: "daily", owner: alex, amount: 1650, basis: "FIXED" },
+    { name: "Transfer to Shared · Daily (Sam)", group: "Shared Money", type: "TRANSFER", account: "samCur", to: "daily", owner: sam, amount: 1550, basis: "FIXED" },
+    { name: "Monthly savings", group: "Savings", type: "TRANSFER", account: "alexCur", to: "alexSav", owner: alex, amount: 300, basis: "FIXED" },
+    { name: "Holiday fund", group: "Savings", type: "TRANSFER", account: "daily", to: "holiday", owner: null, amount: 200, basis: "FIXED" },
+    { name: "Car loan", group: "Debt", type: "TRANSFER", account: "daily", to: "loan", owner: null, amount: 320, basis: "FIXED" },
+    { name: "Credit card payment", group: "Debt", type: "TRANSFER", account: "daily", to: "card", owner: null, amount: 450, basis: "FIXED" },
   ];
+  // Budget groups, listed in the order they were made.
+  const groupNames = ["Rent", "Bills", "Insurances", "Savings", "Shared Money", "Debt"];
+  await prisma.budgetGroup.createMany({ data: groupNames.map((name, index) => ({ householdId, name, sortOrder: index + 1 })) });
+  const groupIds = new Map((await prisma.budgetGroup.findMany({ where: { householdId } })).map((g) => [g.name, g.id]));
+
   const createdItems = await Promise.all(
     items.map(async (def, index) => {
       const created = await prisma.recurringItem.create({
@@ -305,6 +312,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
           toAccountId: def.to ? acc[def.to] : null,
           visibleToHousehold: true,
           name: def.name,
+          budgetGroupId: def.type === "INCOME" || !def.group ? null : (groupIds.get(def.group) ?? null),
           sortOrder: index + 1,
           type: def.type,
           amount: def.amount,

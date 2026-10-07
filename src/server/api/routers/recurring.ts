@@ -24,6 +24,9 @@ const itemInput = z.object({
   // A transfer's destination account.
   toAccountId: z.string().nullable().optional(),
   visibleToHousehold: z.boolean().optional(),
+  // Expenses only. A group by id, or the name of one to create (or reuse) on the spot.
+  budgetGroupId: z.string().nullable().optional(),
+  newGroupName: z.string().trim().min(1).max(60).optional(),
 });
 
 type Ctx = { prisma: PrismaClient; householdId: string; userId: string };
@@ -87,6 +90,39 @@ async function editableItem(ctx: Ctx, id: string) {
   });
   if (!item) throw new TRPCError({ code: "NOT_FOUND" });
   return item;
+}
+
+/**
+ * The group an item should end up in: a named new one (reused if the name exists), an existing one of this
+ * household, or none. Income has no groups. Returns undefined when the request says nothing about groups.
+ */
+async function resolveGroup(
+  ctx: Ctx,
+  type: "EXPENSE" | "INCOME" | "TRANSFER",
+  input: { budgetGroupId?: string | null; newGroupName?: string },
+): Promise<string | null | undefined> {
+  if (type === "INCOME") return null;
+  if (input.newGroupName) {
+    const existing = await ctx.prisma.budgetGroup.findUnique({
+      where: { householdId_name: { householdId: ctx.householdId, name: input.newGroupName } },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+    const last = await ctx.prisma.budgetGroup.aggregate({ where: { householdId: ctx.householdId }, _max: { sortOrder: true } });
+    const created = await ctx.prisma.budgetGroup.create({
+      data: { householdId: ctx.householdId, name: input.newGroupName, sortOrder: (last._max.sortOrder ?? 0) + 1 },
+      select: { id: true },
+    });
+    return created.id;
+  }
+  if (input.budgetGroupId === undefined) return undefined;
+  if (input.budgetGroupId === null) return null;
+  const group = await ctx.prisma.budgetGroup.findFirst({
+    where: { id: input.budgetGroupId, householdId: ctx.householdId },
+    select: { id: true },
+  });
+  if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
+  return group.id;
 }
 
 /** The next free position, so a new item lands at the bottom of its group. */
@@ -413,11 +449,13 @@ export const recurringRouter = createTRPCRouter({
         else if (source) matchText = cleanText(source.counterpartyName || source.merchant) || null;
       }
 
+      const budgetGroupId = await resolveGroup(ctx, input.type, input);
       let item;
       try {
         item = await ctx.prisma.recurringItem.create({
           data: {
             householdId: ctx.householdId,
+            budgetGroupId: budgetGroupId ?? null,
             ownerId: linked ? linked.ownerId : (input.ownerId ?? null),
             accountId: linked?.accountId ?? null,
             toAccountId: input.type === "TRANSFER" ? input.toAccountId : null,
@@ -454,9 +492,17 @@ export const recurringRouter = createTRPCRouter({
    * items that weren't moved (hidden by a filter, or someone else's) keep exactly the places they had.
    */
   reorder: householdProcedure
-    .input(z.object({ ids: z.array(z.string()).min(2).max(200) }))
+    .input(
+      z.object({
+        ids: z.array(z.string()).min(1).max(200),
+        // Dragged into another group (or out to "Other", groupId null): that item changes group as it lands.
+        move: z.object({ id: z.string(), groupId: z.string().nullable() }).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       if (new Set(input.ids).size !== input.ids.length) throw new TRPCError({ code: "BAD_REQUEST" });
+      if (input.ids.length < 2 && !input.move) throw new TRPCError({ code: "BAD_REQUEST" });
+      if (input.move && !input.ids.includes(input.move.id)) throw new TRPCError({ code: "BAD_REQUEST" });
       const items = await ctx.prisma.recurringItem.findMany({
         where: {
           id: { in: input.ids },
@@ -464,13 +510,27 @@ export const recurringRouter = createTRPCRouter({
           // Only what you may edit: your own and Shared.
           OR: [{ ownerId: null }, { ownerId: ctx.userId }],
         },
-        select: { id: true, sortOrder: true },
+        select: { id: true, sortOrder: true, type: true },
       });
       if (items.length !== input.ids.length) throw new TRPCError({ code: "NOT_FOUND" });
 
+      let newGroup: string | null | undefined;
+      if (input.move) {
+        const moved = items.find((i) => i.id === input.move!.id)!;
+        newGroup = await resolveGroup(ctx, moved.type, { budgetGroupId: input.move.groupId });
+      }
+
       const slots = items.map((i) => i.sortOrder).sort((a, b) => a - b);
       await ctx.prisma.$transaction(
-        input.ids.map((id, index) => ctx.prisma.recurringItem.update({ where: { id }, data: { sortOrder: slots[index] } })),
+        input.ids.map((id, index) =>
+          ctx.prisma.recurringItem.update({
+            where: { id },
+            data: {
+              sortOrder: slots[index],
+              ...(input.move && id === input.move.id && newGroup !== undefined ? { budgetGroupId: newGroup } : {}),
+            },
+          }),
+        ),
       );
       return { success: true };
     }),
@@ -489,11 +549,13 @@ export const recurringRouter = createTRPCRouter({
         accountId: z.string().nullable().optional(),
         toAccountId: z.string().nullable().optional(),
         visibleToHousehold: z.boolean().optional(),
+        budgetGroupId: z.string().nullable().optional(),
+        newGroupName: z.string().trim().min(1).max(60).optional(),
         status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, accountId, ownerId: inputOwnerId, ...data } = input;
+      const { id, accountId, ownerId: inputOwnerId, budgetGroupId: groupInput, newGroupName, ...data } = input;
       let ownerId = inputOwnerId;
       // Linking to an account moves the item to that account's owner;
       // unlinking (null) leaves the owner as it was unless one is passed.
@@ -515,7 +577,7 @@ export const recurringRouter = createTRPCRouter({
           householdId: ctx.householdId,
           OR: [{ ownerId: null }, { ownerId: ctx.userId }],
         },
-        select: { id: true, ownerId: true },
+        select: { id: true, ownerId: true, type: true },
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
       if (data.visibleToHousehold !== undefined && existing.ownerId === null) {
@@ -524,11 +586,13 @@ export const recurringRouter = createTRPCRouter({
           message: "Shared items are always visible — visibility only applies to personal items.",
         });
       }
+      const budgetGroupId = await resolveGroup(ctx, existing.type, { budgetGroupId: groupInput, newGroupName });
 
       const updated = await ctx.prisma.recurringItem.update({
         where: { id },
         data: {
           ...data,
+          ...(budgetGroupId !== undefined ? { budgetGroupId } : {}),
           // Typing an amount means "use this one".
           ...(data.amount !== undefined ? { basis: "FIXED" as const, keptAmount: null } : {}),
           ...(ownerId !== undefined ? { ownerId } : {}),
