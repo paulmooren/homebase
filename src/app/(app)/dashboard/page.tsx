@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import Link from "next/link";
@@ -23,12 +23,10 @@ export default function DashboardPage() {
   // (e.g. creating the first account in step 1) must not yank the wizard away
   // just because the live count changed.
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (showWizard === null && accounts && ready) {
-      // The wizard only sets up Finance, so it is skipped when Finance is off.
-      setShowWizard(finance && accounts.length === 0);
-    }
-  }, [accounts, showWizard, ready, finance]);
+  if (showWizard === null && accounts && ready) {
+    // The wizard only sets up Finance, so it is skipped when Finance is off.
+    setShowWizard(finance && accounts.length === 0);
+  }
 
   if (isLoading || showWizard === null) {
     return <div className="py-10 text-center text-text-muted">Loading…</div>;
