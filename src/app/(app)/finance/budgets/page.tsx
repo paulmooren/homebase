@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
-import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/constants";
-import { monthlyEquivalent } from "@/lib/recurring";
+import {
+  HOUSEHOLD,
+  YOU,
+  entriesOf,
+  monthlyOf,
+  scopeOfOwner,
+  soFarThisMonth,
+  totalsOf,
+  type AccountRef,
+  type Entry,
+  type ScopeKey,
+} from "@/lib/budget-scope";
+import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
 import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon } from "@/components/action-icons";
 import { Avatar } from "@/components/avatar";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
@@ -13,19 +24,19 @@ import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 
-const FREQUENCIES = Object.keys(RECURRING_FREQUENCY_LABELS) as RecurringFrequency[];
+type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
-type TxType = "EXPENSE" | "INCOME";
-
-type Candidate = {
+type Suggestion = {
+  matchKey: string;
   name: string;
   type: TxType;
   amount: number;
-  frequency: RecurringFrequency;
+  amountVaries: boolean;
+  intervalCount: number;
+  intervalUnit: "WEEK" | "MONTH";
   occurrences: number;
   lastDate: string | Date;
-  nextDueDate: string | Date;
-  categoryId: string | null;
+  confident: boolean;
   ownerId: string | null;
   accountId: string | null;
 };
@@ -35,20 +46,25 @@ type Item = {
   name: string;
   type: TxType;
   amount: number;
-  frequency: RecurringFrequency;
+  amountVaries: boolean;
+  intervalCount: number;
+  intervalUnit: ScheduleUnit;
   source: "MANUAL" | "DETECTED";
   nextDueDate: string | Date | null;
+  lastSeenAt: string | Date | null;
   categoryId: string | null;
   category: { color: string; name: string } | null;
   ownerId: string | null;
   accountId: string | null;
+  toAccountId: string | null;
   visibleToHousehold: boolean;
 };
 
 type FormValues = {
   name: string;
   amount: number;
-  frequency: RecurringFrequency;
+  intervalCount: number;
+  intervalUnit: ScheduleUnit;
   categoryId: string | null;
   ownerId: string | null;
   accountId: string | null;
@@ -61,22 +77,55 @@ export default function BudgetsPage() {
   const { data: me } = trpc.user.me.useQuery();
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: items } = trpc.recurring.list.useQuery();
-  const members: Member[] = household?.members ?? [];
+  const members = useMemo<Member[]>(() => household?.members ?? [], [household]);
   const currentUserId = me?.id ?? "";
-  // Selecting an account narrows everything below to what runs through it.
-  // Until a choice is made, your own (first) account is selected; clicking the
-  // selected card clears it ("") to show everything.
-  const [choice, setChoice] = useState<string | null>(null);
-  const defaultAccountId =
-    accounts?.find((a) => a.ownerId === currentUserId)?.id ?? accounts?.[0]?.id ?? "";
-  const accountFilter = choice ?? defaultAccountId;
-  const setAccountFilter = setChoice;
+
+  const [scope, setScope] = useState<ScopeKey>(YOU);
+  // Selecting an account narrows the lists to what runs through it; click it again to clear.
+  const [accountFilter, setAccountFilter] = useState("");
+
+  const accountRefs = useMemo(
+    () => new Map<string, AccountRef>((accounts ?? []).map((a) => [a.id, { id: a.id, ownerId: a.ownerId }])),
+    [accounts],
+  );
+  const entries = useMemo(
+    () => ((items ?? []) as Item[]).flatMap((i) => entriesOf(i, accountRefs, currentUserId)),
+    [items, accountRefs, currentUserId],
+  );
+
+  // The scopes you can look at: yours, the shared accounts, and any partner's accounts you may see.
+  const scopes = useMemo(() => {
+    const list: { key: ScopeKey; label: string }[] = [
+      { key: YOU, label: "You" },
+      { key: HOUSEHOLD, label: "Household" },
+    ];
+    for (const m of members) {
+      if (m.user.id !== currentUserId) list.push({ key: m.user.id, label: m.user.name || m.user.email || "Partner" });
+    }
+    return list;
+  }, [members, currentUserId]);
+  const showScopes = members.length > 1;
+  const activeScope = showScopes ? scope : YOU;
+
+  const scopeEntries = entries.filter((e) => e.scope === activeScope);
+  const scopeAccounts = (accounts ?? []).filter((a) => scopeOfOwner(a.ownerId, currentUserId) === activeScope);
 
   return (
     <div className="flex flex-col gap-5">
+      <LeftEachMonth
+        entries={scopeEntries}
+        scopes={scopes}
+        showScopes={showScopes}
+        scope={activeScope}
+        onScope={(key) => {
+          setScope(key);
+          setAccountFilter("");
+        }}
+        hasItems={(items ?? []).length > 0}
+      />
       <AccountCards
-        accounts={accounts ?? []}
-        items={(items ?? []) as Item[]}
+        accounts={scopeAccounts}
+        entries={scopeEntries}
         selected={accountFilter}
         onSelect={setAccountFilter}
         members={members}
@@ -87,37 +136,93 @@ export default function BudgetsPage() {
         currentUserId={currentUserId}
         accounts={accounts ?? []}
         accountFilter={accountFilter}
+        scopeEntries={scopeEntries}
+        scope={activeScope}
+        accountRefs={accountRefs}
       />
     </div>
   );
 }
 
-function monthlyTotals(items: Item[]) {
-  let income = 0;
-  let expenses = 0;
-  for (const i of items) {
-    const m = monthlyEquivalent(i.amount, i.frequency);
-    if (i.type === "INCOME") income += m;
-    else expenses += m;
-  }
-  return { income, expenses };
+/** The headline: what is left of the recurring income once every recurring cost is paid. */
+function LeftEachMonth({
+  entries,
+  scopes,
+  showScopes,
+  scope,
+  onScope,
+  hasItems,
+}: {
+  entries: Entry[];
+  scopes: { key: ScopeKey; label: string }[];
+  showScopes: boolean;
+  scope: ScopeKey;
+  onScope: (key: ScopeKey) => void;
+  hasItems: boolean;
+}) {
+  const { income, expenses, left } = totalsOf(entries);
+  const sofar = soFarThisMonth(entries, todayInHousehold());
+  const label = scopes.find((s) => s.key === scope)?.label ?? "You";
+
+  return (
+    <section className="rounded-[20px] border border-border-soft bg-surface p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">Left each month</p>
+        {showScopes && (
+          <div role="tablist" aria-label="Whose budget" className="flex gap-1 rounded-xl bg-surface-2 p-1">
+            {scopes.map((s) => (
+              <button
+                key={s.key}
+                role="tab"
+                aria-selected={scope === s.key}
+                onClick={() => onScope(s.key)}
+                className={`rounded-lg px-3 py-1 text-[12.5px] font-medium transition-colors ${
+                  scope === s.key ? "bg-surface text-text shadow-sm" : "text-text-muted hover:text-text"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <p
+        className={`font-display mt-2 text-[40px] leading-none font-bold tracking-tight tabular-nums ${
+          left < 0 ? "text-critical" : "text-good"
+        }`}
+      >
+        {hasItems ? formatSignedEUR(left).replace(/^\+/, "") : formatEUR(0)}
+      </p>
+      <p className="mt-2 text-[13.5px] text-text-muted">
+        {hasItems
+          ? `left each month after fixed costs — ${formatEUR(income)} comes in, ${formatEUR(expenses)} goes out (${label.toLowerCase() === "you" ? "your accounts" : label})`
+          : "Add your recurring income and expenses below, or confirm the suggestions, to see what is left each month."}
+      </p>
+      {hasItems && (
+        <p className="mt-1 text-[12px] text-text-faint">
+          So far this month: {formatEUR(sofar.income)} in, {formatEUR(sofar.expenses)} out · everyday spending such as
+          groceries is not included
+        </p>
+      )}
+    </section>
+  );
 }
 
 /**
- * The current monthly picture of each account you can see: its recurring
+ * The monthly picture of each account in the chosen scope: its recurring
  * income and expenses, as monthly equivalents. Clicking a card narrows the
- * income/expense lists below to that account; click again to clear.
+ * lists below to that account; click again to clear.
  */
 function AccountCards({
   accounts,
-  items,
+  entries,
   selected,
   onSelect,
   members,
   currentUserId,
 }: {
   accounts: AccountOption[];
-  items: Item[];
+  entries: Entry[];
   selected: string;
   onSelect: (id: string) => void;
   members: Member[];
@@ -130,7 +235,7 @@ function AccountCards({
     <section>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.map((a) => {
-          const { income, expenses } = monthlyTotals(items.filter((i) => i.accountId === a.id));
+          const { income, expenses } = totalsOf(entries.filter((e) => e.accountId === a.id));
           const active = selected === a.id;
           return (
             <button
@@ -177,127 +282,134 @@ function AccountCards({
   );
 }
 
+/**
+ * What the app found in your transactions, to review in one go: the
+ * confident ones are ticked, one click adds them all.
+ */
+function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
+  const utils = trpc.useUtils();
+  const [override, setOverride] = useState<Record<string, boolean>>({});
+  const done = () => {
+    utils.recurring.list.invalidate();
+    utils.recurring.suggestions.invalidate();
+    utils.transaction.list.invalidate();
+  };
+  const add = trpc.recurring.addSuggestions.useMutation({ onSuccess: done });
+  const dismiss = trpc.recurring.dismissSuggestions.useMutation({ onSuccess: done });
+
+  const isTicked = (c: Suggestion) => override[c.matchKey] ?? c.confident;
+  const ticked = suggestions.filter(isTicked);
+  const order: Record<TxType, number> = { INCOME: 0, TRANSFER: 1, EXPENSE: 2 };
+  const sorted = [...suggestions].sort((a, b) => order[a.type] - order[b.type] || b.amount - a.amount);
+
+  return (
+    <section className="rounded-[20px] border border-border-soft bg-surface p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="mb-1 text-[15px] font-semibold">
+            {suggestions.length} recurring item{suggestions.length === 1 ? "" : "s"} found
+          </h2>
+          <p className="text-[13px] text-text-muted">
+            Found in your transactions by who they were with, so a changing description doesn&apos;t matter. The
+            confident ones are ticked — nothing is added until you say so.
+          </p>
+        </div>
+        <button
+          onClick={() => add.mutate({ matchKeys: ticked.map((c) => c.matchKey) })}
+          disabled={ticked.length === 0 || add.isPending}
+          className="rounded-xl bg-accent-fill px-4 py-2 text-[13px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
+        >
+          {add.isPending ? "Adding…" : `Add selected (${ticked.length})`}
+        </button>
+      </div>
+      {sorted.map((c) => (
+        <label
+          key={c.matchKey}
+          className="flex cursor-pointer flex-wrap items-center gap-3 border-b border-border-soft py-3 last:border-none"
+        >
+          <input
+            type="checkbox"
+            checked={isTicked(c)}
+            onChange={(e) => setOverride((prev) => ({ ...prev, [c.matchKey]: e.target.checked }))}
+            className="h-4 w-4 shrink-0 accent-[var(--accent-fill)]"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-medium">
+              {c.name}{" "}
+              <span className="text-[11px] font-normal text-text-faint">
+                ({c.type === "INCOME" ? "income" : c.type === "TRANSFER" ? "transfer" : "expense"})
+              </span>
+            </div>
+            <div className="text-[12px] text-text-muted">
+              {c.amountVaries ? "about " : ""}
+              {formatEUR(c.amount)}
+              {c.amountVaries && " · varies"} · {describeSchedule(c.intervalCount, c.intervalUnit)} · seen {c.occurrences}
+              &times;
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              dismiss.mutate({ matchKeys: [c.matchKey] });
+            }}
+            className="rounded-lg border border-border-soft px-3 py-1.5 text-[12.5px] font-medium text-text-muted hover:text-text"
+          >
+            Not recurring
+          </button>
+        </label>
+      ))}
+    </section>
+  );
+}
+
 /** "You" first, then other household members in join order, "Shared" last. */
 function RecurringItems({
   members,
   currentUserId,
   accounts,
   accountFilter,
+  scopeEntries,
+  scope,
+  accountRefs,
 }: {
   members: Member[];
   currentUserId: string;
   accounts: AccountOption[];
   accountFilter: string;
+  scopeEntries: Entry<Item>[] | Entry[];
+  scope: ScopeKey;
+  accountRefs: Map<string, AccountRef>;
 }) {
   const utils = trpc.useUtils();
-  const { data: items } = trpc.recurring.list.useQuery();
   const { data: suggestions } = trpc.recurring.suggestions.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
 
   const invalidate = () => {
     utils.recurring.list.invalidate();
     utils.recurring.suggestions.invalidate();
+    utils.transaction.list.invalidate();
   };
 
   const createItem = trpc.recurring.create.useMutation({ onSuccess: invalidate });
   const updateItem = trpc.recurring.update.useMutation({ onSuccess: invalidate });
-  const confirmSuggestion = trpc.recurring.confirmSuggestion.useMutation({ onSuccess: invalidate });
-  const dismissSuggestion = trpc.recurring.dismissSuggestion.useMutation({ onSuccess: invalidate });
   const deleteItem = trpc.recurring.delete.useMutation({ onSuccess: invalidate });
 
-  const multiMember = members.length > 1;
+  const accountName = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? "another account";
 
-  const shown = ((items ?? []) as Item[]).filter((i) => !accountFilter || i.accountId === accountFilter);
-  const income = shown.filter((i) => i.type === "INCOME");
-  const expenses = shown.filter((i) => i.type === "EXPENSE");
-  const monthlyIncome = income.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
-  const monthlyExpenses = expenses.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0);
+  const shown = (scopeEntries as Entry<Item>[]).filter((e) => !accountFilter || e.accountId === accountFilter);
+  const income = shown.filter((e) => e.side === "INCOME");
+  const expenses = shown.filter((e) => e.side === "EXPENSE");
+  const monthlyIncome = income.reduce((sum, e) => sum + monthlyOf(e.item), 0);
+  const monthlyExpenses = expenses.reduce((sum, e) => sum + monthlyOf(e.item), 0);
+
+  const mine = (suggestions ?? []).filter(
+    (c) => scopeOfOwner(c.ownerId, currentUserId) === scope && (!accountFilter || c.accountId === accountFilter),
+  ) as Suggestion[];
 
   return (
     <>
-      {!multiMember && items && items.length > 0 && (
-        <div className="flex flex-wrap items-baseline justify-end gap-4">
-          <div className="text-right">
-            <p className="mb-1 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
-              Net recurring / month
-            </p>
-            <p
-              className={`font-display font-bold tracking-tight text-[32px] tabular-nums ${
-                monthlyIncome - monthlyExpenses < 0 ? "text-critical" : "text-good"
-              }`}
-            >
-              {formatSignedEUR(monthlyIncome - monthlyExpenses)}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {suggestions && suggestions.some((c) => !accountFilter || c.accountId === accountFilter) && (
-        <section className="rounded-[20px] border border-border-soft bg-surface p-6">
-          <h2 className="mb-1 text-[15px] font-semibold">Suggestions</h2>
-          <p className="mb-4 text-[13px] text-text-muted">
-            Detected from your transaction history — confirm the ones that are
-            genuinely recurring.
-          </p>
-          {suggestions
-            .filter((c) => !accountFilter || c.accountId === accountFilter)
-            .map((c: Candidate) => (
-            <div
-              key={`${c.type}-${c.name}`}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-border-soft py-3 last:border-none"
-            >
-              <div>
-                <div className="text-[13.5px] font-medium">
-                  {c.name}{" "}
-                  <span className="text-[11px] font-normal text-text-faint">
-                    ({c.type === "INCOME" ? "income" : "expense"})
-                  </span>
-                </div>
-                <div className="text-[12px] text-text-muted">
-                  {formatEUR(c.amount)} · {RECURRING_FREQUENCY_LABELS[c.frequency]} · seen{" "}
-                  {c.occurrences}&times;
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() =>
-                    dismissSuggestion.mutate({
-                      name: c.name,
-                      type: c.type,
-                      amount: c.amount,
-                      frequency: c.frequency,
-                      categoryId: c.categoryId,
-                      ownerId: c.ownerId,
-                      accountId: c.accountId,
-                      lastDate: new Date(c.lastDate),
-                    })
-                  }
-                  className="rounded-lg border border-border-soft px-3 py-1.5 text-[12.5px] font-medium text-text-muted hover:text-text"
-                >
-                  Not recurring
-                </button>
-                <button
-                  onClick={() =>
-                    confirmSuggestion.mutate({
-                      name: c.name,
-                      type: c.type,
-                      amount: c.amount,
-                      frequency: c.frequency,
-                      categoryId: c.categoryId,
-                      ownerId: c.ownerId,
-                      accountId: c.accountId,
-                      lastDate: new Date(c.lastDate),
-                    })
-                  }
-                  className="rounded-lg bg-accent-fill px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink hover:opacity-90"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
+      {mine.length > 0 && <SuggestionsPanel suggestions={mine} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <RecurringColumn
@@ -305,12 +417,14 @@ function RecurringItems({
           title="Income"
           total={monthlyIncome}
           totalClass="text-good"
-          items={income}
+          entries={income}
           categories={categories ?? []}
           members={members}
           currentUserId={currentUserId}
           accounts={accounts}
           accountFilter={accountFilter}
+          accountName={accountName}
+          accountRefs={accountRefs}
           onAdd={(values) => createItem.mutate({ ...values, type: "INCOME" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
@@ -321,12 +435,14 @@ function RecurringItems({
           title="Expenses"
           total={monthlyExpenses}
           totalClass="text-text"
-          items={expenses}
+          entries={expenses}
           categories={categories ?? []}
           members={members}
           currentUserId={currentUserId}
           accounts={accounts}
           accountFilter={accountFilter}
+          accountName={accountName}
+          accountRefs={accountRefs}
           onAdd={(values) => createItem.mutate({ ...values, type: "EXPENSE" })}
           onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
           onDelete={(id) => deleteItem.mutate({ id })}
@@ -342,12 +458,14 @@ function RecurringColumn({
   title,
   total,
   totalClass,
-  items,
+  entries,
   categories,
   members,
   currentUserId,
   accounts,
   accountFilter,
+  accountName,
+  accountRefs,
   onAdd,
   onUpdate,
   onDelete,
@@ -357,12 +475,14 @@ function RecurringColumn({
   title: string;
   total: number;
   totalClass: string;
-  items: Item[];
+  entries: Entry<Item>[];
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
   accounts: AccountOption[];
   accountFilter: string;
+  accountName: (id: string | null) => string;
+  accountRefs: Map<string, AccountRef>;
   onAdd: (values: FormValues) => void;
   onUpdate: (id: string, values: Partial<FormValues>) => void;
   onDelete: (id: string) => void;
@@ -371,9 +491,13 @@ function RecurringColumn({
   const [adding, setAdding] = useState(false);
   const multiMember = members.length > 1;
 
+  const items = entries.map((e) => e.item);
   const groups = multiMember
     ? groupOrder(members, currentUserId)
-        .map((ownerId) => ({ ownerId, groupItems: items.filter((i) => i.ownerId === ownerId) }))
+        .map((ownerId) => ({
+          ownerId,
+          groupItems: entries.filter((e) => (accountRefs.get(e.accountId ?? "")?.ownerId ?? e.item.ownerId) === ownerId),
+        }))
         .filter(
           (g) =>
             g.groupItems.length > 0 ||
@@ -392,8 +516,8 @@ function RecurringColumn({
 
       {items.length === 0 && !adding && (
         <p className="border-b border-border-soft px-6 py-4 text-[13px] text-text-muted">
-          Nothing here yet — add one below, or confirm a suggestion above once
-          one turns up.
+          Nothing here yet — add one below, or add a suggestion above once one
+          turns up.
         </p>
       )}
 
@@ -406,36 +530,40 @@ function RecurringColumn({
                 </p>
                 {groupItems.length > 0 && (
                   <p className="text-[11px] text-text-muted tabular-nums">
-                    {formatEUR(groupItems.reduce((sum, i) => sum + monthlyEquivalent(i.amount, i.frequency), 0))} / mo
+                    {formatEUR(groupItems.reduce((sum, e) => sum + monthlyOf(e.item), 0))} / mo
                   </p>
                 )}
               </div>
-              {groupItems.map((item) => (
+              {groupItems.map((entry) => (
                 <RecurringRow
-                  key={item.id}
-                  item={item}
+                  key={`${entry.item.id}-${entry.side}`}
+                  item={entry.item}
+                  side={entry.side}
+                  accountName={accountName}
                   categories={categories}
                   members={members}
                   currentUserId={currentUserId}
                   accounts={accounts}
-                  onUpdate={(values) => onUpdate(item.id, values)}
-                  onDelete={() => onDelete(item.id)}
-                  onToggleVisibility={(visible) => onToggleVisibility(item.id, visible)}
+                  onUpdate={(values) => onUpdate(entry.item.id, values)}
+                  onDelete={() => onDelete(entry.item.id)}
+                  onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
                 />
               ))}
             </div>
           ))
-        : items.map((item) => (
+        : entries.map((entry) => (
             <RecurringRow
-              key={item.id}
-              item={item}
+              key={`${entry.item.id}-${entry.side}`}
+              item={entry.item}
+              side={entry.side}
+              accountName={accountName}
               categories={categories}
               members={members}
               currentUserId={currentUserId}
               accounts={accounts}
-              onUpdate={(values) => onUpdate(item.id, values)}
-              onDelete={() => onDelete(item.id)}
-              onToggleVisibility={(visible) => onToggleVisibility(item.id, visible)}
+              onUpdate={(values) => onUpdate(entry.item.id, values)}
+              onDelete={() => onDelete(entry.item.id)}
+              onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
             />
           ))}
 
@@ -469,6 +597,8 @@ function RecurringColumn({
 
 function RecurringRow({
   item,
+  side,
+  accountName,
   categories,
   members,
   currentUserId,
@@ -478,6 +608,9 @@ function RecurringRow({
   onToggleVisibility,
 }: {
   item: Item;
+  /** Which side of the budget this row sits on; a transfer has one row on each. */
+  side: "INCOME" | "EXPENSE";
+  accountName: (id: string | null) => string;
   categories: { id: string; name: string; color: string }[];
   members: Member[];
   currentUserId: string;
@@ -487,6 +620,9 @@ function RecurringRow({
   onToggleVisibility: (visible: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const isTransfer = item.type === "TRANSFER";
+  // Due, but not in the transactions yet: say so quietly — it still counts.
+  const notSeen = item.nextDueDate !== null && new Date(item.nextDueDate).getTime() < todayInHousehold().getTime();
   const isOwn = item.ownerId === currentUserId;
   const canEdit = item.ownerId === null || isOwn;
 
@@ -527,10 +663,31 @@ function RecurringRow({
           )}
         </div>
         <div className="mt-1 text-[12px] text-text-muted">
-          {RECURRING_FREQUENCY_LABELS[item.frequency]}
-          {item.nextDueDate && <> · next {formatDate(item.nextDueDate)}</>}
+          {isTransfer && (
+            <>
+              {side === "EXPENSE"
+                ? `Transfer to ${accountName(item.toAccountId)}`
+                : `Transfer from ${accountName(item.accountId)}`}{" "}
+              ·{" "}
+            </>
+          )}
+          {describeSchedule(item.intervalCount, item.intervalUnit)}
+          {item.nextDueDate &&
+            (notSeen ? (
+              <span className="text-text-faint"> · expected {formatDate(item.nextDueDate)} — not seen yet</span>
+            ) : (
+              <> · next {formatDate(item.nextDueDate)}</>
+            ))}
         </div>
       </div>
+      {item.amountVaries && (
+        <span
+          title="The amount changes from payment to payment; this is the average of the last three"
+          className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-medium text-text-muted"
+        >
+          varies
+        </span>
+      )}
       {canEdit ? (
         <InlineEdit
           value={String(item.amount)}
@@ -601,7 +758,8 @@ function InlineRecurringRow({
   onSubmit: (values: FormValues) => void;
   onCancel: () => void;
 }) {
-  const [frequency, setFrequency] = useState<RecurringFrequency>(initial?.frequency ?? "MONTHLY");
+  const [intervalCount, setIntervalCount] = useState(String(initial?.intervalCount ?? 1));
+  const [intervalUnit, setIntervalUnit] = useState<ScheduleUnit>(initial?.intervalUnit ?? "MONTH");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   // Only accounts you can edit (yours or shared) can carry a recurring item.
   const writable = accounts.filter((a) => a.ownerId === null || a.ownerId === currentUserId);
@@ -625,7 +783,8 @@ function InlineRecurringRow({
         onSubmit({
           name: String(form.get("name")),
           amount: Number(form.get("amount") || 0),
-          frequency,
+          intervalCount: Math.max(1, Math.min(365, Math.round(Number(intervalCount) || 1))),
+          intervalUnit,
           categoryId: categoryId || null,
           // With no partner yet, default to personal (not shared) — same
           // privacy-conserving default used by the account owner picker.
@@ -645,11 +804,23 @@ function InlineRecurringRow({
           className="w-full bg-transparent text-[13.5px] font-medium outline-none placeholder:text-text-faint"
         />
         <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[12px]">
-          <InlineSelect
-            value={frequency}
-            onChange={(v) => setFrequency(v as RecurringFrequency)}
-            options={FREQUENCIES.map((f) => ({ value: f, label: RECURRING_FREQUENCY_LABELS[f] }))}
-          />
+          <span className="inline-flex items-center gap-1 text-text-muted">
+            Every
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={intervalCount}
+              onChange={(e) => setIntervalCount(e.target.value)}
+              aria-label="Every how many"
+              className="w-10 rounded-md border border-border-soft bg-surface px-1.5 py-0.5 text-center text-[12px] text-text tabular-nums outline-none focus:border-text-faint"
+            />
+            <InlineSelect
+              value={intervalUnit}
+              onChange={(v) => setIntervalUnit(v as ScheduleUnit)}
+              options={SCHEDULE_UNITS.map((u) => ({ value: u, label: unitLabel(u, Number(intervalCount) || 1) }))}
+            />
+          </span>
           <InlineSelect
             value={categoryId}
             onChange={setCategoryId}

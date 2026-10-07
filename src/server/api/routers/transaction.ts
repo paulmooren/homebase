@@ -7,6 +7,7 @@ import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
 import { suggestCategoryId } from "@/lib/categorize";
 import { MAX_MERCHANT_LENGTH, cleanMerchant, normalizeIban } from "@/lib/csv";
 import { planImport } from "@/lib/import-match";
+import { attachRecurringTransactions } from "@/server/api/recurring-match";
 
 type Ctx = { householdId: string; userId: string; prisma: PrismaClient };
 
@@ -400,6 +401,8 @@ export const transactionRouter = createTRPCRouter({
         ctx.prisma.transaction.deleteMany({ where: { id: { in: plan.remove }, householdId: ctx.householdId } }),
       ]);
       await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);
+      // New payments from a known recurring party become occurrences of that item.
+      await attachRecurringTransactions(ctx.prisma, ctx.householdId);
       return {
         added: plan.create.length,
         updated: plan.update.length,

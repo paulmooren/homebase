@@ -197,6 +197,7 @@ model FinancialAccount {
   transactions         Transaction[]   @relation("AccountTransactions")
   incomingTransferTxns Transaction[]   @relation("TransferDestinationAccount")
   recurringItems       RecurringItem[] @relation("AccountRecurringItems")
+  incomingRecurring    RecurringItem[] @relation("RecurringItemDestination")
 
   @@index([householdId])
   @@index([householdId, ownerId])
@@ -234,13 +235,17 @@ model Transaction {
   // this is far steadier than by the free-text description.
   counterpartyIban    String?
   counterpartyName    String?
+  // The Recurring item this transaction is an occurrence of.
+  recurringItemId     String?
   createdAt           DateTime        @default(now())
 
   household         Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
   account           FinancialAccount  @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
   category          Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transferToAccount FinancialAccount? @relation("TransferDestinationAccount", fields: [transferToAccountId], references: [id], onDelete: SetNull)
+  recurringItem     RecurringItem?    @relation("RecurringItemTransactions", fields: [recurringItemId], references: [id], onDelete: SetNull)
 
+  @@index([recurringItemId])
   @@index([householdId, date])
   @@index([accountId])
   @@map("transactions")
@@ -281,7 +286,20 @@ model RecurringItem {
   name               String
   type               TransactionType
   amount             Decimal            @db.Decimal(14, 2)
-  frequency          RecurringFrequency
+  // Legacy: replaced by intervalCount/intervalUnit; no longer written.
+  frequency          RecurringFrequency?
+  // "Every N weeks/months/years", the same shape as a Reminder's schedule.
+  intervalCount      Int                @default(1)
+  intervalUnit       ScheduleUnit       @default(MONTH)
+  // The amount moves from payment to payment (salary, a phone bill); `amount` is then the recent average.
+  amountVaries       Boolean            @default(false)
+  // For a recurring transfer: the account the money arrives in.
+  toAccountId        String?
+  // How to recognise its transactions: the other party's IBAN, or failing that its description with the changing numbers stripped.
+  matchIban          String?
+  matchText          String?
+  // Identity of the detected pattern, so an added or rejected suggestion never comes back.
+  matchKey           String?
   categoryId         String?
   source             RecurringSource
   // The transaction merchant text this item was detected from, kept even
@@ -295,7 +313,9 @@ model RecurringItem {
   household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
   owner     User?             @relation("RecurringItemOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   account   FinancialAccount? @relation("AccountRecurringItems", fields: [accountId], references: [id], onDelete: SetNull)
+  toAccount FinancialAccount? @relation("RecurringItemDestination", fields: [toAccountId], references: [id], onDelete: SetNull)
   category  Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]  @relation("RecurringItemTransactions")
 
   @@unique([householdId, name])
   @@index([householdId, status])

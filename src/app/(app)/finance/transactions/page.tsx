@@ -23,7 +23,7 @@ import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import Link from "next/link";
 import { RepeatIcon } from "@/components/action-icons";
 import { MarkRecurringModal, type RecurringSource } from "@/components/finance/mark-recurring-modal";
-import { RECURRING_FREQUENCY_LABELS } from "@/lib/constants";
+import { describeSchedule } from "@/lib/schedule";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { CategoryCell } from "@/components/finance/category-cell";
 import {
@@ -71,20 +71,10 @@ function TransactionsPageInner() {
   const [imported, setImported] = useState<ImportResult | null>(null);
   const { data: recurring } = trpc.recurring.list.useQuery();
   const [recurringFor, setRecurringFor] = useState<RecurringSource | null>(null);
-  const [recurringAdded, setRecurringAdded] = useState<{ name: string; type: "EXPENSE" | "INCOME" } | null>(null);
+  const [recurringAdded, setRecurringAdded] = useState<{ name: string; type: "EXPENSE" | "INCOME" | "TRANSFER" } | null>(null);
 
-  // A transaction counts as recurring when an active recurring item carries its
-  // merchant text (as its name or the text it was detected from) on the same
-  // account, or on no particular account.
-  const recurringByMerchant = new Map<string, NonNullable<typeof recurring>[number]>();
-  for (const item of recurring ?? []) {
-    for (const text of [item.name, item.detectedName]) {
-      if (text) recurringByMerchant.set(`${normalizeText(text)}|${item.accountId ?? ""}`, item);
-    }
-  }
-  const recurringFor_ = (merchant: string, accountId: string) =>
-    recurringByMerchant.get(`${normalizeText(merchant)}|${accountId}`) ??
-    recurringByMerchant.get(`${normalizeText(merchant)}|`);
+  // A transaction is recurring when it has been linked to a recurring item (by the other party, not by its wording).
+  const recurringById = new Map((recurring ?? []).map((item) => [item.id, item]));
   const { data: transactions } = trpc.transaction.list.useQuery(
     {
       limit,
@@ -342,7 +332,7 @@ function TransactionsPageInner() {
                   : t.merchant;
               const barColor = isTransfer ? TRANSFER_COLOR : (t.category?.color ?? "#c7c9cf");
               const canEdit = t.account.ownerId === null || t.account.ownerId === currentUserId;
-              const recurringItem = isTransfer ? undefined : recurringFor_(t.merchant, t.accountId);
+              const recurringItem = t.recurringItemId ? recurringById.get(t.recurringItemId) : undefined;
               return (
                 <div
                   key={t.id}
@@ -394,34 +384,42 @@ function TransactionsPageInner() {
                     {isInflow ? "+" : "−"} {formatEUR(Number(t.amount))}
                   </div>
                   <div className={COL_ACTIONS}>
-                    {!isTransfer && recurringItem && (
+                    {recurringItem && (
                       // Active: this transaction belongs to a recurring item. Hovering says how often.
                       <span className="group/rec relative flex h-6 w-6 items-center justify-center text-good">
                         <span className="block h-3.5 w-3.5">
                           <RepeatIcon />
                         </span>
                         <span className="pointer-events-none absolute right-0 bottom-full z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-text px-2.5 py-1.5 text-[11.5px] font-medium text-bg shadow-lg group-hover/rec:block">
-                          Recurring · {RECURRING_FREQUENCY_LABELS[recurringItem.frequency]}
+                          Recurring · {describeSchedule(recurringItem.intervalCount, recurringItem.intervalUnit).replace(/^Every /, "every ")}
                         </span>
                       </span>
                     )}
-                    {canEdit && !isTransfer && !recurringItem && (
+                    {canEdit && !recurringItem && (
                       <button
                         type="button"
                         onClick={() =>
                           setRecurringFor({
                             id: t.id,
                             merchant: t.merchant,
-                            type: t.type as "EXPENSE" | "INCOME",
+                            type: t.type as "EXPENSE" | "INCOME" | "TRANSFER",
                             amount: Number(t.amount),
                             date: t.date,
                             categoryId: t.categoryId,
                             accountId: t.accountId,
                             accountName: t.account.name,
+                            toAccountId: t.transferToAccountId,
+                            toAccountName: t.transferToAccount?.name,
                           })
                         }
                         aria-label={`Mark ${t.merchant} as recurring`}
-                        title={isIncome ? "Mark as recurring income" : "Mark as recurring expense"}
+                        title={
+                          isTransfer
+                            ? "Mark as recurring transfer"
+                            : isIncome
+                              ? "Mark as recurring income"
+                              : "Mark as recurring expense"
+                        }
                         className="flex h-6 w-6 items-center justify-center rounded-full text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
                       >
                         <span className="block h-3.5 w-3.5">
@@ -950,6 +948,3 @@ function FileIcon() {
   );
 }
 
-function normalizeText(text: string) {
-  return text.trim().toLowerCase().replace(/\s+/g, " ");
-}

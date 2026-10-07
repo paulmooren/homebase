@@ -5,7 +5,7 @@ import { useState } from "react";
 import { trpc } from "@/trpc/react";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
-import { RECURRING_FREQUENCY_LABELS, type RecurringFrequency } from "@/lib/constants";
+import { SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
 import { cleanMerchant } from "@/lib/csv";
 import { formatEUR } from "@/lib/format";
 import type { Category } from "@/components/finance/category-cell";
@@ -13,15 +13,16 @@ import type { Category } from "@/components/finance/category-cell";
 export type RecurringSource = {
   id: string;
   merchant: string;
-  type: "EXPENSE" | "INCOME";
+  type: "EXPENSE" | "INCOME" | "TRANSFER";
   amount: number;
   date: Date | string;
   categoryId: string | null;
   accountId: string;
   accountName: string;
+  /** For a transfer: where the money arrives. */
+  toAccountId?: string | null;
+  toAccountName?: string;
 };
-
-const FREQUENCIES = Object.keys(RECURRING_FREQUENCY_LABELS) as RecurringFrequency[];
 
 /**
  * "This repeats": turns a transaction into a recurring income or expense,
@@ -38,11 +39,14 @@ export function MarkRecurringModal({
   source: RecurringSource;
   categories: Category[];
   onClose: () => void;
-  onDone: (result: { name: string; type: "EXPENSE" | "INCOME" }) => void;
+  onDone: (result: { name: string; type: "EXPENSE" | "INCOME" | "TRANSFER" }) => void;
 }) {
   const utils = trpc.useUtils();
   const isIncome = source.type === "INCOME";
+  const isTransfer = source.type === "TRANSFER";
   const [error, setError] = useState<string | null>(null);
+  const [intervalCount, setIntervalCount] = useState("1");
+  const [intervalUnit, setIntervalUnit] = useState<ScheduleUnit>("MONTH");
 
   const create = trpc.recurring.create.useMutation({
     onSuccess: (_item, vars) => {
@@ -54,7 +58,10 @@ export function MarkRecurringModal({
   });
 
   return (
-    <Modal title={isIncome ? "Mark as recurring income" : "Mark as recurring expense"} onClose={onClose}>
+    <Modal
+      title={isTransfer ? "Mark as recurring transfer" : isIncome ? "Mark as recurring income" : "Mark as recurring expense"}
+      onClose={onClose}
+    >
       <form
         className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2"
         onSubmit={(e) => {
@@ -70,10 +77,13 @@ export function MarkRecurringModal({
             name: String(form.get("name")).trim(),
             type: source.type,
             amount,
-            frequency: String(form.get("frequency")) as RecurringFrequency,
-            categoryId: String(form.get("categoryId") || "") || null,
+            intervalCount: Math.max(1, Math.min(365, Math.round(Number(intervalCount) || 1))),
+            intervalUnit,
+            categoryId: isTransfer ? null : String(form.get("categoryId") || "") || null,
             accountId: source.accountId,
-            detectedName: source.merchant,
+            toAccountId: isTransfer ? source.toAccountId : undefined,
+            // The other transactions of the same party are recognised from this one.
+            fromTransactionId: source.id,
             lastDate: new Date(source.date),
           });
         }}
@@ -81,7 +91,12 @@ export function MarkRecurringModal({
         <p className="col-span-full -mt-1 text-[13px] text-text-muted">
           From {source.accountName} · {formatEUR(source.amount)} on{" "}
           {new Date(source.date).toLocaleDateString("en-GB")}. It will show up under Budgets
-          {isIncome ? " as recurring income" : " as a recurring expense"}.
+          {isTransfer
+            ? " as an expense for the account it leaves and income for the account it enters"
+            : isIncome
+              ? " as recurring income"
+              : " as a recurring expense"}
+          .
         </p>
         <div className="col-span-full">
           <Field label="Name">
@@ -90,19 +105,31 @@ export function MarkRecurringModal({
               required
               autoFocus
               maxLength={120}
-              defaultValue={cleanMerchant(source.merchant)}
+              defaultValue={isTransfer ? `Transfer to ${source.toAccountName ?? "another account"}` : cleanMerchant(source.merchant)}
               className={inputClass}
             />
           </Field>
         </div>
         <Field label="How often">
-          <SelectInput name="frequency" defaultValue="MONTHLY">
-            {FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {RECURRING_FREQUENCY_LABELS[f]}
-              </option>
-            ))}
-          </SelectInput>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-text-muted">Every</span>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={intervalCount}
+              onChange={(e) => setIntervalCount(e.target.value)}
+              aria-label="Every how many"
+              className={`${inputClass} w-20`}
+            />
+            <SelectInput value={intervalUnit} onChange={(e) => setIntervalUnit(e.target.value as ScheduleUnit)}>
+              {SCHEDULE_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {unitLabel(u, Number(intervalCount) || 1)}
+                </option>
+              ))}
+            </SelectInput>
+          </div>
         </Field>
         <Field label="Amount (€)">
           <input
@@ -113,7 +140,7 @@ export function MarkRecurringModal({
             className={inputClass}
           />
         </Field>
-        <div className="col-span-full">
+        <div className={`col-span-full ${isTransfer ? "hidden" : ""}`}>
           <Field label="Category (optional)">
             <SelectInput name="categoryId" defaultValue={source.categoryId ?? ""}>
               <option value="">No category</option>
