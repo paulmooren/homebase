@@ -42,6 +42,14 @@ _Avoid_: Account (alone, ambiguous with login)
 A confirmed income, expense or transfer that comes back on a Schedule, linked to a Financial account and remembering how to recognise its transactions (the other party, or its description with the changing numbers stripped out).
 _Avoid_: Subscription, standing order, budget item
 
+**Category**:
+The kind of spending or income something is — Groceries, Dining, Housing & Utilities. A Household has one list of them, used by transactions, category budgets and Recurring items.
+_Avoid_: Tag, label
+
+**Budget group**:
+A named section of the recurring expenses that says what the money is for — Rent, Insurances, Savings, Shared Money. The Household has one list of them, created and renamed as it likes. An expense is in one Budget group or none (shown as "Other"); a group never holds income. Not a Category, which says what was bought.
+_Avoid_: Category (that is the kind of spending), folder, bucket, section
+
 **Payment**:
 One transaction that is an occurrence of a Recurring item — one month's salary, one month's rent. A Payment that was a one-off (a bonus, a refund) can be set aside: it stays an ordinary transaction but no longer belongs to the item or its history.
 _Avoid_: Occurrence, instance
