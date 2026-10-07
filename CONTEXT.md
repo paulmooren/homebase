@@ -39,8 +39,16 @@ A bank, savings, cash, credit, investment or loan account whose balance and tran
 _Avoid_: Account (alone, ambiguous with login)
 
 **Recurring item**:
-A confirmed income or expense that repeats on a schedule, linked to a Financial account.
+A confirmed income, expense or transfer that comes back on a Schedule, linked to a Financial account and remembering how to recognise its transactions (the other party, or its description with the changing numbers stripped out).
 _Avoid_: Subscription, standing order, budget item
+
+**Transfer**:
+Money moved between two accounts the Household tracks. It is neither income nor spending, so it never counts toward budgets — unless it is recurring: then it counts as an expense for the account it leaves and as income for the account it enters.
+_Avoid_: Internal payment, own-account payment
+
+**Left each month**:
+Recurring income minus recurring expenses for one scope: each account, You (your personal accounts together), or Household (the shared accounts together). It deliberately ignores everyday spending such as groceries.
+_Avoid_: Budget (alone), remaining, free cash
 
 **Suggestion**:
 A Recurring item the app has detected from transactions but the Member has not yet confirmed. Only ever shown to the owner.
