@@ -298,6 +298,8 @@ model RecurringItem {
   // How to recognise its transactions: the other party's IBAN, or failing that its description with the changing numbers stripped.
   matchIban          String?
   matchText          String?
+  // A reference number its descriptions start with (one savings plan per fund, say), for a party that runs several side by side.
+  matchRef           String?
   // Identity of the detected pattern, so an added or rejected suggestion never comes back.
   matchKey           String?
   categoryId         String?

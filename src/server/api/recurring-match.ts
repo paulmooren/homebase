@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { amountWithin, cleanText } from "@/lib/recurring-detect";
+import { amountWithin, cleanText, referenceOf } from "@/lib/recurring-detect";
 
 /**
  * Links transactions to the Recurring items they are occurrences of, by the
@@ -39,6 +39,7 @@ export async function attachRecurringTransactions(prisma: PrismaClient, househol
 
     const itemAmount = Number(item.amount);
     const matches = candidates.filter((t) => {
+      if (item.matchRef && referenceOf(t.merchant) !== item.matchRef) return false;
       if (item.matchText && cleanText(t.counterpartyName || t.merchant) !== item.matchText) return false;
       return item.amountVaries || amountWithin(Number(t.amount), itemAmount);
     });

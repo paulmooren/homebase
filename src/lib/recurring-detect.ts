@@ -46,6 +46,8 @@ export type DetectedItem = {
   /** How to recognise its transactions later. */
   matchIban: string | null;
   matchText: string | null;
+  /** A reference number the description starts with, when the party runs several payments side by side (a savings plan per fund). */
+  matchRef: string | null;
   /** Stable identity, so a suggestion that was added or rejected never comes back. */
   matchKey: string;
   /** Strong enough to be ticked by default. */
@@ -71,6 +73,11 @@ export function cleanText(text: string): string {
     .replace(/[^a-zÀ-ɏ ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** A long number a description starts with: the same for every payment of one plan or contract. */
+export function referenceOf(description: string): string | null {
+  return description.match(/^\s*(\d{8,})\b/)?.[1] ?? null;
 }
 
 function titleCase(text: string) {
@@ -143,40 +150,62 @@ function nameFor(rows: DetectInput[], accountNames: Map<string, string>): string
   return tidy(bestClean || last.merchant);
 }
 
+type Party = { key: string; iban: string | null; text: string | null };
+
+/** Options that only some groupings use: the reference a group was split by, and how recent the account's data is. */
+type Context = { ref: string | null; newest: number; clusterAmount: number | null };
+
 function describeGroup(
   rows: DetectInput[],
-  party: { key: string; iban: string | null; text: string | null },
+  party: Party,
   accountNames: Map<string, string>,
-  clusterAmount: number | null,
+  ctx: Context,
 ): DetectedItem | null {
   const sorted = [...rows].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const amounts = sorted.map((r) => r.amount);
+
+  // The amount changed and stayed changed (a savings plan stepped down): the new amount is the current one.
+  const lastAmount = amounts[amounts.length - 1];
+  let run = 0;
+  while (run < amounts.length && amountWithin(amounts[amounts.length - 1 - run], lastAmount)) run++;
+  if (run >= 2 && run < amounts.length && amounts.length >= 4) {
+    const item = buildItem(sorted, party, accountNames, ctx, round2(median(amounts.slice(-run))));
+    if (item) return item;
+  }
 
   // A steady amount with a few one-off payments to the same party (the rent, plus a loan back):
   // the steady ones are the recurring item; the odd ones stay what they were.
-  const usual = median(sorted.map((r) => r.amount));
+  const usual = median(amounts);
   const steady = sorted.filter((r) => amountWithin(r.amount, usual));
   if (steady.length < sorted.length && steady.length >= 3 && steady.length >= sorted.length * 0.6) {
-    const fixed = buildItem(steady, party, accountNames, clusterAmount);
+    const fixed = buildItem(steady, party, accountNames, ctx, null);
     if (fixed) return fixed;
   }
-  return buildItem(sorted, party, accountNames, clusterAmount);
+  return buildItem(sorted, party, accountNames, ctx, null);
 }
 
 function buildItem(
   sorted: DetectInput[],
-  party: { key: string; iban: string | null; text: string | null },
+  party: Party,
   accountNames: Map<string, string>,
-  clusterAmount: number | null,
+  ctx: Context,
+  /** Set when the amount stepped to a new level: that level, regardless of the older payments. */
+  currentAmount: number | null,
 ): DetectedItem | null {
   const schedule = findSchedule(sorted);
   if (!schedule) return null;
 
+  const last = sorted[sorted.length - 1];
+  // Stopped: nothing for over two intervals while the account's data runs on. Not a current cost.
+  const intervalDays = schedule.unit === "WEEK" ? 7 * schedule.count : 31 * schedule.count;
+  if (ctx.newest - last.date.getTime() > 2 * intervalDays * DAY) return null;
+
   const amounts = sorted.map((r) => r.amount);
   const mid = median(amounts);
-  const amountVaries = !amounts.every((a) => amountWithin(a, mid));
-  const last = sorted[sorted.length - 1];
+  const amountVaries = currentAmount === null && !amounts.every((a) => amountWithin(a, mid));
   const lastThree = amounts.slice(-3);
-  const amount = amountVaries ? round2(lastThree.reduce((a, b) => a + b, 0) / lastThree.length) : round2(mid);
+  const amount =
+    currentAmount ?? (amountVaries ? round2(lastThree.reduce((a, b) => a + b, 0) / lastThree.length) : round2(mid));
 
   // A wildly swinging amount with no IBAN to vouch for it is more likely habit than obligation.
   const spread = Math.max(...amounts) / Math.max(Math.min(...amounts), 0.01);
@@ -197,7 +226,14 @@ function buildItem(
     categoryId: sorted.map((r) => r.categoryId).filter(Boolean).pop() ?? null,
     matchIban: party.iban,
     matchText: party.text,
-    matchKey: [last.accountId, last.type, party.key, amountVaries || clusterAmount === null ? "" : Math.round(mid)].join("|"),
+    matchRef: ctx.ref,
+    matchKey: [
+      last.accountId,
+      last.type,
+      party.key,
+      ctx.ref ? `ref:${ctx.ref}` : "",
+      amountVaries || ctx.clusterAmount === null ? "" : Math.round(mid),
+    ].join("|"),
     confident,
     transactionIds: sorted.map((r) => r.id),
   };
@@ -218,7 +254,11 @@ export function detectRecurring(
   transactions: DetectInput[],
   accountNames: Map<string, string> = new Map(),
 ): DetectedItem[] {
-  const groups = new Map<string, { party: ReturnType<typeof partyOf>; rows: DetectInput[] }>();
+  // How far each account's data runs, so a pattern that stopped long ago isn't suggested as current.
+  const newest = new Map<string, number>();
+  for (const tx of transactions) newest.set(tx.accountId, Math.max(newest.get(tx.accountId) ?? 0, tx.date.getTime()));
+
+  const groups = new Map<string, { party: Party; rows: DetectInput[] }>();
   for (const tx of transactions) {
     const party = partyOf(tx);
     if (party.key === "text:" && !party.iban) continue;
@@ -231,19 +271,36 @@ export function detectRecurring(
   const items: DetectedItem[] = [];
   for (const { party, rows } of groups.values()) {
     if (rows.length < 3) continue;
-    const whole = describeGroup(rows, party, accountNames, null);
+    const base = { newest: newest.get(rows[0].accountId) ?? 0 };
+    const whole = describeGroup(rows, party, accountNames, { ...base, ref: null, clusterAmount: null });
     if (whole) {
       items.push(whole);
       continue;
     }
-    // Several different payments to the same party (savings, a shared account):
-    // look for a steady amount inside it.
-    if (rows.length >= 4) {
-      for (const cluster of clusterByAmount(rows)) {
-        if (cluster.length < 3) continue;
-        const sub = describeGroup(cluster, party, accountNames, cluster[0].amount);
-        if (sub) items.push(sub);
+    if (rows.length < 4) continue;
+
+    // Several payments to the same party each month: follow each plan by the reference its description starts with…
+    const byRef = new Map<string, DetectInput[]>();
+    for (const r of rows) {
+      const ref = party.iban ? referenceOf(r.merchant) : null;
+      if (ref) byRef.set(ref, [...(byRef.get(ref) ?? []), r]);
+    }
+    let found = 0;
+    for (const [ref, refRows] of byRef) {
+      if (refRows.length < 3) continue;
+      const sub = describeGroup(refRows, party, accountNames, { ...base, ref, clusterAmount: null });
+      if (sub) {
+        items.push(sub);
+        found++;
       }
+    }
+    if (found > 0) continue;
+
+    // …or, with no reference to follow, look for a steady amount inside it.
+    for (const cluster of clusterByAmount(rows)) {
+      if (cluster.length < 3) continue;
+      const sub = describeGroup(cluster, party, accountNames, { ...base, ref: null, clusterAmount: cluster[0].amount });
+      if (sub) items.push(sub);
     }
   }
   return items;
