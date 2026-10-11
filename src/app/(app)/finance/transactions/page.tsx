@@ -7,6 +7,7 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
 import { formatEUR, formatDate } from "@/lib/format";
 import { TRANSFER_COLOR } from "@/lib/constants";
 import {
@@ -37,6 +38,7 @@ import {
   type TransactionFilters,
 } from "@/components/finance/transaction-filters";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
+import { AFTER_BULK_TRANSACTION_CHANGE, useTransactionActions } from "@/components/finance/use-transactions";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { useConfirm } from "@/components/confirm-dialog";
 
@@ -65,7 +67,6 @@ function TransactionsPageInner() {
   const searchParams = useSearchParams();
   const importAccountId = searchParams.get("import");
 
-  const utils = trpc.useUtils();
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
   // Deep-linkable (?account=<id>) so the Budgets tab's account cards can open
@@ -119,31 +120,12 @@ function TransactionsPageInner() {
     importAccountId ? "import" : "none",
   );
 
-  const createTransaction = trpc.transaction.create.useMutation({
-    onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      utils.dashboard.netWorthHistory.invalidate();
-      utils.budget.list.invalidate();
-      setMode("none");
-    },
-  });
-  const deleteTransaction = trpc.transaction.delete.useMutation({
-    onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      utils.dashboard.netWorthHistory.invalidate();
-      utils.budget.list.invalidate();
-    },
-  });
+  const transactionActions = useTransactionActions();
   const { assign: assignCategory, toast: categoryToast } = useCategoryAssign(categories ?? []);
+  // Removing everything, like importing, is worked out by the server: it waits, and the button shows it.
+  const refresh = useRefresh();
   const removeAllTransactions = trpc.transaction.removeAll.useMutation({
-    onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      utils.dashboard.netWorthHistory.invalidate();
-      utils.budget.list.invalidate();
-    },
+    onSuccess: () => refresh(...AFTER_BULK_TRANSACTION_CHANGE),
   });
 
   return (
@@ -237,8 +219,10 @@ function TransactionsPageInner() {
               accounts={writableAccounts}
               initialAccountId={accountFilter || undefined}
               categories={categories ?? []}
-              pending={createTransaction.isPending}
-              onSubmit={(values) => createTransaction.mutate(values)}
+              onSubmit={(values) => {
+                transactionActions.create(values);
+                setMode("none");
+              }}
               onCancel={() => setMode("none")}
             />
           </Modal>
@@ -444,7 +428,7 @@ function TransactionsPageInner() {
                     {canEdit && (
                       <Button
                         onClick={async () => {
-                          if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
+                          if (await confirm({ title: "Delete this transaction?" })) transactionActions.remove(t.id);
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >
@@ -536,14 +520,12 @@ function ManualTransactionForm({
   accounts,
   initialAccountId,
   categories,
-  pending,
   onSubmit,
   onCancel,
 }: {
   accounts: { id: string; name: string }[];
   initialAccountId?: string;
   categories: { id: string; name: string }[];
-  pending: boolean;
   onCancel: () => void;
   onSubmit: (values: {
     accountId: string;
@@ -631,8 +613,7 @@ function ManualTransactionForm({
       <ModalFooter className="col-span-full">
         <Button
           type="submit"
-          disabled={pending}
-          className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+          className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
         >
           Add transaction
         </Button>
@@ -663,7 +644,7 @@ function CsvImportForm({
   onImported: (result: ImportResult) => void;
   onCancel: () => void;
 }) {
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const [accountId, setAccountId] = useState(
     initialAccountId && accounts.some((a) => a.id === initialAccountId)
       ? initialAccountId
@@ -684,11 +665,7 @@ function CsvImportForm({
 
   const importCsv = trpc.transaction.importCsv.useMutation({
     onSuccess: (result) => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      utils.dashboard.netWorthHistory.invalidate();
-      utils.account.list.invalidate();
-      utils.dashboard.missingStatements.invalidate();
+      refresh(...AFTER_BULK_TRANSACTION_CHANGE);
       onImported(result);
     },
   });

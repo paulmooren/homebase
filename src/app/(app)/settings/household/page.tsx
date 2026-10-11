@@ -5,6 +5,8 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
+import { useHouseholdSettingsActions } from "@/components/settings/use-settings";
 import { Avatar } from "@/components/avatar";
 import { Switch } from "@/components/switch";
 import { MODULES, isModuleEnabled } from "@/lib/modules";
@@ -13,17 +15,13 @@ import { useConfirm } from "@/components/confirm-dialog";
 
 export default function HouseholdSettingsPage() {
   const confirm = useConfirm();
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
-  const renameHousehold = trpc.household.rename.useMutation({
-    onSuccess: () => utils.household.current.invalidate(),
-  });
-  const setModuleEnabled = trpc.household.setModuleEnabled.useMutation({
-    onSuccess: () => utils.household.current.invalidate(),
-  });
+  const settings = useHouseholdSettingsActions();
+  // A new invite code is made by the server, so this one waits (the button shows it).
   const regenerateInvite = trpc.household.regenerateInvite.useMutation({
-    onSuccess: () => utils.household.current.invalidate(),
+    onSuccess: () => refresh("household.current"),
   });
   const [name, setName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -46,7 +44,10 @@ export default function HouseholdSettingsPage() {
           className="flex flex-col gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (dirty) renameHousehold.mutate({ name: value.trim() }, { onSuccess: () => setName(null) });
+            if (dirty) {
+              settings.rename({ name: value.trim() });
+              setName(null);
+            }
           }}
         >
           <Field label="Household name">
@@ -57,7 +58,7 @@ export default function HouseholdSettingsPage() {
               className={inputClass}
             />
           </Field>
-          <UpdateButton disabled={!dirty || renameHousehold.isPending} />
+          <UpdateButton disabled={!dirty} />
         </form>
       </SettingsSection>
 
@@ -78,8 +79,8 @@ export default function HouseholdSettingsPage() {
               <Switch
                 label={m.label}
                 checked={isModuleEnabled(household?.disabledModules ?? [], m.key)}
-                disabled={!household || setModuleEnabled.isPending}
-                onChange={(enabled) => setModuleEnabled.mutate({ key: m.key, enabled })}
+                disabled={!household}
+                onChange={(enabled) => settings.setModuleEnabled({ key: m.key, enabled })}
               />
             </div>
           ))}

@@ -12,6 +12,7 @@ import { AccountTypeIcon } from "@/components/account-type-icon";
 import { BalanceChart, type BalancePoint, type Granularity } from "@/components/balance-chart";
 import { CategoryCell } from "@/components/finance/category-cell";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
+import { useTransactionActions } from "@/components/finance/use-transactions";
 import { useConfirm } from "@/components/confirm-dialog";
 
 const COL_DATE = "w-[100px] shrink-0";
@@ -23,7 +24,6 @@ const CELL_TEXT = "text-[14px]";
 export default function AccountDetailPage() {
   const confirm = useConfirm();
   const { id: accountId } = useParams<{ id: string }>();
-  const utils = trpc.useUtils();
 
   const { data: accounts } = trpc.account.list.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
@@ -42,15 +42,7 @@ export default function AccountDetailPage() {
   );
 
   const { assign: assignCategory, toast: categoryToast } = useCategoryAssign(categories ?? []);
-  const deleteTransaction = trpc.transaction.delete.useMutation({
-    onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      utils.dashboard.netWorthHistory.invalidate();
-      utils.dashboard.accountHistory.invalidate();
-      utils.account.list.invalidate();
-    },
-  });
+  const transactionActions = useTransactionActions();
 
   const account = accounts?.find((a) => a.id === accountId);
   const canEdit = account ? account.ownerId === null || account.ownerId === me?.id : false;
@@ -166,7 +158,7 @@ export default function AccountDetailPage() {
                     {canEdit && (
                       <Button
                         onClick={async () => {
-                          if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
+                          if (await confirm({ title: "Delete this transaction?" })) transactionActions.remove(t.id);
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >

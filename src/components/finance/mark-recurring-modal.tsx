@@ -6,6 +6,7 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRecurringActions } from "@/components/finance/use-recurring";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
@@ -45,20 +46,13 @@ export function MarkRecurringModal({
   onDone: (result: { name: string; type: "EXPENSE" | "INCOME" | "TRANSFER" }) => void;
 }) {
   const utils = trpc.useUtils();
+  const recurring = useRecurringActions();
   const isIncome = source.type === "INCOME";
   const isTransfer = source.type === "TRANSFER";
   const [error, setError] = useState<string | null>(null);
   const [intervalCount, setIntervalCount] = useState("1");
   const [intervalUnit, setIntervalUnit] = useState<ScheduleUnit>("MONTH");
 
-  const create = trpc.recurring.create.useMutation({
-    onSuccess: (_item, vars) => {
-      utils.recurring.list.invalidate();
-      utils.recurring.suggestions.invalidate();
-      onDone({ name: vars.name, type: vars.type });
-    },
-    onError: (err) => setError(err.message),
-  });
 
   return (
     <Modal
@@ -76,8 +70,14 @@ export function MarkRecurringModal({
             setError("Enter an amount above zero.");
             return;
           }
-          create.mutate({
-            name: String(form.get("name")).trim(),
+          const name = String(form.get("name")).trim();
+          // What the server would refuse is said here, before the form closes.
+          if (utils.recurring.list.getData()?.some((item) => item.name === name)) {
+            setError("A recurring item with this name already exists.");
+            return;
+          }
+          recurring.create({
+            name,
             type: source.type,
             amount,
             intervalCount: Math.max(1, Math.min(365, Math.round(Number(intervalCount) || 1))),
@@ -89,6 +89,7 @@ export function MarkRecurringModal({
             fromTransactionId: source.id,
             lastDate: new Date(source.date),
           });
+          onDone({ name, type: source.type });
         }}
       >
         <p className="col-span-full -mt-1 text-[13px] text-text-muted">
@@ -168,10 +169,9 @@ export function MarkRecurringModal({
         <ModalFooter className="col-span-full">
           <Button
             type="submit"
-            disabled={create.isPending}
-            className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+            className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
           >
-            {create.isPending ? "Saving…" : "Mark as recurring"}
+            Mark as recurring
           </Button>
           <Button
             type="button"

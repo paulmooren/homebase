@@ -7,6 +7,7 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRecurringActions } from "@/components/finance/use-recurring";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Tip } from "@/components/ui/tooltip";
 import { BASES, BASIS_WINDOW, amountForBasis, type BudgetBasis } from "@/lib/budget-basis";
@@ -32,23 +33,11 @@ const DAY = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", y
  * take the Budgeted amount from them, and what the choice comes to per month.
  */
 export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClose: () => void }) {
-  const utils = trpc.useUtils();
   const { data } = trpc.recurring.history.useQuery({ id: itemId });
   const [picked, setPicked] = useState<BudgetBasis | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
 
-  const refresh = () => {
-    utils.recurring.history.invalidate({ id: itemId });
-    utils.recurring.list.invalidate();
-    utils.transaction.list.invalidate();
-  };
-  const setBasis = trpc.recurring.setBasis.useMutation({
-    onSuccess: () => {
-      refresh();
-      onClose();
-    },
-  });
-  const setAside = trpc.recurring.setPaymentExcluded.useMutation({ onSuccess: refresh });
+  const { setBasis, setPaymentExcluded: setAside } = useRecurringActions(itemId);
 
   const counted = useMemo(() => (data?.payments ?? []).filter((p) => !p.excluded).map((p) => p.amount), [data]);
   const basis = picked ?? data?.basis ?? "LATEST";
@@ -202,7 +191,6 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
                 {data.canEdit && (
                   <Button
                     type="button"
-                    disabled={setAside.isPending}
                     onClick={() => setAside.mutate({ transactionId: p.id, excluded: !p.excluded })}
                     className="w-24 shrink-0 text-right text-[12px] font-medium text-text-muted hover:text-text"
                   >
@@ -214,24 +202,20 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
           </div>
         </div>
 
-        {setBasis.error && (
-          <p className="rounded-xl border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
-            {setBasis.error.message}
-          </p>
-        )}
       </div>
 
       <ModalFooter>
         {data.canEdit && (
           <Button
             type="button"
-            disabled={setBasis.isPending || resulting === null || resulting <= 0 || unchanged}
-            onClick={() =>
-              setBasis.mutate({ id: itemId, basis, amount: basis === "FIXED" ? (fixedAmount ?? undefined) : undefined })
-            }
+            disabled={resulting === null || resulting <= 0 || unchanged}
+            onClick={() => {
+              setBasis.mutate({ id: itemId, basis, amount: basis === "FIXED" ? (fixedAmount ?? undefined) : undefined });
+              onClose();
+            }}
             className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
           >
-            {setBasis.isPending ? "Saving…" : resulting !== null ? `Budget ${formatEUR(resulting)}` : "Use this"}
+            {resulting !== null ? `Budget ${formatEUR(resulting)}` : "Use this"}
           </Button>
         )}
         <Button

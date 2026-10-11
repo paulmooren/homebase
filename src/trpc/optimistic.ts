@@ -38,7 +38,11 @@ type Cached<P extends QueryPath> = Get<Outputs, P>;
 type CachedInput<P extends QueryPath> = Get<Inputs, P>;
 
 /** Reads and rewrites the lists the Member has already loaded. */
+type Element<P extends QueryPath> = Cached<P> extends readonly (infer E)[] ? E : never;
+
 export type CacheEditor = {
+  /** The first row, in any cached copy of a list, that `match` accepts. */
+  find<P extends QueryPath>(path: P, match: (row: Element<P>) => boolean): Element<P> | undefined;
   /**
    * Rewrites every cached copy of a list, whatever it was asked for (each filter, each shopping list …).
    * `input` says which copy it is, so a rewrite can leave the others alone. Lists never loaded are skipped.
@@ -87,6 +91,13 @@ const pending = new Map<QueryPath, number>();
 
 function editorFor(queryClient: QueryClient): CacheEditor {
   return {
+    find(path, match) {
+      for (const [, data] of queryClient.getQueriesData({ queryKey: keyOf(path) })) {
+        const found = Array.isArray(data) ? data.find((row) => match(row)) : undefined;
+        if (found !== undefined) return found;
+      }
+      return undefined;
+    },
     update(path, change) {
       for (const [key, data] of queryClient.getQueriesData({ queryKey: keyOf(path) })) {
         if (data === undefined) continue;
@@ -201,3 +212,18 @@ export function hasPendingChanges(path: QueryPath) {
 
 /** A date field of an input: the server accepts dates, strings or numbers (`z.coerce.date()`), so its input type is loose. */
 export const asDate = (value: unknown) => (value instanceof Date ? value : new Date(value as string | number));
+
+/** Cached values come back from the server as plain JSON (a `Decimal` arrives as a string); this says "trust me" for one built here. */
+export const asCached = <T>(value: unknown) => value as T;
+
+/**
+ * For changes that stay waiting for the server (an import, a generated invite code): refetches the lists they
+ * touched, whatever their age. Optimistic changes do this themselves.
+ */
+export function useRefresh() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (...paths: QueryPath[]) => Promise.all(paths.map((path) => queryClient.invalidateQueries({ queryKey: keyOf(path) }))),
+    [queryClient],
+  );
+}

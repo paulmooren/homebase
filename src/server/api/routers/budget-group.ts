@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
-import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
+import { clientIdSchema } from "@/server/api/client-id";
 
 const nameSchema = z.string().trim().min(1).max(60);
 

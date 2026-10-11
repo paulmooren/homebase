@@ -4,8 +4,12 @@ import { useState } from "react";
 import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
+import { useOptimisticMutation } from "@/trpc/optimistic";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import type { Category } from "@/components/finance/category-cell";
+
+/** Merchant text as the server compares it: ignoring case, surrounding spaces and repeated spaces. */
+const sameText = (merchant: string) => merchant.trim().replace(/\s+/g, " ").toLowerCase();
 
 type Prompt = { id: string; categoryId: string; merchant: string; count: number };
 
@@ -19,21 +23,52 @@ export function useCategoryAssign(categories: Category[]) {
   const utils = trpc.useUtils();
   const [prompt, setPrompt] = useState<Prompt | null>(null);
 
-  const update = trpc.transaction.update.useMutation();
-  const apply = trpc.transaction.applyCategoryToSame.useMutation({
-    onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.budget.list.invalidate();
+  const categoryOf = (id: string | null) => (id ? (utils.category.list.getData()?.find((c) => c.id === id) ?? null) : null);
+
+  const update = useOptimisticMutation("transaction.update", {
+    lists: ["transaction.list", "budget.list"],
+    scope: (v) => `transaction:${v.id}`,
+    update: (v, cache) => {
+      const category = categoryOf(v.categoryId);
+      cache.update("transaction.list", (rows) =>
+        rows.map((row) => (row.id === v.id ? { ...row, categoryId: category?.id ?? null, category } : row)),
+      );
     },
   });
+  const apply = useOptimisticMutation("transaction.applyCategoryToSame", {
+    lists: ["transaction.list", "budget.list"],
+    scope: (v) => `transaction:${v.id}`,
+    update: (v, cache) => {
+      const source = cache.find("transaction.list", (row) => row.id === v.id);
+      if (!source) return;
+      const category = categoryOf(v.categoryId);
+      const same = sameText(source.merchant);
+      // The same rule as the server: other uncategorized, non-transfer rows with this merchant text, on accounts you can edit.
+      cache.update("transaction.list", (rows) =>
+        rows.map((row) =>
+          row.id !== v.id && row.categoryId === null && row.type !== "TRANSFER" && sameText(row.merchant) === same && canEdit(row.account.ownerId)
+            ? { ...row, categoryId: category?.id ?? null, category }
+            : row,
+        ),
+      );
+    },
+  });
+  const canEdit = (ownerId: string | null) => ownerId === null || ownerId === utils.user.me.getData()?.id;
 
   async function assign(id: string, categoryId: string | null) {
     setPrompt(null);
-    await update.mutateAsync({ id, categoryId });
-    utils.transaction.list.invalidate();
-    if (!categoryId) return;
-    const same = await utils.transaction.sameMerchant.fetch({ id }, { staleTime: 0 });
-    if (same.count > 0) setPrompt({ id, categoryId, merchant: same.merchant, count: same.count });
+    const saved = update.mutateAsync({ id, categoryId }).then(
+      () => true,
+      () => false,
+    );
+    if (!categoryId) {
+      await saved;
+      return;
+    }
+    // The count of look-alikes does not depend on this save, so it is asked for at the same time.
+    const sameAsked = utils.transaction.sameMerchant.fetch({ id }, { staleTime: 0 }).catch(() => null);
+    const [ok, same] = await Promise.all([saved, sameAsked]);
+    if (ok && same && same.count > 0) setPrompt({ id, categoryId, merchant: same.merchant, count: same.count });
   }
 
   const category = categories.find((c) => c.id === prompt?.categoryId);
@@ -45,7 +80,6 @@ export function useCategoryAssign(categories: Category[]) {
         <>
           <Button
             type="button"
-            disabled={apply.isPending}
             onClick={() => {
               apply.mutate({ id: prompt.id, categoryId: prompt.categoryId });
               setPrompt(null);

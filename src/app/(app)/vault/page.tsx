@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
+import { useVaultActions } from "@/components/vault/use-vault";
 import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
 import { ModuleGate } from "@/components/use-modules";
@@ -29,7 +30,6 @@ export default function VaultPage() {
 
 function Vault() {
   const confirm = useConfirm();
-  const utils = trpc.useUtils();
   const { data: entries } = trpc.vault.list.useQuery();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
@@ -45,22 +45,8 @@ function Vault() {
     return () => Object.values(t).forEach(clearTimeout);
   }, []);
 
-  const refresh = () => utils.vault.list.invalidate();
-  const create = trpc.vault.create.useMutation({
-    onSuccess: () => {
-      refresh();
-      setCreating(false);
-    },
-  });
-  const update = trpc.vault.update.useMutation({
-    onSuccess: (_d, vars) => {
-      refresh();
-      hide(vars.id);
-      setEditing(null);
-    },
-  });
-  const remove = trpc.vault.delete.useMutation({ onSuccess: refresh });
-  const setVisibility = trpc.vault.setVisibility.useMutation({ onSuccess: refresh });
+  const vault = useVaultActions();
+  // Revealing decrypts on the server, so it waits (the button shows it) and nothing is guessed.
   const reveal = trpc.vault.reveal.useMutation();
 
   function hide(id: string) {
@@ -104,11 +90,12 @@ function Vault() {
       {creating && (
         <section className="rounded-[20px] border border-border-soft bg-surface">
           <VaultEntryForm
-            pending={create.isPending}
-            onSubmit={(values) => create.mutate(values)}
+            onSubmit={(values) => {
+              vault.create(values);
+              setCreating(false);
+            }}
             onCancel={() => setCreating(false)}
           />
-          {create.error && <p className="px-6 pb-4 text-[12.5px] text-critical">{create.error.message}</p>}
         </section>
       )}
 
@@ -139,8 +126,11 @@ function Vault() {
                   fields: data.fields,
                   note: data.note,
                 }}
-                pending={update.isPending}
-                onSubmit={(values) => update.mutate({ id: entry.id, ...values })}
+                onSubmit={(values) => {
+                  vault.update(entry.id, values);
+                  hide(entry.id);
+                  setEditing(null);
+                }}
                 onCancel={() => setEditing(null)}
               />
             ) : (
@@ -178,8 +168,7 @@ function Vault() {
                     {isMine && (
                       <VisibilityToggle
                         visible={entry.visibleToHousehold}
-                        pending={setVisibility.isPending}
-                        onChange={(visible) => setVisibility.mutate({ id: entry.id, visible })}
+                        onChange={(visible) => vault.setVisibility({ id: entry.id, visible })}
                       />
                     )}
                     {!isMine && !isShared && <VisibilityBadge />}
@@ -214,7 +203,7 @@ function Vault() {
                           type="button"
                           aria-label={`Delete ${entry.title}`}
                           onClick={async () => {
-                            if (await confirm({ title: `Delete "${entry.title}" from the Vault?` })) remove.mutate({ id: entry.id });
+                            if (await confirm({ title: `Delete "${entry.title}" from the Vault?` })) vault.remove({ id: entry.id });
                           }}
                           className="h-4 w-4 text-text-faint hover:text-critical"
                         >

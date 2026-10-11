@@ -15,14 +15,18 @@ export function HouseholdSetupForm() {
   const prefillCode = searchParams.get("join") ?? "";
   const [mode, setMode] = useState<Mode>(prefillCode ? "join" : "create");
 
+  const utils = trpc.useUtils();
   const create = trpc.household.create.useMutation({
     onSuccess: () => {
+      // Everything loaded so far belongs to a Member without a household.
+      void utils.invalidate();
       router.refresh();
       router.push("/dashboard");
     },
   });
   const join = trpc.household.join.useMutation({
     onSuccess: () => {
+      void utils.invalidate();
       router.refresh();
       router.push("/dashboard");
     },

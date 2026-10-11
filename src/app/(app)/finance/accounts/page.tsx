@@ -6,10 +6,12 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
 import { ACCOUNT_TYPE_LABELS, ASSET_ACCOUNT_TYPES, type AccountType } from "@/lib/constants";
 import { formatEUR } from "@/lib/format";
 import { AccountTypeIcon } from "@/components/account-type-icon";
 import { groupLabel, groupOrder, type Member } from "@/components/finance/ownership-groups";
+import { AFTER_ACCOUNT_CREATED, ibanProblem, useAccountActions } from "@/components/finance/use-accounts";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
@@ -31,37 +33,27 @@ type Account = {
 
 export default function AccountsPage() {
   const confirm = useConfirm();
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
   const { data: accounts } = trpc.account.list.useQuery();
 
+  // A new account waits for the server (it works out the balance and the net worth), so its form shows it is busy.
   const createAccount = trpc.account.create.useMutation({
     onSuccess: () => {
-      utils.account.list.invalidate();
-      utils.dashboard.summary.invalidate();
+      refresh(...AFTER_ACCOUNT_CREATED);
       setShowAccountForm(false);
     },
   });
-  const updateAccount = trpc.account.update.useMutation({
-    onSuccess: () => {
-      utils.account.list.invalidate();
-      utils.dashboard.summary.invalidate();
-      setEditingAccount(null);
-    },
-  });
-  const updateVisibility = trpc.account.update.useMutation({
-    onSuccess: () => utils.account.list.invalidate(),
-  });
-  const deleteAccount = trpc.account.delete.useMutation({
-    onSuccess: () => {
-      utils.account.list.invalidate();
-      utils.dashboard.summary.invalidate();
-    },
-  });
+  const accountActions = useAccountActions();
+  const [editError, setEditError] = useState<string | undefined>();
 
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const closeEdit = () => {
+    setEditingAccount(null);
+    setEditError(undefined);
+  };
 
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
@@ -99,16 +91,22 @@ export default function AccountsPage() {
       )}
 
       {editingAccount && (
-        <Modal title="Edit account" onClose={() => setEditingAccount(null)}>
+        <Modal title="Edit account" onClose={closeEdit}>
         <AccountForm
           submitLabel="Save"
           initial={editingAccount}
           members={members}
           currentUserId={currentUserId}
-          onSubmit={(values) => updateAccount.mutate({ id: editingAccount.id, ...values })}
-          onCancel={() => setEditingAccount(null)}
-          pending={updateAccount.isPending}
-          error={updateAccount.error?.message}
+          onSubmit={(values) => {
+            // What the server would refuse is said here, before the form closes.
+            const problem = ibanProblem(values.iban, (accounts ?? []).filter((a) => a.id !== editingAccount.id));
+            if (problem) return setEditError(problem);
+            accountActions.update.mutate({ id: editingAccount.id, ...values });
+            closeEdit();
+          }}
+          onCancel={closeEdit}
+          pending={false}
+          error={editError}
         />
         </Modal>
       )}
@@ -139,10 +137,10 @@ export default function AccountsPage() {
                         setEditingAccount(a);
                       }}
                       onDelete={async () => {
-                        if (await confirm({ title: `Delete "${a.name}"?` })) deleteAccount.mutate({ id: a.id });
+                        if (await confirm({ title: `Delete "${a.name}"?` })) accountActions.remove.mutate({ id: a.id });
                       }}
                       onToggleVisibility={(visible) =>
-                        updateVisibility.mutate({ id: a.id, visibleToHousehold: visible })
+                        accountActions.update.mutate({ id: a.id, visibleToHousehold: visible })
                       }
                     />
                   ))}
@@ -177,10 +175,10 @@ export default function AccountsPage() {
                         setEditingAccount(a);
                       }}
                       onDelete={async () => {
-                        if (await confirm({ title: `Delete "${a.name}"?` })) deleteAccount.mutate({ id: a.id });
+                        if (await confirm({ title: `Delete "${a.name}"?` })) accountActions.remove.mutate({ id: a.id });
                       }}
                       onToggleVisibility={(visible) =>
-                        updateVisibility.mutate({ id: a.id, visibleToHousehold: visible })
+                        accountActions.update.mutate({ id: a.id, visibleToHousehold: visible })
                       }
                     />
                   ))}

@@ -5,6 +5,9 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
+import { AFTER_ACCOUNT_CREATED } from "@/components/finance/use-accounts";
+import { AFTER_BULK_TRANSACTION_CHANGE } from "@/components/finance/use-transactions";
 import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/constants";
 import { SelectField } from "@/components/ui/select";
 
@@ -14,7 +17,7 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(1);
   const [accountId, setAccountId] = useState<string | null>(null);
 
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const { data: categories } = trpc.category.list.useQuery();
   const { data: me } = trpc.user.me.useQuery();
 
@@ -24,14 +27,13 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const createAccount = trpc.account.create.useMutation({
     onSuccess: (account) => {
       setAccountId(account.id);
-      utils.account.list.invalidate();
+      refresh(...AFTER_ACCOUNT_CREATED);
       setStep(2);
     },
   });
   const createTransaction = trpc.transaction.create.useMutation({
     onSuccess: () => {
-      utils.transaction.list.invalidate();
-      utils.dashboard.summary.invalidate();
+      refresh(...AFTER_BULK_TRANSACTION_CHANGE);
       setStep(4);
     },
   });

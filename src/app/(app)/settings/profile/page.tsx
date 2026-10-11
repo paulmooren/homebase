@@ -6,6 +6,8 @@ import { Input } from "@base-ui/react/input";
 
 import { IS_DEMO_CLIENT } from "@/lib/demo";
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
+import { useProfileActions } from "@/components/settings/use-settings";
 import { Avatar } from "@/components/avatar";
 import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/settings/form";
 import { fileToAvatarDataUrl } from "@/lib/image";
@@ -32,17 +34,8 @@ export default function ProfileSettingsPage() {
 }
 
 function ProfileSection() {
-  const utils = trpc.useUtils();
   const { data: me } = trpc.user.me.useQuery();
-  const updateName = trpc.user.updateName.useMutation({
-    onSuccess: () => utils.user.me.invalidate(),
-  });
-  const updateAvatar = trpc.user.updateAvatar.useMutation({
-    onSuccess: () => {
-      utils.user.me.invalidate();
-      utils.household.current.invalidate();
-    },
-  });
+  const profile = useProfileActions();
   const [name, setName] = useState<string | null>(null);
   const value = name ?? me?.name ?? "";
   const dirty = !!me && value.trim() !== "" && value.trim() !== (me.name ?? "");
@@ -63,7 +56,7 @@ function ProfileSection() {
                 e.target.value = "";
                 if (!file) return;
                 try {
-                  updateAvatar.mutate({ image: await fileToAvatarDataUrl(file) });
+                  profile.updateAvatar({ image: await fileToAvatarDataUrl(file) });
                 } catch {
                   alert("Couldn't read that image — try a JPG or PNG.");
                 }
@@ -73,7 +66,7 @@ function ProfileSection() {
           {me?.image && (
             <Button
               type="button"
-              onClick={() => updateAvatar.mutate({ image: null })}
+              onClick={() => profile.updateAvatar({ image: null })}
               className="text-text-muted hover:text-critical"
             >
               Remove
@@ -87,7 +80,8 @@ function ProfileSection() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!dirty) return;
-          updateName.mutate({ name: value.trim() }, { onSuccess: () => setName(null) });
+          profile.updateName({ name: value.trim() });
+          setName(null);
         }}
       >
         <Field label="Name">
@@ -102,14 +96,14 @@ function ProfileSection() {
         <Field label="Email">
           <Input value={me?.email ?? ""} disabled readOnly className={inputClass} />
         </Field>
-        <UpdateButton disabled={!dirty || updateName.isPending} />
+        <UpdateButton disabled={!dirty} />
       </form>
     </SettingsSection>
   );
 }
 
 function SecuritySection() {
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const { data: me } = trpc.user.me.useQuery();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -119,7 +113,7 @@ function SecuritySection() {
 
   const changePassword = trpc.user.changePassword.useMutation({
     onSuccess: () => {
-      utils.user.me.invalidate();
+      refresh("user.me");
       setCurrent("");
       setNext("");
       setConfirm("");

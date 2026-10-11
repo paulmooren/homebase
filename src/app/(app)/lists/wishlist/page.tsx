@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
+import { hasPendingChanges } from "@/trpc/optimistic";
+import { useWishlistActions } from "@/components/wishlist/use-wishlist";
 import { Avatar } from "@/components/avatar";
 import { ModuleGate } from "@/components/use-modules";
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
@@ -24,7 +26,6 @@ export default function WishlistPage() {
 
 function Wishlists() {
   const confirm = useConfirm();
-  const utils = trpc.useUtils();
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
   const [choice, setChoice] = useState<string | null>(null);
@@ -38,19 +39,11 @@ function Wishlists() {
 
   const { data: wishes } = trpc.wishlist.list.useQuery(
     { ownerId },
-    { enabled: !!me, refetchInterval: 10_000 },
+    // Not while a change is still being saved: a refetch landing now would bring the old list back for a moment.
+    { enabled: !!me, refetchInterval: () => (hasPendingChanges("wishlist.list") ? false : 10_000) },
   );
 
-  const refresh = () => utils.wishlist.list.invalidate();
-  const add = trpc.wishlist.add.useMutation({ onSuccess: refresh });
-  const update = trpc.wishlist.update.useMutation({ onSuccess: refresh });
-  const remove = trpc.wishlist.delete.useMutation({ onSuccess: refresh });
-  const setReceived = trpc.wishlist.setReceived.useMutation({ onSuccess: refresh });
-  const claim = trpc.wishlist.claim.useMutation({ onSuccess: refresh, onError: refresh });
-  const unclaim = trpc.wishlist.unclaim.useMutation({ onSuccess: refresh });
-  const setVisibility = trpc.wishlist.setVisibility.useMutation({
-    onSuccess: () => utils.household.current.invalidate(),
-  });
+  const wishlist = useWishlistActions();
 
   if (!household || !me) return null;
 
@@ -128,8 +121,7 @@ function Wishlists() {
           {ownList && myMember && (
             <VisibilityToggle
               visible={myMember.wishlistVisible}
-              pending={setVisibility.isPending}
-              onChange={(visible) => setVisibility.mutate({ visible })}
+              onChange={(visible) => wishlist.setVisibility({ visible })}
             />
           )}
         </div>
@@ -146,22 +138,21 @@ function Wishlists() {
               wish={wish}
               canEdit={canEdit}
               ownList={ownList}
-              onUpdate={(values) => update.mutate({ id: wish.id, ...values })}
+              onUpdate={(values) => wishlist.update({ id: wish.id, ...values })}
               onDelete={async () => {
-                if (await confirm({ title: `Delete "${wish.title}"?` })) remove.mutate({ id: wish.id });
+                if (await confirm({ title: `Delete "${wish.title}"?` })) wishlist.remove({ id: wish.id });
               }}
-              onSetReceived={(r) => setReceived.mutate({ id: wish.id, received: r })}
-              onClaim={() => claim.mutate({ id: wish.id })}
-              onUnclaim={() => unclaim.mutate({ id: wish.id })}
+              onSetReceived={(r) => wishlist.setReceived({ id: wish.id, received: r })}
+              onClaim={() => wishlist.claim({ id: wish.id })}
+              onUnclaim={() => wishlist.unclaim({ id: wish.id })}
             />
           ))}
 
           {canEdit &&
             (adding ? (
               <InlineWishRow
-                pending={add.isPending}
                 onSubmit={(values) => {
-                  add.mutate({ home: isHome, ...values });
+                  wishlist.add({ home: isHome, ...values });
                   setAdding(false);
                 }}
                 onCancel={() => setAdding(false)}
@@ -199,13 +190,13 @@ function Wishlists() {
                     wish={wish}
                     canEdit={canEdit}
                     ownList={ownList}
-                    onUpdate={(values) => update.mutate({ id: wish.id, ...values })}
+                    onUpdate={(values) => wishlist.update({ id: wish.id, ...values })}
                     onDelete={async () => {
-                      if (await confirm({ title: `Delete "${wish.title}"?` })) remove.mutate({ id: wish.id });
+                      if (await confirm({ title: `Delete "${wish.title}"?` })) wishlist.remove({ id: wish.id });
                     }}
-                    onSetReceived={(r) => setReceived.mutate({ id: wish.id, received: r })}
-                    onClaim={() => claim.mutate({ id: wish.id })}
-                    onUnclaim={() => unclaim.mutate({ id: wish.id })}
+                    onSetReceived={(r) => wishlist.setReceived({ id: wish.id, received: r })}
+                    onClaim={() => wishlist.claim({ id: wish.id })}
+                    onUnclaim={() => wishlist.unclaim({ id: wish.id })}
                   />
                 ))}
             </>

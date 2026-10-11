@@ -8,6 +8,7 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
 import {
   HOUSEHOLD,
@@ -25,7 +26,7 @@ import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type Sch
 import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChartIcon, GripIcon } from "@/components/action-icons";
 import { PaymentHistoryModal } from "@/components/finance/payment-history-modal";
 import { SortableList } from "@/components/sortable-list";
-import { applyMove, applyReorder } from "@/lib/recurring-order";
+import { useBudgetGroupActions, useRecurringActions } from "@/components/finance/use-recurring";
 import { AddGroup, ExpenseSections, type BudgetGroup } from "@/components/finance/expense-sections";
 import { Avatar } from "@/components/avatar";
 import { Checkbox } from "@/components/checkbox";
@@ -324,13 +325,10 @@ function AccountCards({
  * confident ones are ticked, one click adds them all.
  */
 function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
-  const utils = trpc.useUtils();
+  // Finding and adding suggestions is worked out by the server, so these wait (the buttons show it).
+  const refresh = useRefresh();
   const [override, setOverride] = useState<Record<string, boolean>>({});
-  const done = () => {
-    utils.recurring.list.invalidate();
-    utils.recurring.suggestions.invalidate();
-    utils.transaction.list.invalidate();
-  };
+  const done = () => refresh("recurring.list", "recurring.suggestions", "transaction.list");
   const add = trpc.recurring.addSuggestions.useMutation({ onSuccess: done });
   const dismiss = trpc.recurring.dismissSuggestions.useMutation({ onSuccess: done });
 
@@ -416,7 +414,6 @@ function RecurringItems({
   scope: ScopeKey;
   accountRefs: Map<string, AccountRef>;
 }) {
-  const utils = trpc.useUtils();
   const { data: suggestions } = trpc.recurring.suggestions.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
   const { data: allItems } = trpc.recurring.list.useQuery();
@@ -427,37 +424,8 @@ function RecurringItems({
     [allItems],
   );
 
-  const invalidate = () => {
-    utils.recurring.list.invalidate();
-    utils.recurring.suggestions.invalidate();
-    utils.transaction.list.invalidate();
-  };
-
-  const createItem = trpc.recurring.create.useMutation({ onSuccess: invalidate });
-  const updateItem = trpc.recurring.update.useMutation({ onSuccess: invalidate });
-  const deleteItem = trpc.recurring.delete.useMutation({ onSuccess: invalidate });
-  const refreshGroups = () => {
-    utils.budgetGroup.list.invalidate();
-    utils.recurring.list.invalidate();
-  };
-  const createGroup = trpc.budgetGroup.create.useMutation({ onSuccess: refreshGroups });
-  const renameGroup = trpc.budgetGroup.rename.useMutation({ onSuccess: refreshGroups });
-  const deleteGroup = trpc.budgetGroup.delete.useMutation({ onSuccess: refreshGroups });
-  // A drop shows at once; the server confirms, or the list goes back to how it was.
-  const reorder = trpc.recurring.reorder.useMutation({
-    onMutate: async ({ ids, move }) => {
-      await utils.recurring.list.cancel();
-      const previous = utils.recurring.list.getData();
-      utils.recurring.list.setData(undefined, (old) =>
-        old ? (move ? applyMove(old, ids, move) : applyReorder(old, ids)) : old,
-      );
-      return { previous };
-    },
-    onError: (_error, _vars, context) => {
-      if (context?.previous) utils.recurring.list.setData(undefined, context.previous);
-    },
-    onSettled: () => utils.recurring.list.invalidate(),
-  });
+  const recurring = useRecurringActions();
+  const groupActions = useBudgetGroupActions();
 
   const accountName = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? "another account";
 
@@ -489,18 +457,19 @@ function RecurringItems({
           accountFilter={accountFilter}
           accountName={accountName}
           accountRefs={accountRefs}
-          onAdd={(values) => createItem.mutate({ ...values, type: "INCOME" })}
-          onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
-          onDelete={(id) => deleteItem.mutate({ id })}
-          onReorder={(ids) => reorder.mutate({ ids })}
-          onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
+          onAdd={(values) => recurring.create({ ...values, type: "INCOME" })}
+          onUpdate={(id, values) => recurring.update({ id, ...values })}
+          onDelete={(id) => recurring.remove({ id })}
+          onReorder={(ids) => recurring.reorder({ ids })}
+          onToggleVisibility={(id, visible) => recurring.update({ id, visibleToHousehold: visible })}
+          onAcceptProposal={(id) => recurring.acceptProposal({ id })}
+          onKeepAmount={(id) => recurring.keepAmount({ id })}
           groups={groups}
           usedGroupIds={usedGroupIds}
-          onMove={({ id, groupId, ids }) => reorder.mutate({ ids, move: { id, groupId } })}
-          onAddGroup={(name) => createGroup.mutate({ name })}
-          addGroupError={createGroup.error?.message}
-          onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
-          onDeleteGroup={(id) => deleteGroup.mutate({ id })}
+          onMove={({ id, groupId, ids }) => recurring.reorder({ ids, move: { id, groupId } })}
+          onAddGroup={groupActions.create}
+          onRenameGroup={groupActions.rename}
+          onDeleteGroup={groupActions.remove}
         />
         <RecurringColumn
           type="EXPENSE"
@@ -515,18 +484,19 @@ function RecurringItems({
           accountFilter={accountFilter}
           accountName={accountName}
           accountRefs={accountRefs}
-          onAdd={(values) => createItem.mutate({ ...values, type: "EXPENSE" })}
-          onUpdate={(id, values) => updateItem.mutate({ id, ...values })}
-          onDelete={(id) => deleteItem.mutate({ id })}
-          onReorder={(ids) => reorder.mutate({ ids })}
-          onToggleVisibility={(id, visible) => updateItem.mutate({ id, visibleToHousehold: visible })}
+          onAdd={(values) => recurring.create({ ...values, type: "EXPENSE" })}
+          onUpdate={(id, values) => recurring.update({ id, ...values })}
+          onDelete={(id) => recurring.remove({ id })}
+          onReorder={(ids) => recurring.reorder({ ids })}
+          onToggleVisibility={(id, visible) => recurring.update({ id, visibleToHousehold: visible })}
+          onAcceptProposal={(id) => recurring.acceptProposal({ id })}
+          onKeepAmount={(id) => recurring.keepAmount({ id })}
           groups={groups}
           usedGroupIds={usedGroupIds}
-          onMove={({ id, groupId, ids }) => reorder.mutate({ ids, move: { id, groupId } })}
-          onAddGroup={(name) => createGroup.mutate({ name })}
-          addGroupError={createGroup.error?.message}
-          onRenameGroup={(id, name) => renameGroup.mutate({ id, name })}
-          onDeleteGroup={(id) => deleteGroup.mutate({ id })}
+          onMove={({ id, groupId, ids }) => recurring.reorder({ ids, move: { id, groupId } })}
+          onAddGroup={groupActions.create}
+          onRenameGroup={groupActions.rename}
+          onDeleteGroup={groupActions.remove}
         />
       </div>
     </>
@@ -551,11 +521,12 @@ function RecurringColumn({
   onDelete,
   onReorder,
   onToggleVisibility,
+  onAcceptProposal,
+  onKeepAmount,
   groups: budgetGroups,
   usedGroupIds,
   onMove,
   onAddGroup,
-  addGroupError,
   onRenameGroup,
   onDeleteGroup,
 }: {
@@ -577,12 +548,13 @@ function RecurringColumn({
   /** The new order of these items, after one was dragged. */
   onReorder: (ids: string[]) => void;
   onToggleVisibility: (id: string, visible: boolean) => void;
+  onAcceptProposal: (id: string) => void;
+  onKeepAmount: (id: string) => void;
   groups: BudgetGroup[];
   usedGroupIds: Set<string>;
   /** An item was dragged into another group; `ids` is the new order of the group it landed in. */
   onMove: (move: { id: string; groupId: string | null; ids: string[] }) => void;
   onAddGroup: (name: string) => void;
-  addGroupError?: string;
   onRenameGroup: (id: string, name: string) => void;
   onDeleteGroup: (id: string) => void;
 }) {
@@ -621,6 +593,8 @@ function RecurringColumn({
       onUpdate={(values) => onUpdate(entry.item.id, values)}
       onDelete={() => onDelete(entry.item.id)}
       onToggleVisibility={(visible) => onToggleVisibility(entry.item.id, visible)}
+      onAcceptProposal={() => onAcceptProposal(entry.item.id)}
+      onKeepAmount={() => onKeepAmount(entry.item.id)}
     />
   );
   // Expenses are split into Budget groups; income stays one flat, reorderable list.
@@ -703,7 +677,7 @@ function RecurringColumn({
           <span className="text-[13.5px]">Add {type === "INCOME" ? "income" : "expense"}</span>
         </Button>
       )}
-      {type === "EXPENSE" && <AddGroup onAdd={onAddGroup} error={addGroupError} />}
+      {type === "EXPENSE" && <AddGroup onAdd={onAddGroup} />}
     </section>
   );
 }
@@ -720,6 +694,8 @@ function RecurringRow({
   onUpdate,
   onDelete,
   onToggleVisibility,
+  onAcceptProposal,
+  onKeepAmount,
 }: {
   item: Item;
   /** Which side of the budget this row sits on; a transfer has one row on each. */
@@ -733,13 +709,11 @@ function RecurringRow({
   onUpdate: (values: Partial<FormValues>) => void;
   onDelete: () => void;
   onToggleVisibility: (visible: boolean) => void;
+  onAcceptProposal: () => void;
+  onKeepAmount: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const utils = trpc.useUtils();
-  const refresh = () => utils.recurring.list.invalidate();
-  const acceptProposal = trpc.recurring.acceptProposal.useMutation({ onSuccess: refresh });
-  const keepAmount = trpc.recurring.keepAmount.useMutation({ onSuccess: refresh });
   const isTransfer = item.type === "TRANSFER";
   // Due, but not in the transactions yet: say so quietly — it still counts.
   const notSeen = item.nextDueDate !== null && new Date(item.nextDueDate).getTime() < todayInHousehold().getTime();
@@ -841,16 +815,14 @@ function RecurringRow({
               <>
                 <Button
                   type="button"
-                  disabled={acceptProposal.isPending}
-                  onClick={() => acceptProposal.mutate({ id: item.id })}
+                  onClick={onAcceptProposal}
                   className="rounded-md bg-accent-fill px-2 py-0.5 font-semibold text-accent-ink hover:opacity-90"
                 >
                   Update
                 </Button>
                 <Button
                   type="button"
-                  disabled={keepAmount.isPending}
-                  onClick={() => keepAmount.mutate({ id: item.id })}
+                  onClick={onKeepAmount}
                   className="rounded-md border border-border-soft px-2 py-0.5 font-medium text-text-muted hover:text-text"
                 >
                   Keep

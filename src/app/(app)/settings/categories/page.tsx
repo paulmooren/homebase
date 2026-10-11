@@ -5,21 +5,13 @@ import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
+import { useCategoryActions } from "@/components/finance/use-categories";
 import { ColorBarPicker } from "@/components/finance/color-picker";
 import { SettingsSection, inputClass } from "@/components/settings/form";
 
 export default function CategoriesSettingsPage() {
-  const utils = trpc.useUtils();
   const { data: categories } = trpc.category.list.useQuery();
-  const createCategory = trpc.category.create.useMutation({
-    onSuccess: () => utils.category.list.invalidate(),
-  });
-  const updateCategory = trpc.category.update.useMutation({
-    onSuccess: () => utils.category.list.invalidate(),
-  });
-  const deleteCategory = trpc.category.delete.useMutation({
-    onSuccess: () => utils.category.list.invalidate(),
-  });
+  const categoryActions = useCategoryActions();
   const [newCategory, setNewCategory] = useState("");
   const [newColor, setNewColor] = useState("#7fb8e8");
 
@@ -31,19 +23,21 @@ export default function CategoriesSettingsPage() {
             <ColorBarPicker
               value={c.color}
               label={`Change colour of ${c.name}`}
-              onChange={(color) => updateCategory.mutate({ id: c.id, color })}
+              onChange={(color) => categoryActions.update({ id: c.id, color })}
             />
             <Input
+              // Remounted when the name changes, so an edit that was undone shows the old name again.
+              key={c.name}
               defaultValue={c.name}
               onBlur={(e) => {
                 if (e.target.value && e.target.value !== c.name) {
-                  updateCategory.mutate({ id: c.id, name: e.target.value });
+                  categoryActions.update({ id: c.id, name: e.target.value });
                 }
               }}
               className="flex-1 rounded-lg bg-transparent px-2 py-1 text-[13.5px] outline-none focus:bg-surface-2"
             />
             <Button
-              onClick={() => deleteCategory.mutate({ id: c.id })}
+              onClick={() => categoryActions.remove({ id: c.id })}
               className="text-[12px] text-text-muted hover:text-critical"
             >
               Delete
@@ -57,7 +51,7 @@ export default function CategoriesSettingsPage() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!newCategory.trim()) return;
-          createCategory.mutate({ name: newCategory.trim(), color: newColor });
+          categoryActions.create({ name: newCategory.trim(), color: newColor });
           setNewCategory("");
         }}
       >

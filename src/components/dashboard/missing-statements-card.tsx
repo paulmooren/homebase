@@ -6,6 +6,8 @@ import { TRPCClientError } from "@trpc/client";
 import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
+import { useRefresh } from "@/trpc/optimistic";
+import { AFTER_BULK_TRANSACTION_CHANGE } from "@/components/finance/use-transactions";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import { suggestCategoryId } from "@/lib/categorize";
 import { describeImport, readStatement, type ImportResult } from "@/lib/statement-import";
@@ -47,7 +49,7 @@ type Outcome =
  * dashboard. A toast then confirms and links to the transactions.
  */
 export function MissingStatementsCard() {
-  const utils = trpc.useUtils();
+  const refresh = useRefresh();
   const { data: missingStatements } = trpc.dashboard.missingStatements.useQuery();
   const { data: categories } = trpc.category.list.useQuery();
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
@@ -77,14 +79,7 @@ export function MissingStatementsCard() {
         })),
       });
       // Confirm straight away; the screen catches up with the new data in the background.
-      void Promise.all([
-        utils.dashboard.missingStatements.invalidate(),
-        utils.dashboard.summary.invalidate(),
-        utils.dashboard.netWorthHistory.invalidate(),
-        utils.transaction.list.invalidate(),
-        utils.account.list.invalidate(),
-        utils.budget.list.invalidate(),
-      ]);
+      void refresh(...AFTER_BULK_TRANSACTION_CHANGE);
       setOutcome({
         kind: "success",
         accountId: account.id,
