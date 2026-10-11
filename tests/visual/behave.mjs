@@ -31,7 +31,8 @@ const assert = (condition, message) => {
 };
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, baseURL: BASE });
+// A service worker (push notifications) would answer API calls before the test can delay or fail them.
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, baseURL: BASE, serviceWorkers: "block" });
 const page = await context.newPage();
 
 async function open(path, ready) {
@@ -69,8 +70,9 @@ async function slowly(run) {
 /** Makes every call to these procedures fail (the network drops it) while `run` goes on; the rest are delayed as in `slowly`. */
 async function failing(procedures, run) {
   const handler = async (route) => {
-    if (procedures.some((name) => route.request().url().includes(`/api/trpc/${name}`))) return route.abort("failed");
+    // A refused call takes as long to refuse as an accepted one takes to accept.
     await new Promise((resolve) => setTimeout(resolve, SLOW_MS));
+    if (procedures.some((name) => route.request().url().includes(`/api/trpc/${name}`))) return route.abort("failed").catch(() => {});
     await route.continue().catch(() => {});
   };
   await page.route("**/api/trpc/**", handler);
@@ -101,6 +103,17 @@ async function within(ms, what, promise) {
 }
 /** Calls the API as the signed-in Member, to look at the saved state or put something back. */
 async function api(procedure, input, { write = false } = {}) {
+  // The Demo's database now and then times out under load; a read or a put-back is worth another try.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await apiOnce(procedure, input, write);
+    } catch (error) {
+      if (attempt >= 4) throw error;
+      await page.waitForTimeout(2_000 * attempt);
+    }
+  }
+}
+async function apiOnce(procedure, input, write) {
   const body = input === undefined ? { json: null, meta: { values: ["undefined"] } } : { json: input };
   const response = write
     ? await context.request.post(`/api/trpc/${procedure}?batch=1`, { data: { 0: body } })
@@ -433,6 +446,7 @@ await check("optimistic shopping: a new list is selected at once and takes items
       const chip = page.getByRole("button", { name: new RegExp(`^${name}`) });
       await within(AT_ONCE, "the new list appearing", chip.waitFor());
       assert((await chip.getAttribute("aria-pressed")) === "true", "the new list is not selected");
+      await page.getByRole("button", { name: "Add item" }).click();
       const item = page.getByRole("textbox", { name: "Item" });
       for (const text of ["Behave milk", "Behave eggs"]) {
         await item.fill(text);
@@ -505,14 +519,268 @@ await check("optimistic reminders: ticking one shows the new state and the Undo 
   const before = await due();
   await slowly(async () => {
     await page.getByRole("button", { name: `Mark ${title} as done` }).click();
-    await within(AT_ONCE, "the Undo toast", notifications().getByRole("button", { name: "Undo" }).waitFor());
+    // (In development React mounts the toast twice and the first copy is still fading out: the live one is the last.)
+    const undo = notifications().getByRole("button", { name: "Undo" }).last();
+    await within(AT_ONCE, "the Undo toast", undo.waitFor());
     // Due today before; three days on afterwards, so no longer under "Due today".
     await within(AT_ONCE, "the reminder moving on", page.getByText(`✓ ${title} done`).waitFor());
-    await notifications().getByRole("button", { name: "Undo" }).click();
-    await notifications().getByRole("button", { name: "Undo" }).waitFor({ state: "detached", timeout: 5_000 });
+    await undo.click();
+    await notifications().getByRole("button", { name: "Undo" }).first().waitFor({ state: "detached", timeout: 10_000 });
   });
   await expectNoUndone();
   assert(String(await due()) === String(before), "the due date was not put back");
+});
+
+await check("optimistic transactions: a new transaction, a category change and a delete each show at once", async () => {
+  const merchant = "Behave coffee";
+  const leftovers = async () => {
+    for (const t of await api("transaction.list", { limit: 100 })) if (t.merchant === merchant) await api("transaction.delete", { id: t.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/finance/transactions", page.getByRole("button", { name: "+ Transaction" }));
+    const row = page.locator("div.group", { hasText: merchant });
+    await slowly(async () => {
+      await page.getByRole("button", { name: "+ Transaction" }).click();
+      await page.getByRole("dialog").getByLabel("Description").fill(merchant);
+      await page.getByRole("dialog").getByLabel("Amount (€)").fill("3.50");
+      await page.getByRole("button", { name: "Add transaction" }).click();
+      await within(AT_ONCE, "the new transaction appearing", row.waitFor());
+      assert((await page.getByRole("dialog").count()) === 0, "the form stayed open");
+      // A category, at once.
+      await row.getByRole("combobox", { name: "Category" }).click();
+      const option = page.getByRole("option").nth(1);
+      const chosen = ((await option.textContent()) ?? "").trim();
+      await option.click();
+      await within(AT_ONCE, "the category showing", page.waitForFunction(([text, name]) => [...document.querySelectorAll("div.group")].some((d) => d.textContent.includes(text) && d.querySelector('[aria-label="Category"]')?.textContent.includes(name)), [merchant, chosen]));
+      // And a delete, confirmed in the alert.
+      await row.getByRole("button", { name: "✕" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+      await within(AT_ONCE, "the transaction vanishing", row.waitFor({ state: "detached" }));
+    });
+    await expectNoUndone();
+    await page.reload();
+    await page.getByRole("button", { name: "+ Transaction" }).waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(1000);
+    assert((await row.count()) === 0, "the deleted transaction is back after a reload");
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic accounts: renaming shows at once; a new account waits for the server, then deleting it shows at once", async () => {
+  const original = "Shared · Credit card";
+  const renamed = "Behave card";
+  const created = "Behave account";
+  const account = async (name) => (await api("account.list", undefined)).find((a) => a.name === name);
+  const leftovers = async () => {
+    const wrongName = await account(renamed);
+    if (wrongName) await api("account.update", { id: wrongName.id, name: original }, { write: true });
+    const extra = await account(created);
+    if (extra) await api("account.delete", { id: extra.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/finance/accounts", page.getByRole("link", { name: new RegExp(original) }));
+    const rowOf = (name) => page.locator("div.rounded-xl", { has: page.getByRole("link", { name: new RegExp(name) }) });
+    await slowly(async () => {
+      await rowOf(original).getByRole("button", { name: "Edit" }).click();
+      await page.getByRole("dialog").getByLabel("Account name").fill(renamed);
+      await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+      await within(AT_ONCE, "the new name showing", page.getByRole("link", { name: new RegExp(renamed) }).waitFor());
+      assert((await page.getByRole("dialog").count()) === 0, "the form stayed open");
+    });
+    await expectNoUndone();
+    await api("account.update", { id: (await account(renamed)).id, name: original }, { write: true });
+    // Creating works out values on the server: the form stays busy and nothing is guessed.
+    await page.reload();
+    await page.getByRole("button", { name: "+ Add account" }).waitFor({ timeout: 30_000 });
+    await slowly(async () => {
+      await page.getByRole("button", { name: "+ Add account" }).click();
+      await page.getByRole("dialog").getByLabel("Account name").fill(created);
+      await page.getByRole("dialog").getByLabel("Starting balance (€)").fill("1");
+      await page.getByRole("button", { name: "Create account" }).click();
+      await page.waitForTimeout(AT_ONCE - 100);
+      assert((await page.getByRole("link", { name: new RegExp(created) }).count()) === 0, "the new account appeared before the server answered");
+      assert(await page.getByRole("button", { name: "Create account" }).isDisabled(), "the form does not show that it is busy");
+      await page.getByRole("link", { name: new RegExp(created) }).waitFor({ timeout: 10_000 });
+      await rowOf(created).getByRole("button", { name: "Delete" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+      await within(AT_ONCE, "the account vanishing", page.getByRole("link", { name: new RegExp(created) }).waitFor({ state: "detached" }));
+    });
+    await expectNoUndone();
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic categories: adding, then deleting a category shows at once", async () => {
+  const name = "Behave category";
+  const leftovers = async () => {
+    for (const c of await api("category.list", undefined)) if (c.name === name) await api("category.delete", { id: c.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/settings/categories", page.getByPlaceholder("New category"));
+    await page.getByRole("button", { name: "Delete", exact: true }).first().waitFor({ timeout: 30_000 }); // the list has loaded
+    const index = () =>
+      page.evaluate((n) => [...document.querySelectorAll("input")].filter((i) => i.className.includes("flex-1")).findIndex((i) => i.value === n), name);
+    await slowly(async () => {
+      await page.getByPlaceholder("New category").fill(name);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await within(AT_ONCE, "the category appearing", page.waitForFunction((n) => [...document.querySelectorAll("input")].some((i) => i.value === n), name));
+      await page.getByRole("button", { name: "Delete", exact: true }).nth(await index()).click();
+      await within(AT_ONCE, "the category vanishing", page.waitForFunction((n) => ![...document.querySelectorAll("input")].some((i) => i.value === n), name));
+    });
+    await expectNoUndone();
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic budgets: a Budget group and a recurring expense show at once, and a new Budgeted amount replaces the old one at once (then put back)", async () => {
+  const group = "Behave group";
+  const sub = "Behave subscription";
+  const leftovers = async () => {
+    for (const g of await api("budgetGroup.list", undefined)) if (g.name === group) await api("budgetGroup.delete", { id: g.id }, { write: true });
+    for (const i of await api("recurring.list", undefined)) if (i.name === sub) await api("recurring.delete", { id: i.id }, { write: true });
+  };
+  await leftovers();
+  const internet = (await api("recurring.list", undefined)).find((i) => i.name === "Internet");
+  try {
+    await open("/finance/budgets", page.getByRole("button", { name: "+ Add group" }).first());
+    await page.getByRole("button", { name: /^Group name: / }).first().waitFor({ timeout: 30_000 }); // the groups have loaded
+    await slowly(async () => {
+      await page.getByRole("button", { name: "+ Add group" }).first().click();
+      await page.getByRole("textbox", { name: "New group name" }).fill(group);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await within(AT_ONCE, "the group appearing", page.getByRole("button", { name: `Group name: ${group}, click to change` }).waitFor());
+      await page.getByRole("button", { name: `Delete group ${group}` }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+      await within(AT_ONCE, "the group vanishing", page.getByRole("button", { name: `Delete group ${group}` }).waitFor({ state: "detached" }));
+      // A recurring expense.
+      await page.getByRole("button", { name: "Add expense" }).click();
+      await page.getByPlaceholder("Name", { exact: true }).fill(sub);
+      await page.getByPlaceholder("0.00").fill("5");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await within(AT_ONCE, "the expense appearing", page.getByRole("button", { name: `Delete ${sub}` }).waitFor());
+      await page.getByRole("button", { name: `Delete ${sub}` }).click();
+      await within(AT_ONCE, "the expense vanishing", page.getByRole("button", { name: `Delete ${sub}` }).waitFor({ state: "detached" }));
+    });
+    await expectNoUndone();
+    // The Budgeted amount of a shared item.
+    await page.getByRole("tab", { name: "Household" }).click();
+    const amount = page.getByRole("button", { name: "Amount: 49.95, click to change" });
+    await amount.waitFor({ timeout: 15_000 });
+    await slowly(async () => {
+      await amount.click();
+      const input = page.getByRole("textbox", { name: "Amount" });
+      await input.fill("50");
+      await input.press("Enter");
+      await within(AT_ONCE, "the new amount showing", page.getByRole("button", { name: "Amount: 50, click to change" }).waitFor());
+    });
+    await expectNoUndone();
+  } finally {
+    await api("recurring.update", { id: internet.id, amount: internet.amount }, { write: true });
+    await leftovers();
+  }
+});
+
+await check("optimistic wishlist: adding and deleting a wish shows at once", async () => {
+  const title = "Behave wish";
+  const me = await api("user.me", undefined);
+  const leftovers = async () => {
+    for (const w of await api("wishlist.list", { ownerId: me.id })) if (w.title === title) await api("wishlist.delete", { id: w.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/lists/wishlist", page.getByRole("button", { name: "Add wish" }));
+    await slowly(async () => {
+      await page.getByRole("button", { name: "Add wish" }).click();
+      await page.getByRole("textbox", { name: "Wish" }).fill(title);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await within(AT_ONCE, "the wish appearing", page.getByRole("button", { name: `Delete ${title}` }).waitFor());
+      await page.getByRole("button", { name: `Delete ${title}` }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+      await within(AT_ONCE, "the wish vanishing", page.getByRole("button", { name: `Delete ${title}` }).waitFor({ state: "detached" }));
+    });
+    await expectNoUndone();
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic vault: a new entry shows at once; revealing a secret still waits for the server and shows nothing before", async () => {
+  const title = "Behave vault entry";
+  const leftovers = async () => {
+    for (const e of await api("vault.list", undefined)) if (e.title === title) await api("vault.delete", { id: e.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/vault", page.getByRole("button", { name: "+ New entry" }));
+    await slowly(async () => {
+      await page.getByRole("button", { name: "+ New entry" }).click();
+      await page.locator('input[name="title"]').fill(title);
+      await page.getByRole("button", { name: "Add to Vault" }).click();
+      await within(AT_ONCE, "the entry appearing", page.getByRole("button", { name: `Delete ${title}` }).waitFor());
+      await page.getByRole("button", { name: `Delete ${title}` }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
+      await within(AT_ONCE, "the entry vanishing", page.getByRole("button", { name: `Delete ${title}` }).waitFor({ state: "detached" }));
+      // Revealing is worked out by the server: busy, no value, no Hide until it answers.
+      const reveal = page.getByRole("button", { name: "Reveal" }).first();
+      await reveal.click();
+      await page.waitForTimeout(AT_ONCE - 100);
+      assert((await page.getByRole("button", { name: "Hide", exact: true }).count()) === 0, "a secret was shown before the server answered");
+      assert(await reveal.isDisabled(), "the Reveal button does not show that it is busy");
+      await page.getByRole("button", { name: "Hide", exact: true }).first().waitFor({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Hide", exact: true }).first().click();
+    });
+    await expectNoUndone();
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic household settings: switching a Module off removes it from the navigation at once (then back on); a new name shows at once (then put back)", async () => {
+  await open("/settings/household", page.getByRole("switch", { name: "Vault" }));
+  await page.waitForTimeout(1500);
+  const original = (await api("household.current", undefined)).name;
+  const links = () => page.locator('nav a[href="/vault"]').count();
+  assert((await links()) > 0, "the Vault is not in the navigation to begin with");
+  try {
+    await slowly(async () => {
+      await page.getByRole("switch", { name: "Vault" }).click();
+      await within(AT_ONCE, "the navigation changing", page.waitForFunction(() => document.querySelectorAll('nav a[href="/vault"]').length === 0));
+      assert((await page.getByRole("switch", { name: "Vault" }).getAttribute("aria-checked")) === "false", "the switch did not flip");
+      await page.getByRole("switch", { name: "Vault" }).click();
+      await within(AT_ONCE, "the navigation coming back", page.waitForFunction(() => document.querySelectorAll('nav a[href="/vault"]').length > 0));
+      await page.getByLabel("Household name").fill("Behave household");
+      await page.getByRole("button", { name: "Update" }).click();
+      await within(AT_ONCE, "the name being accepted", page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Update")?.disabled === true));
+    });
+    await expectNoUndone();
+    assert((await api("household.current", undefined)).name === "Behave household", "the new name was not saved");
+  } finally {
+    await api("household.rename", { name: original }, { write: true });
+    const current = await api("household.current", undefined);
+    if (current.disabledModules.includes("vault")) await api("household.setModuleEnabled", { key: "vault", enabled: true }, { write: true });
+  }
+});
+
+await check("optimistic profile: a new name shows at once (then put back)", async () => {
+  await open("/settings/profile", page.getByLabel("Name", { exact: true }));
+  const original = (await api("user.me", undefined)).name;
+  try {
+    await slowly(async () => {
+      await page.getByLabel("Name", { exact: true }).fill("Alex Behave");
+      await page.getByRole("button", { name: "Update" }).first().click();
+      await within(AT_ONCE, "the name being accepted", page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Update")?.disabled === true));
+    });
+    await expectNoUndone();
+    assert((await api("user.me", undefined)).name === "Alex Behave", "the new name was not saved");
+  } finally {
+    await api("user.updateName", { name: original }, { write: true });
+  }
 });
 
 await browser.close();

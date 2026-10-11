@@ -190,10 +190,17 @@ export function useShoppingListActions(handlers: { onDeleteUndone: (listId: stri
   const scope = (v: { id?: string }) => (v.id ? listScope(v.id) : undefined);
 
   const create = useOptimisticMutation("shopping.createList", {
-    lists,
+    // The new list's items and favorites are named too: they are frozen (no poll asks the server for a list it
+    // has not heard of yet) and loaded once the list exists.
+    lists: [...lists, "shopping.items", "shopping.favorites"],
     scope,
     update: (v, cache) => {
       const me = utils.user.me.getData();
+      // A new list starts empty, so items can be added to it straight away.
+      if (v.id) {
+        utils.shopping.items.setData({ listId: v.id }, []);
+        utils.shopping.favorites.setData({ listId: v.id }, []);
+      }
       cache.update("shopping.lists", (rows) => [
         ...rows,
         {
