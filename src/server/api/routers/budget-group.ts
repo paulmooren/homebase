@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 const nameSchema = z.string().trim().min(1).max(60);
 
@@ -19,11 +20,11 @@ export const budgetGroupRouter = createTRPCRouter({
     }),
   ),
 
-  create: householdProcedure.input(z.object({ name: nameSchema })).mutation(async ({ ctx, input }) => {
+  create: householdProcedure.input(z.object({ id: clientIdSchema, name: nameSchema })).mutation(async ({ ctx, input }) => {
     const last = await ctx.prisma.budgetGroup.aggregate({ where: { householdId: ctx.householdId }, _max: { sortOrder: true } });
     try {
       return await ctx.prisma.budgetGroup.create({
-        data: { householdId: ctx.householdId, name: input.name, sortOrder: (last._max.sortOrder ?? 0) + 1 },
+        data: { id: input.id, householdId: ctx.householdId, name: input.name, sortOrder: (last._max.sortOrder ?? 0) + 1 },
         select: { id: true, name: true },
       });
     } catch {

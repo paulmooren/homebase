@@ -9,6 +9,9 @@ import { ConfirmProvider } from "@/components/confirm-dialog";
 import { ToastProvider } from "@/components/toast";
 import type { AppRouter } from "@/server/api/root";
 
+/** How long loaded data counts as fresh. */
+const STALE_TIME_MS = 30_000;
+
 export const trpc = createTRPCReact<AppRouter>();
 
 function getBaseUrl() {
@@ -17,7 +20,9 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  // Data just loaded counts as fresh for 30 s: going back to a page shows it at once and updates it quietly
+  // (and the window regaining focus refetches). A change the Member makes refreshes the lists it touches anyway.
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: STALE_TIME_MS } } }));
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [

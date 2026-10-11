@@ -8,6 +8,7 @@ import { VaultIcon } from "@/components/nav-icons";
 import { daysUntil } from "@/lib/vault";
 import { formatDate } from "@/lib/format";
 import { ChecklistRow } from "@/components/tasks/checklist-row";
+import { useTaskActions } from "@/components/tasks/use-tasks";
 import { PRIORITY_ORDER } from "@/components/tasks/priority-pill";
 import type { Task, Member } from "@/components/tasks/types";
 import { ReminderRow, type ReminderData } from "@/components/reminders/reminder-row";
@@ -25,7 +26,6 @@ import { dueBucket, todayInHousehold } from "@/lib/schedule";
  * you check it off, instead of it vanishing the instant the refetch lands.
  */
 export function TasksSnapshot({ showTasks = true, showVault = false }: { showTasks?: boolean; showVault?: boolean }) {
-  const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery(undefined, { enabled: showTasks });
   const { data: reminders } = trpc.reminder.list.useQuery(undefined, { enabled: showTasks });
   const { data: expiring } = trpc.vault.expiringSoon.useQuery(undefined, { enabled: showVault });
@@ -34,9 +34,7 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
   const reminderActions = useReminderActions();
 
-  const toggleComplete = trpc.task.toggleComplete.useMutation({ onSuccess: () => utils.task.list.invalidate() });
-  const updateTask = trpc.task.update.useMutation({ onSuccess: () => utils.task.list.invalidate() });
-  const deleteTask = trpc.task.delete.useMutation({ onSuccess: () => utils.task.list.invalidate() });
+  const taskActions = useTaskActions();
 
   if ((showTasks && (!tasks || !reminders)) || !me) return null;
 
@@ -103,10 +101,10 @@ export function TasksSnapshot({ showTasks = true, showVault = false }: { showTas
             currentUserId={currentUserId}
             onToggle={() => {
               if (!task.completedAt) setJustCompleted((prev) => new Set(prev).add(task.id));
-              toggleComplete.mutate({ id: task.id });
+              taskActions.toggle(task.id);
             }}
-            onUpdate={(values) => updateTask.mutate({ id: task.id, ...values })}
-            onDelete={() => deleteTask.mutate({ id: task.id })}
+            onUpdate={(values) => taskActions.update(task.id, values)}
+            onDelete={() => taskActions.remove(task.id)}
           />
         ))}
       </div>

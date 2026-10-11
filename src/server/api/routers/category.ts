@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 export const categoryRouter = createTRPCRouter({
   list: householdProcedure.query(({ ctx }) => {
@@ -12,11 +13,11 @@ export const categoryRouter = createTRPCRouter({
   }),
 
   create: householdProcedure
-    .input(z.object({ name: z.string().min(1).max(40), color: z.string() }))
+    .input(z.object({ id: clientIdSchema, name: z.string().min(1).max(40), color: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
         return await ctx.prisma.category.create({
-          data: { householdId: ctx.householdId, name: input.name, color: input.color },
+          data: { id: input.id, householdId: ctx.householdId, name: input.name, color: input.color },
         });
       } catch {
         throw new TRPCError({

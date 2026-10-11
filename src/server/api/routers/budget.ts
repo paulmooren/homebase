@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 function currentMonthRange() {
   const now = new Date();
@@ -81,6 +82,8 @@ export const budgetRouter = createTRPCRouter({
   upsert: householdProcedure
     .input(
       z.object({
+        /** Becomes the row's id if this creates a budget (an existing one keeps its own). */
+        id: clientIdSchema,
         categoryId: z.string(),
         monthlyAmount: z.number().nonnegative(),
         ownerId: z.string().nullable().optional(),
@@ -104,7 +107,7 @@ export const budgetRouter = createTRPCRouter({
       }
       const ownerScope = scopeOf(ownerId);
 
-      return ctx.prisma.budget.upsert({
+      return rejectDuplicateId(() => ctx.prisma.budget.upsert({
         where: {
           householdId_categoryId_ownerScope: {
             householdId: ctx.householdId,
@@ -113,6 +116,7 @@ export const budgetRouter = createTRPCRouter({
           },
         },
         create: {
+          id: input.id,
           householdId: ctx.householdId,
           categoryId: input.categoryId,
           ownerId,
@@ -121,7 +125,7 @@ export const budgetRouter = createTRPCRouter({
           monthlyAmount: input.monthlyAmount,
         },
         update: { monthlyAmount: input.monthlyAmount },
-      });
+      }));
     }),
 
   updateVisibility: householdProcedure

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 import { decryptValue, encryptValue } from "@/server/vault-crypto";
 import { VAULT_CATEGORIES, VAULT_EXPIRY_WARNING_DAYS } from "@/lib/vault";
 
@@ -69,10 +70,11 @@ export const vaultRouter = createTRPCRouter({
   }),
 
   create: householdProcedure
-    .input(entryInput.extend({ shared: z.boolean() }))
+    .input(entryInput.extend({ id: clientIdSchema, shared: z.boolean() }))
     .mutation(({ ctx, input }) =>
-      ctx.prisma.vaultEntry.create({
+      rejectDuplicateId(() => ctx.prisma.vaultEntry.create({
         data: {
+          id: input.id,
           householdId: ctx.householdId,
           ownerId: input.shared ? null : ctx.userId,
           title: input.title,
@@ -82,7 +84,7 @@ export const vaultRouter = createTRPCRouter({
           noteEnc: input.note ? encryptValue(input.note, ctx.householdId) : null,
         },
         select: { id: true },
-      }),
+      })),
     ),
 
   update: householdProcedure

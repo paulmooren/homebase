@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 const prioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
@@ -17,6 +18,7 @@ export const taskRouter = createTRPCRouter({
   create: householdProcedure
     .input(
       z.object({
+        id: clientIdSchema,
         title: z.string().min(1).max(160),
         priority: prioritySchema.optional(),
         ownerId: z.string().nullable().optional(),
@@ -31,14 +33,15 @@ export const taskRouter = createTRPCRouter({
         if (!isMember) throw new TRPCError({ code: "BAD_REQUEST", message: "Not a household member." });
       }
 
-      return ctx.prisma.task.create({
+      return rejectDuplicateId(() => ctx.prisma.task.create({
         data: {
+          id: input.id,
           householdId: ctx.householdId,
           ownerId: input.ownerId ?? null,
           title: input.title,
           priority: input.priority ?? "MEDIUM",
         },
-      });
+      }));
     }),
 
   update: householdProcedure

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 import { nextOccurrence } from "@/lib/recurring";
 import { BASES, amountForBasis, reviewAmount } from "@/lib/budget-basis";
 import { cleanText, detectRecurring, type DetectedItem } from "@/lib/recurring-detect";
@@ -27,6 +28,8 @@ const itemInput = z.object({
   // Expenses only. A group by id, or the name of one to create (or reuse) on the spot.
   budgetGroupId: z.string().nullable().optional(),
   newGroupName: z.string().trim().min(1).max(60).optional(),
+  // The id the client gave that new group, so the screen can show it before the server answers.
+  newGroupId: clientIdSchema,
 });
 
 type Ctx = { prisma: PrismaClient; householdId: string; userId: string };
@@ -99,7 +102,7 @@ async function editableItem(ctx: Ctx, id: string) {
 async function resolveGroup(
   ctx: Ctx,
   type: "EXPENSE" | "INCOME" | "TRANSFER",
-  input: { budgetGroupId?: string | null; newGroupName?: string },
+  input: { budgetGroupId?: string | null; newGroupName?: string; newGroupId?: string },
 ): Promise<string | null | undefined> {
   if (type === "INCOME") return null;
   if (input.newGroupName) {
@@ -109,10 +112,12 @@ async function resolveGroup(
     });
     if (existing) return existing.id;
     const last = await ctx.prisma.budgetGroup.aggregate({ where: { householdId: ctx.householdId }, _max: { sortOrder: true } });
-    const created = await ctx.prisma.budgetGroup.create({
-      data: { householdId: ctx.householdId, name: input.newGroupName, sortOrder: (last._max.sortOrder ?? 0) + 1 },
-      select: { id: true },
-    });
+    const created = await rejectDuplicateId(() =>
+      ctx.prisma.budgetGroup.create({
+        data: { id: input.newGroupId, householdId: ctx.householdId, name: input.newGroupName!, sortOrder: (last._max.sortOrder ?? 0) + 1 },
+        select: { id: true },
+      }),
+    );
     return created.id;
   }
   if (input.budgetGroupId === undefined) return undefined;
@@ -415,6 +420,7 @@ export const recurringRouter = createTRPCRouter({
   create: householdProcedure
     .input(
       itemInput.extend({
+        id: clientIdSchema,
         // When marking a transaction as recurring: that transaction teaches the
         // item how to recognise the others (by the other party, else its text),
         // and its date is where the next due date counts from.
@@ -454,6 +460,7 @@ export const recurringRouter = createTRPCRouter({
       try {
         item = await ctx.prisma.recurringItem.create({
           data: {
+            id: input.id,
             householdId: ctx.householdId,
             budgetGroupId: budgetGroupId ?? null,
             ownerId: linked ? linked.ownerId : (input.ownerId ?? null),
@@ -551,11 +558,12 @@ export const recurringRouter = createTRPCRouter({
         visibleToHousehold: z.boolean().optional(),
         budgetGroupId: z.string().nullable().optional(),
         newGroupName: z.string().trim().min(1).max(60).optional(),
+        newGroupId: clientIdSchema,
         status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, accountId, ownerId: inputOwnerId, budgetGroupId: groupInput, newGroupName, ...data } = input;
+      const { id, accountId, ownerId: inputOwnerId, budgetGroupId: groupInput, newGroupName, newGroupId, ...data } = input;
       let ownerId = inputOwnerId;
       // Linking to an account moves the item to that account's owner;
       // unlinking (null) leaves the owner as it was unless one is passed.
@@ -586,7 +594,7 @@ export const recurringRouter = createTRPCRouter({
           message: "Shared items are always visible — visibility only applies to personal items.",
         });
       }
-      const budgetGroupId = await resolveGroup(ctx, existing.type, { budgetGroupId: groupInput, newGroupName });
+      const budgetGroupId = await resolveGroup(ctx, existing.type, { budgetGroupId: groupInput, newGroupName, newGroupId });
 
       const updated = await ctx.prisma.recurringItem.update({
         where: { id },

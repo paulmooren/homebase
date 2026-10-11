@@ -7,6 +7,7 @@ import { Input } from "@base-ui/react/input";
 import { trpc } from "@/trpc/react";
 import { PlusIcon, CloseIcon, CheckIcon } from "@/components/action-icons";
 import { ChecklistRow } from "@/components/tasks/checklist-row";
+import { useTaskActions } from "@/components/tasks/use-tasks";
 import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import { PriorityPill, PRIORITY_ORDER } from "@/components/tasks/priority-pill";
 import { CELL_TEXT, type Task, type Member, type TaskPriority } from "@/components/tasks/types";
@@ -16,16 +17,11 @@ import { PopoverPanel } from "@/components/popover-menu";
 import { dueBucket, describeSchedule, todayInHousehold, type DueBucket, type ScheduleMode, type ScheduleUnit } from "@/lib/schedule";
 
 export default function TasksPage() {
-  const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery();
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
 
-  const invalidate = () => utils.task.list.invalidate();
-  const createTask = trpc.task.create.useMutation({ onSuccess: invalidate });
-  const updateTask = trpc.task.update.useMutation({ onSuccess: invalidate });
-  const toggleComplete = trpc.task.toggleComplete.useMutation({ onSuccess: invalidate });
-  const deleteTask = trpc.task.delete.useMutation({ onSuccess: invalidate });
+  const taskActions = useTaskActions();
 
   const members: Member[] = household?.members ?? [];
   const currentUserId = me?.id ?? "";
@@ -36,10 +32,10 @@ export default function TasksPage() {
         tasks={(tasks ?? []) as Task[]}
         members={members}
         currentUserId={currentUserId}
-        onToggle={(id) => toggleComplete.mutate({ id })}
-        onUpdate={(id, values) => updateTask.mutate({ id, ...values })}
-        onDelete={(id) => deleteTask.mutate({ id })}
-        onCreate={(values) => createTask.mutate(values)}
+        onToggle={taskActions.toggle}
+        onUpdate={taskActions.update}
+        onDelete={taskActions.remove}
+        onCreate={taskActions.create}
       />
       <RemindersPanel members={members} currentUserId={currentUserId} />
     </div>

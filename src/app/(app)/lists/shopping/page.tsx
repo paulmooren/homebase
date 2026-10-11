@@ -18,6 +18,7 @@ import { ShoppingItemRow } from "@/components/shopping/item-row";
 import {
   useShoppingActions,
   useShoppingFavorites,
+  useShoppingListActions,
   useShoppingItems,
   useTickGrace,
 } from "@/components/shopping/use-shopping";
@@ -31,7 +32,6 @@ export default function ShoppingPage() {
 }
 
 function ShoppingLists() {
-  const utils = trpc.useUtils();
   const { data: lists } = trpc.shopping.lists.useQuery();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
@@ -49,21 +49,8 @@ function ShoppingLists() {
   const actions = useShoppingActions(selected?.id);
   const ticks = useTickGrace();
 
-  const refreshLists = () => utils.shopping.lists.invalidate();
-  const createList = trpc.shopping.createList.useMutation({
-    onSuccess: (list) => {
-      refreshLists();
-      setChoice(list.id);
-      setCreating(false);
-    },
-  });
-  const renameList = trpc.shopping.renameList.useMutation({ onSuccess: refreshLists });
-  const deleteList = trpc.shopping.deleteList.useMutation({
-    onSuccess: () => {
-      setChoice(null);
-      refreshLists();
-    },
-  });
+  // A list that could not be deleted comes back selected again.
+  const listActions = useShoppingListActions({ onDeleteUndone: setChoice });
 
   if (!lists || !me) return null;
 
@@ -170,8 +157,10 @@ function ShoppingLists() {
 
       {creating && (
         <NewListForm
-          pending={createList.isPending}
-          onSubmit={(name, shared) => createList.mutate({ name, shared })}
+          onSubmit={(name, shared) => {
+            setChoice(listActions.create({ name, shared }));
+            setCreating(false);
+          }}
         />
       )}
 
@@ -204,7 +193,7 @@ function ShoppingLists() {
                 value={selected.name}
                 ariaLabel="List name"
                 maxLength={60}
-                onCommit={(name) => renameList.mutate({ id: selected.id, name })}
+                onCommit={(name) => listActions.rename({ id: selected.id, name })}
                 className="text-[17px] font-semibold"
               />
               <p className="text-[12px] text-text-muted">
@@ -261,7 +250,10 @@ function ShoppingLists() {
           confirmLabel="Delete list"
           onConfirm={() => {
             setConfirmDeleteList(false);
-            deleteList.mutate({ id: selected.id });
+            // The next list takes over at once (the one before it, if this was the last).
+            const at = lists.findIndex((l) => l.id === selected.id);
+            setChoice((lists[at + 1] ?? lists[at - 1])?.id ?? null);
+            listActions.remove({ id: selected.id });
           }}
           onCancel={() => setConfirmDeleteList(false)}
         />
@@ -304,11 +296,7 @@ function FavoritesSheet({ onClose, children }: { onClose: () => void; children: 
   );
 }
 
-function NewListForm({
-  pending,
-  onSubmit,
-}: {
-  pending: boolean;
+function NewListForm({ onSubmit }: {
   onSubmit: (name: string, shared: boolean) => void;
 }) {
   const [name, setName] = useState("");
@@ -352,7 +340,7 @@ function NewListForm({
       </RadioGroup>
       <Button
         type="submit"
-        disabled={!name.trim() || pending}
+        disabled={!name.trim()}
         className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
       >
         Create

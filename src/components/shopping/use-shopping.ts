@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { newId } from "@/lib/client-id";
 import { trpc } from "@/trpc/react";
+import { hasPendingChanges, useOptimisticMutation, type CacheEditor } from "@/trpc/optimistic";
 
 /** How often an open list re-checks for items your housemate added from their phone. */
 export const SHOPPING_REFRESH_MS = 5000;
@@ -49,7 +51,11 @@ export function useTickGrace() {
 export function useShoppingItems(listId: string | undefined) {
   return trpc.shopping.items.useQuery(
     { listId: listId ?? "" },
-    { enabled: !!listId, refetchInterval: SHOPPING_REFRESH_MS },
+    {
+      enabled: !!listId,
+      // Not while a change is still being saved: a refetch landing now would bring the old list back for a moment.
+      refetchInterval: () => (hasPendingChanges("shopping.items") ? false : SHOPPING_REFRESH_MS),
+    },
   );
 }
 
@@ -58,98 +64,170 @@ export function useShoppingFavorites(listId: string | undefined) {
   return trpc.shopping.favorites.useQuery({ listId: listId ?? "" }, { enabled: !!listId });
 }
 
-/** Mutations for one list. Ticking is optimistic so it feels instant in a shop. */
+const itemScope = (v: { id?: string }) => (v.id ? `shopping-item:${v.id}` : undefined);
+const listScope = (id: string) => `shopping-list:${id}`;
+
+/**
+ * Mutations for one list. Everything shows at once and saves behind the scenes, which matters in a shop.
+ * The open count on the list buttons (and the dashboard card) follows the items.
+ */
 export function useShoppingActions(listId: string | undefined) {
   const utils = trpc.useUtils();
-  const refresh = () => {
-    utils.shopping.items.invalidate();
-    utils.shopping.lists.invalidate();
-  };
+  const lists = ["shopping.items", "shopping.lists"] as const;
+  const favoriteLists = ["shopping.favorites"] as const;
 
-  // Adding and editing show up at once; the refetch afterwards swaps in the real rows.
-  const addItem = trpc.shopping.addItem.useMutation({
-    onMutate: async (input) => {
-      if (!listId) return {};
-      await utils.shopping.items.cancel({ listId });
-      const previous = utils.shopping.items.getData({ listId });
-      utils.shopping.items.setData({ listId }, (old) => [
-        ...(old ?? []),
-        {
-          id: `pending-${Date.now()}`,
-          listId,
-          name: input.name,
-          note: null,
-          quantity: input.quantity ?? null,
-          checkedAt: null,
-          clearedAt: null,
-          addedById: null,
-          createdAt: new Date(),
-          addedBy: null,
-        },
-      ]);
-      return { previous };
+  /** Moves the "open items" figure of a list; ticked items no longer count. */
+  const countOpen = (cache: CacheEditor, id: string, delta: number) =>
+    cache.update("shopping.lists", (rows) =>
+      rows.map((l) => (l.id === id ? { ...l, openCount: Math.max(0, l.openCount + delta) } : l)),
+    );
+  const itemNow = (itemId: string) => (listId ? utils.shopping.items.getData({ listId })?.find((i) => i.id === itemId) : undefined);
+
+  const addItem = useOptimisticMutation("shopping.addItem", {
+    lists,
+    scope: itemScope,
+    dependsOn: (v) => [listScope(v.listId)],
+    update: (v, cache) => {
+      const me = utils.user.me.getData();
+      cache.update("shopping.items", (rows, input) =>
+        input.listId !== v.listId
+          ? rows
+          : [
+              ...rows,
+              {
+                id: v.id ?? newId(),
+                listId: v.listId,
+                name: v.name,
+                note: v.note || null,
+                quantity: v.quantity || null,
+                checkedAt: null,
+                clearedAt: null,
+                addedById: me?.id ?? null,
+                createdAt: new Date(),
+                addedBy: me ? { id: me.id, name: me.name, email: me.email } : null,
+              },
+            ],
+      );
+      countOpen(cache, v.listId, 1);
     },
-    onError: (_err, _vars, context) => {
-      if (listId && context?.previous) utils.shopping.items.setData({ listId }, context.previous);
-    },
-    onSettled: refresh,
   });
-  const updateItem = trpc.shopping.updateItem.useMutation({
-    onMutate: async (input) => {
-      if (!listId) return {};
-      await utils.shopping.items.cancel({ listId });
-      const previous = utils.shopping.items.getData({ listId });
-      utils.shopping.items.setData({ listId }, (old) =>
-        old?.map((item) =>
-          item.id === input.id
+  const updateItem = useOptimisticMutation("shopping.updateItem", {
+    lists: ["shopping.items"],
+    scope: itemScope,
+    update: (v, cache) =>
+      cache.update("shopping.items", (rows) =>
+        rows.map((item) =>
+          item.id === v.id
             ? {
                 ...item,
-                ...(input.name !== undefined ? { name: input.name } : {}),
-                ...(input.quantity !== undefined ? { quantity: input.quantity || null } : {}),
-                ...(input.note !== undefined ? { note: input.note || null } : {}),
+                ...(v.name !== undefined ? { name: v.name } : {}),
+                ...(v.quantity !== undefined ? { quantity: v.quantity || null } : {}),
+                ...(v.note !== undefined ? { note: v.note || null } : {}),
               }
             : item,
         ),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (listId && context?.previous) utils.shopping.items.setData({ listId }, context.previous);
-    },
-    onSettled: refresh,
+      ),
   });
-  const deleteItem = trpc.shopping.deleteItem.useMutation({ onSuccess: refresh });
-  const refreshFavorites = () => utils.shopping.favorites.invalidate();
-  const addFavorite = trpc.shopping.addFavorite.useMutation({ onSuccess: refreshFavorites });
-  const removeFavorite = trpc.shopping.removeFavorite.useMutation({ onSuccess: refreshFavorites });
-  const updateFavorite = trpc.shopping.updateFavorite.useMutation({
-    onMutate: async ({ id, name }) => {
-      if (!listId) return {};
-      await utils.shopping.favorites.cancel({ listId });
-      const previous = utils.shopping.favorites.getData({ listId });
-      utils.shopping.favorites.setData({ listId }, (old) => old?.map((f) => (f.id === id ? { ...f, name } : f)));
-      return { previous };
+  const deleteItem = useOptimisticMutation("shopping.deleteItem", {
+    lists,
+    scope: itemScope,
+    update: (v, cache) => {
+      const item = itemNow(v.id);
+      cache.update("shopping.items", (rows) => rows.filter((row) => row.id !== v.id));
+      if (item && !item.checkedAt) countOpen(cache, item.listId, -1);
     },
-    onError: (_err, _vars, context) => {
-      if (listId && context?.previous) utils.shopping.favorites.setData({ listId }, context.previous);
-    },
-    onSettled: refreshFavorites,
   });
-  const setChecked = trpc.shopping.setChecked.useMutation({
-    onMutate: async ({ id, checked }) => {
-      if (!listId) return {};
-      await utils.shopping.items.cancel({ listId });
-      const previous = utils.shopping.items.getData({ listId });
-      utils.shopping.items.setData({ listId }, (old) =>
-        old?.map((item) => (item.id === id ? { ...item, checkedAt: checked ? new Date() : null } : item)),
+  const setChecked = useOptimisticMutation("shopping.setChecked", {
+    lists,
+    scope: itemScope,
+    update: (v, cache) => {
+      const item = itemNow(v.id);
+      cache.update("shopping.items", (rows) =>
+        rows.map((row) => (row.id === v.id ? { ...row, checkedAt: v.checked ? new Date() : null } : row)),
       );
-      return { previous };
+      if (item && !!item.checkedAt !== v.checked) countOpen(cache, item.listId, v.checked ? -1 : 1);
     },
-    onError: (_err, _vars, context) => {
-      if (listId && context?.previous) utils.shopping.items.setData({ listId }, context.previous);
-    },
-    onSettled: refresh,
   });
 
-  return { addItem, updateItem, deleteItem, setChecked, addFavorite, removeFavorite, updateFavorite };
+  const addFavorite = useOptimisticMutation("shopping.addFavorite", {
+    lists: favoriteLists,
+    scope: (v) => (v.id ? `shopping-favorite:${v.id}` : undefined),
+    dependsOn: (v) => [listScope(v.listId)],
+    update: (v, cache) =>
+      cache.update("shopping.favorites", (rows, input) =>
+        input.listId !== v.listId
+          ? rows
+          : [...rows, { id: v.id ?? newId(), listId: v.listId, name: v.name, quantity: null, createdAt: new Date() }],
+      ),
+  });
+  const removeFavorite = useOptimisticMutation("shopping.removeFavorite", {
+    lists: favoriteLists,
+    scope: (v) => `shopping-favorite:${v.id}`,
+    update: (v, cache) => cache.update("shopping.favorites", (rows) => rows.filter((f) => f.id !== v.id)),
+  });
+  const updateFavorite = useOptimisticMutation("shopping.updateFavorite", {
+    lists: favoriteLists,
+    scope: (v) => `shopping-favorite:${v.id}`,
+    update: (v, cache) =>
+      cache.update("shopping.favorites", (rows) => rows.map((f) => (f.id === v.id ? { ...f, name: v.name } : f))),
+  });
+
+  return {
+    addItem: { mutate: (v: { listId: string; name: string; quantity?: string | null }) => addItem.mutate({ id: newId(), ...v }) },
+    updateItem,
+    deleteItem,
+    setChecked,
+    addFavorite: { mutate: (v: { listId: string; name: string }) => addFavorite.mutate({ id: newId(), ...v }) },
+    removeFavorite,
+    updateFavorite,
+  };
+}
+
+/** Mutations on the lists themselves (create, rename, delete), shared by the page. */
+export function useShoppingListActions(handlers: { onDeleteUndone: (listId: string) => void }) {
+  const utils = trpc.useUtils();
+  const lists = ["shopping.lists"] as const;
+  const scope = (v: { id?: string }) => (v.id ? listScope(v.id) : undefined);
+
+  const create = useOptimisticMutation("shopping.createList", {
+    lists,
+    scope,
+    update: (v, cache) => {
+      const me = utils.user.me.getData();
+      cache.update("shopping.lists", (rows) => [
+        ...rows,
+        {
+          id: v.id ?? newId(),
+          householdId: utils.household.current.getData()?.id ?? "",
+          ownerId: v.shared ? null : (me?.id ?? null),
+          name: v.name,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          openCount: 0,
+        },
+      ]);
+    },
+  });
+  const rename = useOptimisticMutation("shopping.renameList", {
+    lists,
+    scope,
+    update: (v, cache) =>
+      cache.update("shopping.lists", (rows) => rows.map((l) => (l.id === v.id ? { ...l, name: v.name } : l))),
+  });
+  const remove = useOptimisticMutation("shopping.deleteList", {
+    lists,
+    scope,
+    update: (v, cache) => cache.update("shopping.lists", (rows) => rows.filter((l) => l.id !== v.id)),
+    onUndone: (v) => handlers.onDeleteUndone(v.id),
+  });
+
+  return {
+    create: (v: { name: string; shared: boolean }) => {
+      const id = newId();
+      create.mutate({ id, ...v });
+      return id;
+    },
+    rename: rename.mutate,
+    remove: remove.mutate,
+  };
 }

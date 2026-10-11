@@ -43,7 +43,7 @@ function ToastList() {
           {toast.description}
         </BaseToast.Description>
       </BaseToast.Content>
-      <div className="flex gap-2">{toast.data?.actions}</div>
+      {toast.data?.actions && <div className="flex gap-2">{toast.data.actions}</div>}
     </BaseToast.Root>
   ));
 }
@@ -96,6 +96,31 @@ export function Toast({
   }, []);
 
   return null;
+}
+
+/** How long the "change undone" message stays up. */
+const UNDONE_DURATION_MS = 6_000;
+let undoneToastId: string | null = null;
+
+/**
+ * A one-line message from anywhere (no component needed), announced politely by
+ * the same live region as the other toasts. Used when a change the screen
+ * already showed could not be saved. Showing the same message again replaces
+ * the first rather than stacking them.
+ */
+export function showToast(message: string) {
+  if (undoneToastId) manager.close(undoneToastId);
+  undoneToastId = manager.add({
+    description: message,
+    timeout: UNDONE_DURATION_MS,
+    data: {
+      actions: (
+        <BaseToast.Close className={toastSecondary}>
+          Dismiss
+        </BaseToast.Close>
+      ),
+    },
+  });
 }
 
 /** Primary (light) and secondary (outlined) buttons for a Toast's `actions`. */

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 type Ctx = { prisma: PrismaClient; householdId: string; userId: string };
 
@@ -56,15 +57,16 @@ export const shoppingRouter = createTRPCRouter({
   }),
 
   createList: householdProcedure
-    .input(z.object({ name: z.string().trim().min(1).max(60), shared: z.boolean() }))
+    .input(z.object({ id: clientIdSchema, name: z.string().trim().min(1).max(60), shared: z.boolean() }))
     .mutation(({ ctx, input }) =>
-      ctx.prisma.shoppingList.create({
+      rejectDuplicateId(() => ctx.prisma.shoppingList.create({
         data: {
+          id: input.id,
           householdId: ctx.householdId,
           ownerId: input.shared ? null : ctx.userId,
           name: input.name,
         },
-      }),
+      })),
     ),
 
   renameList: householdProcedure
@@ -105,6 +107,7 @@ export const shoppingRouter = createTRPCRouter({
   addItem: householdProcedure
     .input(
       z.object({
+        id: clientIdSchema,
         listId: z.string(),
         name: z.string().trim().min(1).max(120),
         quantity: z.string().trim().max(30).nullable().optional(),
@@ -113,15 +116,16 @@ export const shoppingRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await requireList(ctx, input.listId);
-      return ctx.prisma.shoppingItem.create({
+      return rejectDuplicateId(() => ctx.prisma.shoppingItem.create({
         data: {
+          id: input.id,
           listId: input.listId,
           name: input.name,
           quantity: input.quantity || null,
           note: input.note || null,
           addedById: ctx.userId,
         },
-      });
+      }));
     }),
 
   updateItem: householdProcedure
@@ -211,6 +215,7 @@ export const shoppingRouter = createTRPCRouter({
   addFavorite: householdProcedure
     .input(
       z.object({
+        id: clientIdSchema,
         listId: z.string(),
         name: z.string().trim().min(1).max(120),
       }),
@@ -222,10 +227,10 @@ export const shoppingRouter = createTRPCRouter({
         select: { id: true },
       });
       if (existing) return existing;
-      return ctx.prisma.shoppingFavorite.create({
-        data: { listId: input.listId, name: input.name },
+      return rejectDuplicateId(() => ctx.prisma.shoppingFavorite.create({
+        data: { id: input.id, listId: input.listId, name: input.name },
         select: { id: true },
-      });
+      }));
     }),
 
   /** Rename a favorite. */

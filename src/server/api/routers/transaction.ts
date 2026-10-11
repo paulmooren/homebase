@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 import { recomputeNetWorthSnapshot } from "@/server/api/net-worth";
 import { suggestCategoryId } from "@/lib/categorize";
 import { MAX_MERCHANT_LENGTH, cleanMerchant, normalizeIban } from "@/lib/csv";
@@ -131,6 +132,7 @@ export const transactionRouter = createTRPCRouter({
   create: householdProcedure
     .input(
       z.object({
+        id: clientIdSchema,
         accountId: z.string(),
         type: z.enum(["EXPENSE", "INCOME", "TRANSFER"]),
         amount: z.number().positive(),
@@ -166,8 +168,9 @@ export const transactionRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      const transaction = await ctx.prisma.transaction.create({
+      const transaction = await rejectDuplicateId(() => ctx.prisma.transaction.create({
         data: {
+          id: input.id,
           householdId: ctx.householdId,
           accountId: input.accountId,
           type: input.type,
@@ -178,7 +181,7 @@ export const transactionRouter = createTRPCRouter({
           categoryId: input.type === "TRANSFER" ? null : input.categoryId,
           transferToAccountId: input.type === "TRANSFER" ? input.transferToAccountId : null,
         },
-      });
+      }));
 
       await recomputeNetWorthSnapshot(ctx.prisma, ctx.householdId);
       return transaction;

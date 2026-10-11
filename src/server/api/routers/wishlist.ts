@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import type { PrismaClient } from "@prisma/client";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
+import { clientIdSchema, rejectDuplicateId } from "@/server/api/client-id";
 
 type Ctx = { prisma: PrismaClient; householdId: string; userId: string };
 
@@ -68,10 +69,10 @@ export const wishlistRouter = createTRPCRouter({
     }),
 
   add: householdProcedure
-    .input(z.object({ home: z.boolean(), ...wishFields }))
+    .input(z.object({ id: clientIdSchema, home: z.boolean(), ...wishFields }))
     .mutation(({ ctx, input }) => {
       const { home, ...data } = input;
-      return ctx.prisma.wish.create({
+      return rejectDuplicateId(() => ctx.prisma.wish.create({
         data: {
           householdId: ctx.householdId,
           ownerId: home ? null : ctx.userId,
@@ -80,7 +81,7 @@ export const wishlistRouter = createTRPCRouter({
           note: data.note || null,
           price: data.price ?? null,
         },
-      });
+      }));
     }),
 
   update: householdProcedure
