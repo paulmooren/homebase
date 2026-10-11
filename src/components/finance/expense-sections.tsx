@@ -7,6 +7,7 @@ import { InlineEdit } from "@/components/inline-edit";
 import { SECTION_PREFIX, SortableBoard, SortableList, SortableSection, type BoardDrop } from "@/components/sortable-list";
 import { monthlyOf, type BudgetItem, type Entry } from "@/lib/budget-scope";
 import { formatEUR } from "@/lib/format";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export type BudgetGroup = { id: string; name: string };
 
@@ -46,6 +47,7 @@ export function ExpenseSections<T extends GroupedItem>({
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const confirm = useConfirm();
   const known = new Set(groups.map((g) => g.id));
   const sections: { id: string; group: BudgetGroup | null; entries: Entry<T>[] }[] = [];
   for (const group of groups) {
@@ -88,8 +90,8 @@ export function ExpenseSections<T extends GroupedItem>({
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm(`Delete the group “${section.group!.name}”? Its items stay, under Other.`)) onDelete(section.group!.id);
+                    onClick={async () => {
+                      if (await confirm({ title: `Delete the group “${section.group!.name}”?`, description: "Its items stay, under Other." })) onDelete(section.group!.id);
                     }}
                     aria-label={`Delete group ${section.group.name}`}
                     title="Delete group"

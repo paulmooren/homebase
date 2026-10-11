@@ -9,6 +9,7 @@ import { VisibilityToggle } from "@/components/finance/visibility-toggle";
 import { PlusIcon } from "@/components/action-icons";
 import { InlineWishRow } from "@/components/wishlist/wish-form";
 import { WishRow } from "@/components/wishlist/wish-row";
+import { useConfirm } from "@/components/confirm-dialog";
 
 const HOME = "home";
 
@@ -21,6 +22,7 @@ export default function WishlistPage() {
 }
 
 function Wishlists() {
+  const confirm = useConfirm();
   const utils = trpc.useUtils();
   const { data: household } = trpc.household.current.useQuery();
   const { data: me } = trpc.user.me.useQuery();
@@ -144,8 +146,8 @@ function Wishlists() {
               canEdit={canEdit}
               ownList={ownList}
               onUpdate={(values) => update.mutate({ id: wish.id, ...values })}
-              onDelete={() => {
-                if (confirm(`Delete "${wish.title}"?`)) remove.mutate({ id: wish.id });
+              onDelete={async () => {
+                if (await confirm({ title: `Delete "${wish.title}"?` })) remove.mutate({ id: wish.id });
               }}
               onSetReceived={(r) => setReceived.mutate({ id: wish.id, received: r })}
               onClaim={() => claim.mutate({ id: wish.id })}
@@ -197,8 +199,8 @@ function Wishlists() {
                     canEdit={canEdit}
                     ownList={ownList}
                     onUpdate={(values) => update.mutate({ id: wish.id, ...values })}
-                    onDelete={() => {
-                      if (confirm(`Delete "${wish.title}"?`)) remove.mutate({ id: wish.id });
+                    onDelete={async () => {
+                      if (await confirm({ title: `Delete "${wish.title}"?` })) remove.mutate({ id: wish.id });
                     }}
                     onSetReceived={(r) => setReceived.mutate({ id: wish.id, received: r })}
                     onClaim={() => claim.mutate({ id: wish.id })}

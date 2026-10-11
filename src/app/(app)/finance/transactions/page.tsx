@@ -34,6 +34,7 @@ import {
 } from "@/components/finance/transaction-filters";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
+import { useConfirm } from "@/components/confirm-dialog";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
@@ -56,6 +57,7 @@ export default function TransactionsPage() {
 }
 
 function TransactionsPageInner() {
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const importAccountId = searchParams.get("import");
 
@@ -146,12 +148,13 @@ function TransactionsPageInner() {
       <PageActions>
         {removableCount > 0 && !filtering && (
           <button
-            onClick={() => {
+            onClick={async () => {
               const scope = filteredAccount ? `on ${filteredAccount.name}` : "on your accounts";
               if (
-                confirm(
-                  `Delete all transactions ${scope}? This cannot be undone and will reset the affected account balances.`,
-                )
+                await confirm({
+                  title: `Delete all transactions ${scope}?`,
+                  description: "This cannot be undone and will reset the affected account balances.",
+                })
               ) {
                 removeAllTransactions.mutate(accountFilter ? { accountId: accountFilter } : undefined);
               }
@@ -429,8 +432,8 @@ function TransactionsPageInner() {
                     )}
                     {canEdit && (
                       <button
-                        onClick={() => {
-                          if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
+                        onClick={async () => {
+                          if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >
