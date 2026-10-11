@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, createTRPCReact } from "@trpc/react-query";
 import superjson from "superjson";
 
 import { hasAnyPendingChanges } from "@/trpc/pending";
 import { ConfirmProvider } from "@/components/confirm-dialog";
 import { ToastProvider } from "@/components/toast";
+import { makeQueryClient } from "@/trpc/query-client";
 import type { AppRouter } from "@/server/api/root";
-
-/** How long loaded data counts as fresh. */
-const STALE_TIME_MS = 30_000;
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -21,17 +19,8 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  // Data just loaded counts as fresh for 30 s: going back to a page shows it at once and updates it quietly
-  // (and the window regaining focus refetches). A change the Member makes refreshes the lists it touches anyway.
-  const [queryClient] = useState(() => new QueryClient({
-      defaultOptions: {
-        queries: {
-          staleTime: STALE_TIME_MS,
-          // Not while a change is still being saved: a refetch landing now would bring the old data back for a moment.
-          refetchOnWindowFocus: () => !hasAnyPendingChanges(),
-        },
-      },
-    }));
+  // Not while a change is still being saved: a refetch landing now would bring the old data back for a moment.
+  const [queryClient] = useState(() => makeQueryClient({ refetchOnWindowFocus: () => !hasAnyPendingChanges() }));
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [

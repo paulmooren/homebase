@@ -17,31 +17,31 @@ function generateInviteCode(length = 10) {
 
 export const householdRouter = createTRPCRouter({
   current: protectedProcedure.query(async ({ ctx }) => {
-    const membership = await ctx.prisma.householdMember.findUnique({
-      where: { userId: ctx.userId },
-      select: { householdId: true },
-    });
-    if (!membership) return null;
+    const householdId = await ctx.getHouseholdId();
+    if (!householdId) return null;
 
-    const household = await ctx.prisma.household.findUniqueOrThrow({
-      where: { id: membership.householdId },
-      include: {
-        members: {
-          include: { user: { select: { id: true, name: true, email: true, image: true } } },
-          orderBy: { joinedAt: "asc" },
-        },
-      },
-    });
-    const activeInvite = await ctx.prisma.householdInvite.findFirst({
-      where: { householdId: household.id, revokedAt: null },
-      orderBy: { createdAt: "desc" },
-      select: { code: true },
-    });
+    // Three flat reads side by side instead of one after another: this runs on every page.
+    const [household, members, activeInvite] = await Promise.all([
+      ctx.prisma.household.findUniqueOrThrow({
+        where: { id: householdId },
+        select: { id: true, name: true, disabledModules: true },
+      }),
+      ctx.prisma.householdMember.findMany({
+        where: { householdId },
+        include: { user: { select: { id: true, name: true, email: true, image: true } } },
+        orderBy: { joinedAt: "asc" },
+      }),
+      ctx.prisma.householdInvite.findFirst({
+        where: { householdId, revokedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { code: true },
+      }),
+    ]);
 
     return {
       id: household.id,
       name: household.name,
-      members: household.members,
+      members,
       disabledModules: household.disabledModules,
       inviteCode: activeInvite?.code ?? null,
     };

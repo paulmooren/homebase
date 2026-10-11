@@ -11,7 +11,7 @@ async function handler(req: Request) {
     endpoint: "/api/trpc",
     req,
     router: appRouter,
-    createContext: createTRPCContext,
+    createContext: () => createTRPCContext(),
   });
   // Every response here is per-user, cookie-authenticated data — GET queries
   // (tRPC's default for reads) are otherwise cacheable by the browser's HTTP

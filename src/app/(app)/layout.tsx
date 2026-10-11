@@ -1,22 +1,30 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getHouseholdIdForUser } from "@/server/api/household";
 import { AppShell } from "@/components/app-shell";
+import { HydrateClient, caller, getServerContext, loadHousehold, loadQuery } from "@/trpc/server";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/signin");
+  const ctx = await getServerContext();
+  if (!ctx.session?.user) redirect("/signin");
 
-  const householdId = await getHouseholdIdForUser(prisma, session.user.id);
+  // The shell and every page ask for these two, so they arrive with the page. Side by side with the check
+  // that you belong to a Household: one round trip to the database, not three.
+  const [householdId] = await Promise.all([
+    ctx.getHouseholdId(),
+    loadQuery("user.me", undefined, () => caller.user.me()),
+    loadHousehold(),
+  ]);
   if (!householdId) redirect("/household-setup");
 
-  const userName = session.user.name ?? session.user.email?.split("@")[0] ?? "there";
+  const userName = ctx.session.user.name ?? ctx.session.user.email?.split("@")[0] ?? "there";
 
-  return <AppShell userName={userName}>{children}</AppShell>;
+  return (
+    <HydrateClient>
+      <AppShell userName={userName}>{children}</AppShell>
+    </HydrateClient>
+  );
 }

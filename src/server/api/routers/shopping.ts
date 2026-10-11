@@ -36,23 +36,29 @@ const openItems = { clearedAt: null };
 export const shoppingRouter = createTRPCRouter({
   /** Lists you can see, with their open-item counts. A new household gets a Shared "Groceries" list. */
   lists: householdProcedure.query(async ({ ctx }) => {
-    const anyList = await ctx.prisma.shoppingList.findFirst({
-      where: { householdId: ctx.householdId },
-      select: { id: true },
-    });
-    if (!anyList) {
-      await ctx.prisma.shoppingList.create({
-        data: { householdId: ctx.householdId, ownerId: null, name: "Groceries" },
+    const readLists = () =>
+      ctx.prisma.shoppingList.findMany({
+        where: visibleLists(ctx),
+        orderBy: { createdAt: "asc" },
+        include: {
+          _count: { select: { items: { where: { ...openItems, checkedAt: null } } } },
+        },
       });
-    }
 
-    const lists = await ctx.prisma.shoppingList.findMany({
-      where: visibleLists(ctx),
-      orderBy: { createdAt: "asc" },
-      include: {
-        _count: { select: { items: { where: { ...openItems, checkedAt: null } } } },
-      },
-    });
+    let lists = await readLists();
+    if (lists.length === 0) {
+      // Only a Household with no list at all gets the starter list (not one whose lists are all someone else's private ones).
+      const anyList = await ctx.prisma.shoppingList.findFirst({
+        where: { householdId: ctx.householdId },
+        select: { id: true },
+      });
+      if (!anyList) {
+        await ctx.prisma.shoppingList.create({
+          data: { householdId: ctx.householdId, ownerId: null, name: "Groceries" },
+        });
+        lists = await readLists();
+      }
+    }
     return lists.map(({ _count, ...list }) => ({ ...list, openCount: _count.items }));
   }),
 
@@ -92,16 +98,20 @@ export const shoppingRouter = createTRPCRouter({
   items: householdProcedure
     .input(z.object({ listId: z.string() }))
     .query(async ({ ctx, input }) => {
-      await requireList(ctx, input.listId);
-      return ctx.prisma.shoppingItem.findMany({
-        where: {
-          listId: input.listId,
-          ...openItems,
-          OR: [{ checkedAt: null }, { checkedAt: { gte: new Date(Date.now() - 60_000) } }],
-        },
-        orderBy: { createdAt: "asc" },
-        include: { addedBy: { select: { id: true, name: true, email: true } } },
-      });
+      // The list check and the read run side by side; if the list is not yours the check throws and the read is dropped.
+      const [, items] = await Promise.all([
+        requireList(ctx, input.listId),
+        ctx.prisma.shoppingItem.findMany({
+          where: {
+            listId: input.listId,
+            ...openItems,
+            OR: [{ checkedAt: null }, { checkedAt: { gte: new Date(Date.now() - 60_000) } }],
+          },
+          orderBy: { createdAt: "asc" },
+          include: { addedBy: { select: { id: true, name: true, email: true } } },
+        }),
+      ]);
+      return items;
     }),
 
   addItem: householdProcedure
@@ -205,11 +215,14 @@ export const shoppingRouter = createTRPCRouter({
   favorites: householdProcedure
     .input(z.object({ listId: z.string() }))
     .query(async ({ ctx, input }) => {
-      await requireList(ctx, input.listId);
-      return ctx.prisma.shoppingFavorite.findMany({
-        where: { listId: input.listId },
-        orderBy: { createdAt: "asc" },
-      });
+      const [, favorites] = await Promise.all([
+        requireList(ctx, input.listId),
+        ctx.prisma.shoppingFavorite.findMany({
+          where: { listId: input.listId },
+          orderBy: { createdAt: "asc" },
+        }),
+      ]);
+      return favorites;
     }),
 
   addFavorite: householdProcedure
