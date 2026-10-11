@@ -14,7 +14,7 @@ const ACCOUNT_LISTS = [
 ] as const satisfies readonly QueryPath[];
 
 /** What creating an account (which waits for the server) must refresh. */
-export const AFTER_ACCOUNT_CREATED = ["account.list", "dashboard.summary", "dashboard.missingStatements"] as const satisfies readonly QueryPath[];
+export const AFTER_ACCOUNT_CREATED = ["account.list", "dashboard.summary", "dashboard.netWorthHistory", "dashboard.accountHistory", "dashboard.missingStatements"] as const satisfies readonly QueryPath[];
 
 /** The two ways an IBAN can be refused, in the server's words, so the form can say so before anything is sent. */
 export function ibanProblem(raw: string | null | undefined, others: { iban: string | null }[]) {
@@ -54,7 +54,7 @@ export function useAccountActions() {
           return next;
         }),
       );
-      // Transactions carry their account along (its name, its owner).
+      // Transactions carry their Financial account along (its name, its owner).
       cache.update("transaction.list", (rows) =>
         rows.map((t) => {
           const account = cache.find("account.list", (a) => a.id === t.accountId);

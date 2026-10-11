@@ -86,46 +86,46 @@ export const reminderRouter = createTRPCRouter({
     // `completionId`: the id the client gave the completion, so it can offer "Undo" before the server has answered.
     .input(z.object({ id: z.string(), completionId: clientIdSchema }))
     .mutation(async ({ ctx, input }) => {
-    const reminder = await requireReminder(ctx, input.id);
-    const today = todayInHousehold();
-    const next = nextDueDate({
-      mode: reminder.mode,
-      dueDate: reminder.nextDueDate,
-      today,
-      count: reminder.intervalCount,
-      unit: reminder.intervalUnit,
-    });
-    const [completion, updated] = await ctx.prisma.$transaction([
-      ctx.prisma.reminderCompletion.create({
-        data: { id: input.completionId, reminderId: reminder.id, completedById: ctx.userId, dueDateAtCompletion: reminder.nextDueDate },
-        select: { id: true },
-      }),
-      ctx.prisma.reminder.update({ where: { id: reminder.id }, data: { nextDueDate: next } }),
-    ]);
-    return { completionId: completion.id, nextDueDate: updated.nextDueDate };
-  }),
+      const reminder = await requireReminder(ctx, input.id);
+      const today = todayInHousehold();
+      const next = nextDueDate({
+        mode: reminder.mode,
+        dueDate: reminder.nextDueDate,
+        today,
+        count: reminder.intervalCount,
+        unit: reminder.intervalUnit,
+      });
+      const [completion, updated] = await ctx.prisma.$transaction([
+        ctx.prisma.reminderCompletion.create({
+          data: { id: input.completionId, reminderId: reminder.id, completedById: ctx.userId, dueDateAtCompletion: reminder.nextDueDate },
+          select: { id: true },
+        }),
+        ctx.prisma.reminder.update({ where: { id: reminder.id }, data: { nextDueDate: next } }),
+      ]);
+      return { completionId: completion.id, nextDueDate: updated.nextDueDate };
+    }),
 
   /** Takes back a mis-tapped completion: removes it and restores the old due date. */
   undoComplete: householdProcedure
     .input(z.object({ completionId: z.string(), reminderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-    const completion = await ctx.prisma.reminderCompletion.findFirst({
-      where: { id: input.completionId, reminderId: input.reminderId, reminder: { householdId: ctx.householdId } },
-    });
-    if (!completion) throw new TRPCError({ code: "NOT_FOUND" });
-    await ctx.prisma.$transaction([
-      ctx.prisma.reminderCompletion.delete({ where: { id: completion.id } }),
-      ...(completion.dueDateAtCompletion
-        ? [
-            ctx.prisma.reminder.update({
-              where: { id: completion.reminderId },
-              data: { nextDueDate: completion.dueDateAtCompletion },
-            }),
-          ]
-        : []),
-    ]);
-    return { success: true };
-  }),
+      const completion = await ctx.prisma.reminderCompletion.findFirst({
+        where: { id: input.completionId, reminderId: input.reminderId, reminder: { householdId: ctx.householdId } },
+      });
+      if (!completion) throw new TRPCError({ code: "NOT_FOUND" });
+      await ctx.prisma.$transaction([
+        ctx.prisma.reminderCompletion.delete({ where: { id: completion.id } }),
+        ...(completion.dueDateAtCompletion
+          ? [
+              ctx.prisma.reminder.update({
+                where: { id: completion.reminderId },
+                data: { nextDueDate: completion.dueDateAtCompletion },
+              }),
+            ]
+          : []),
+      ]);
+      return { success: true };
+    }),
 
   delete: householdProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
     await requireReminder(ctx, input.id);

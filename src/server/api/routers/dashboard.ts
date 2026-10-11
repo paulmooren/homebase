@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, householdProcedure } from "@/server/api/trpc";
 import { ASSET_ACCOUNT_TYPES } from "@/lib/constants";
-import { accountDelta } from "@/server/api/net-worth";
+import { accountDelta } from "@/lib/account-balance";
 
 function lastMonthRange() {
   const now = new Date();

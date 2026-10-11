@@ -210,7 +210,15 @@ export function useRecurringActions(historyOfItem?: string) {
     },
   });
 
+  // "Not recurring": the suggestion goes away, and is remembered so it is not suggested again.
+  const dismissSuggestions = useOptimisticMutation("recurring.dismissSuggestions", {
+    lists: ["recurring.suggestions"],
+    scope: () => "recurring-suggestions",
+    update: (v, cache) => cache.update("recurring.suggestions", (rows) => rows.filter((s) => !v.matchKeys.includes(s.matchKey))),
+  });
+
   return {
+    dismissSuggestions: dismissSuggestions.mutate,
     create: (values: Omit<Parameters<typeof create.mutate>[0], "id" | "newGroupId">, callbacks?: Parameters<typeof create.mutate>[1]) =>
       create.mutate({ id: newId(), ...(values.newGroupName ? { newGroupId: newId() } : {}), ...values }, callbacks),
     update: (values: Omit<Parameters<typeof update.mutate>[0], "newGroupId">) =>

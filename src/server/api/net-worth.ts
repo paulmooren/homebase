@@ -2,8 +2,6 @@ import type { PrismaClient } from "@prisma/client";
 import { ASSET_ACCOUNT_TYPES } from "@/lib/constants";
 import { accountDelta } from "@/lib/account-balance";
 
-export { accountDelta };
-
 function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }

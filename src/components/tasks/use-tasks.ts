@@ -5,10 +5,10 @@ import { trpc } from "@/trpc/react";
 import { useOptimisticMutation } from "@/trpc/optimistic";
 import type { TaskPriority } from "@/components/tasks/types";
 
-/** Task mutations shared by the Tasks page and the dashboard. Every change shows at once and saves behind the scenes. */
+/** Todo mutations shared by the Tasks page and the dashboard. Every change shows at once and saves behind the scenes. */
 export function useTaskActions() {
   const utils = trpc.useUtils();
-  // The Task rows carry their assignee's name, which a new or reassigned row takes from the loaded household.
+  // The Todo rows carry their assignee's name, which a new or reassigned row takes from the loaded household.
   const ownerOf = (ownerId: string | null | undefined) => {
     const user = ownerId ? utils.household.current.getData()?.members.find((m) => m.user.id === ownerId)?.user : undefined;
     return user ? { id: user.id, name: user.name, email: user.email } : null;

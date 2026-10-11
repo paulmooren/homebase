@@ -324,13 +324,12 @@ function AccountCards({
  * What the app found in your transactions, to review in one go: the
  * confident ones are ticked, one click adds them all.
  */
-function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
+function SuggestionsPanel({ suggestions, onDismiss }: { suggestions: Suggestion[]; onDismiss: (matchKey: string) => void }) {
   // Finding and adding suggestions is worked out by the server, so these wait (the buttons show it).
   const refresh = useRefresh();
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const done = () => refresh("recurring.list", "recurring.suggestions", "transaction.list");
   const add = trpc.recurring.addSuggestions.useMutation({ onSuccess: done });
-  const dismiss = trpc.recurring.dismissSuggestions.useMutation({ onSuccess: done });
 
   const isTicked = (c: Suggestion) => override[c.matchKey] ?? c.confident;
   const ticked = suggestions.filter(isTicked);
@@ -384,7 +383,7 @@ function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              dismiss.mutate({ matchKeys: [c.matchKey] });
+              onDismiss(c.matchKey);
             }}
             className="rounded-lg border border-border-soft px-3 py-1.5 text-[12.5px] font-medium text-text-muted hover:text-text"
           >
@@ -441,7 +440,7 @@ function RecurringItems({
 
   return (
     <>
-      {mine.length > 0 && <SuggestionsPanel suggestions={mine} />}
+      {mine.length > 0 && <SuggestionsPanel suggestions={mine} onDismiss={(matchKey) => recurring.dismissSuggestions({ matchKeys: [matchKey] })} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <RecurringColumn

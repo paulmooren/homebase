@@ -431,6 +431,34 @@ await check("optimistic tasks: a change the server refuses is undone, with \"Cou
   assert(live === "polite", `the message is not in a polite live region ("${live}")`);
 });
 
+await check("optimistic tasks: when adding a todo fails, the todo ticked straight after goes away with it (no ghost) and nothing else is lost", async () => {
+  const title = "Behave ghost todo";
+  await open("/tasks", page.getByRole("button", { name: "New todo" }));
+  const completed = async () => Number(((await page.getByRole("button", { name: /^Completed/ }).textContent()) ?? "").match(/\d+/)?.[0] ?? 0);
+  const before = await completed();
+  const openBefore = await page.getByRole("button", { name: "Mark as done", exact: true }).count();
+  let ticksSent = 0;
+  const countTicks = (r) => r.url().includes("/api/trpc/task.toggleComplete") && ticksSent++;
+  page.on("request", countTicks);
+  await failing(["task.create"], async () => {
+    await page.getByRole("button", { name: "New todo" }).click();
+    const input = page.getByRole("textbox", { name: "New todo" });
+    await input.fill(title);
+    await input.press("Enter");
+    const tick = page.locator("div.group", { has: page.getByRole("button", { name: `Delete ${title}` }) }).getByRole("button", { name: "Mark as done" });
+    await within(AT_ONCE, "the new todo appearing", tick.waitFor());
+    await tick.click();
+    await within(AT_ONCE, "the todo being ticked", page.getByRole("button", { name: `Completed · ${before + 1}` }).waitFor());
+    await expectUndone();
+    await page.waitForTimeout(SLOW_MS * 2); // the tick that depended on the add must not bring the todo back
+  });
+  assert((await page.getByRole("button", { name: `Delete ${title}` }).count()) === 0, "the todo is on screen after its add failed");
+  assert((await completed()) === before, "the Completed count is not back to what it was");
+  assert((await page.getByRole("button", { name: "Mark as done", exact: true }).count()) === openBefore, "the open todos changed");
+  page.off("request", countTicks);
+  assert(ticksSent === 0, "the tick that built on the failed add was sent to the server anyway");
+});
+
 await check("optimistic shopping: a new list is selected at once and takes items straight away, ticking and favourites are instant, and a reload agrees", async () => {
   const name = "Behave list";
   const leftovers = async () => {

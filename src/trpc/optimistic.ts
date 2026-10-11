@@ -6,6 +6,7 @@ import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 
 import { showToast } from "@/components/toast";
 import type { AppRouter } from "@/server/api/root";
+import { pending } from "@/trpc/pending";
 import { trpc } from "@/trpc/react";
 
 /** What the Member is told when the server refused a change the screen already showed. */
@@ -61,7 +62,7 @@ type Config<P extends MutationPath> = {
   update?: (variables: Get<Inputs, P>, cache: CacheEditor) => void;
   /**
    * Changes with the same scope are sent one after another, in the order made; others are sent at the same time.
-   * Use the row's id, so "add a Task, then tick it" reaches the server in that order.
+   * Use the row's id, so "add a Todo, then tick it" reaches the server in that order.
    */
   scope?: (variables: Get<Inputs, P>) => string | null | undefined;
   /**
@@ -86,10 +87,20 @@ const keyOf = (path: QueryPath): QueryKey => [path.split(".")];
 /** The latest change made in each scope, so a change that depends on it can wait for it. */
 const tails = new Map<string, Promise<unknown>>();
 
-/** How many changes are in flight per list: the quiet refetch waits for the last one. */
-const pending = new Map<QueryPath, number>();
+/** A change that has been started and not yet settled; what a failure needs to know about the others. */
+type InFlight = {
+  lists: readonly QueryPath[];
+  scopeId: string | null | undefined;
+  needs: readonly (string | null | undefined)[];
+  /** Shows this change again (used when an earlier one failed and took the lists back to before it). */
+  reapply: (cache: CacheEditor) => void;
+  /** An earlier change this one builds on failed, so it is not sent and not shown any more. */
+  dropped: boolean;
+  settled: boolean;
+};
+const inFlight: InFlight[] = [];
 
-function editorFor(queryClient: QueryClient): CacheEditor {
+function editorFor(queryClient: QueryClient, only?: ReadonlySet<QueryPath>): CacheEditor {
   return {
     find(path, match) {
       for (const [, data] of queryClient.getQueriesData({ queryKey: keyOf(path) })) {
@@ -99,6 +110,7 @@ function editorFor(queryClient: QueryClient): CacheEditor {
       return undefined;
     },
     update(path, change) {
+      if (only && !only.has(path)) return;
       for (const [key, data] of queryClient.getQueriesData({ queryKey: keyOf(path) })) {
         if (data === undefined) continue;
         const input = (key[1] as { input?: unknown } | undefined)?.input;
@@ -129,9 +141,22 @@ export function useOptimisticMutation<P extends MutationPath>(path: P, config: C
     (variables: Get<Inputs, P>) => {
       // The config as it is when the change is made; later renders must not alter a change in flight.
       const { lists, update, scope, onUndone, dependsOn } = latest.current.config;
-      const waitFor = (dependsOn?.(variables) ?? []).flatMap((id) => (id && tails.get(id) ? [tails.get(id)!] : []));
+      const needs = dependsOn?.(variables) ?? [];
+      const waitFor = needs.flatMap((id) => (id && tails.get(id) ? [tails.get(id)!] : []));
+      const entry: InFlight = {
+        lists,
+        scopeId: scope?.(variables),
+        needs,
+        reapply: (cache) => update?.(variables, cache),
+        dropped: false,
+        settled: false,
+      };
+      inFlight.push(entry);
       const observer = new MutationObserver<Get<Outputs, P>, unknown, Get<Inputs, P>, Snapshot>(queryClient, {
+        // A change that cannot be sent (offline) fails and is undone, rather than waiting for a connection.
+        networkMode: "always",
         mutationFn: async (input) => {
+          if (entry.dropped) throw new Error("A change this one depends on was not saved.");
           // A change this one builds on (creating the list an item goes into) must have reached the server first.
           await Promise.all(waitFor);
           const procedure = path.split(".").reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], latest.current.client) as {
@@ -155,13 +180,30 @@ export function useOptimisticMutation<P extends MutationPath>(path: P, config: C
           return snapshot;
         },
         onError: (_error, input, snapshot) => {
+          // Dropped: an earlier change failed, and putting its snapshot back already took this one off the screen.
+          if (entry.dropped) return;
           for (const { entries } of snapshot ?? []) {
             for (const [key, data] of entries) queryClient.setQueryData(key, data);
+          }
+          // Putting the snapshot back also took off whatever was started after this change and is still saving:
+          // show those again, unless they build on this one (they cannot succeed) or touch other lists too.
+          const failedScopes = new Set<string>(entry.scopeId ? [entry.scopeId] : []);
+          const editor = editorFor(queryClient, new Set(lists));
+          for (const later of inFlight.slice(inFlight.indexOf(entry) + 1)) {
+            if (later.settled) continue;
+            if ((later.scopeId && failedScopes.has(later.scopeId)) || later.needs.some((id) => id && failedScopes.has(id))) {
+              later.dropped = true;
+              if (later.scopeId) failedScopes.add(later.scopeId);
+            } else if (later.lists.some((list) => lists.includes(list))) {
+              later.reapply(editor);
+            }
           }
           showToast(UNDONE_MESSAGE);
           onUndone?.(input);
         },
         onSettled: () => {
+          entry.settled = true;
+          inFlight.splice(inFlight.indexOf(entry), 1);
           for (const list of lists) {
             const left = (pending.get(list) ?? 1) - 1;
             if (left > 0) pending.set(list, left);
@@ -206,6 +248,7 @@ export function useOptimisticMutation<P extends MutationPath>(path: P, config: C
 }
 
 /** True while any change to this list is still being saved: a refetch landing now could bring back old data. */
+export { hasAnyPendingChanges } from "@/trpc/pending";
 export function hasPendingChanges(path: QueryPath) {
   return (pending.get(path) ?? 0) > 0;
 }
