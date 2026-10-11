@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { Modal, ModalFooter } from "@/components/modal";
+import { Tip } from "@/components/ui/tooltip";
 import { BASES, BASIS_WINDOW, amountForBasis, type BudgetBasis } from "@/lib/budget-basis";
 import { formatEUR } from "@/lib/format";
 import { parseMoney } from "@/lib/money";
@@ -75,31 +76,39 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
             {data.payments.length} payment{data.payments.length === 1 ? "" : "s"} · {describeSchedule(data.intervalCount, data.intervalUnit).toLowerCase()}
           </p>
           {/* Headroom above the bars (pt-14) keeps the tooltip of the tallest one inside the chart. */}
-          <div className="flex h-40 items-stretch gap-1.5 rounded-xl bg-surface-2 px-3 pt-14 pb-2" aria-hidden>
+          <div className="flex h-40 items-stretch gap-1.5 rounded-xl bg-surface-2 px-3 pt-14 pb-2">
             {data.payments.map((p) => {
               const inWindow = !p.excluded && seen++ >= recentStart;
               const height = Math.max(4, (p.amount / maxAmount) * 100);
               return (
                 <div key={p.id} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
-                  <div className="relative flex w-full flex-1 items-end justify-center">
+                  <Tip
+                    anchorToChild
+                    className="text-center"
+                    label={
+                      <>
+                        {formatEUR(p.amount)}
+                        <span className="block text-[10.5px] font-normal text-bg/70">
+                          {DAY.format(new Date(p.date))}
+                          {p.excluded && " · set aside"}
+                        </span>
+                      </>
+                    }
+                  >
                     <div
-                      className={`w-full max-w-9 rounded-t-md transition-opacity group-hover:opacity-80 ${
-                        p.excluded ? "bg-text-faint/30" : inWindow ? "bg-text" : "bg-text-faint/60"
-                      }`}
-                      style={{ height: `${height}%` }}
-                    />
-                    <span
-                      role="tooltip"
-                      className="pointer-events-none absolute left-1/2 z-20 hidden -translate-x-1/2 rounded-lg bg-text px-2.5 py-1.5 text-center text-[11.5px] font-medium whitespace-nowrap text-bg shadow-lg group-hover:block"
-                      style={{ bottom: `calc(${height}% + 6px)` }}
+                      role="img"
+                      tabIndex={0}
+                      aria-label={`${formatEUR(p.amount)}, ${DAY.format(new Date(p.date))}${p.excluded ? ", set aside" : ""}`}
+                      className="relative flex w-full flex-1 items-end justify-center outline-none"
                     >
-                      {formatEUR(p.amount)}
-                      <span className="block text-[10.5px] font-normal text-bg/70">
-                        {DAY.format(new Date(p.date))}
-                        {p.excluded && " · set aside"}
-                      </span>
-                    </span>
-                  </div>
+                      <div
+                        className={`w-full max-w-9 rounded-t-md transition-opacity group-hover:opacity-80 group-focus-within:opacity-80 ${
+                          p.excluded ? "bg-text-faint/30" : inWindow ? "bg-text" : "bg-text-faint/60"
+                        }`}
+                        style={{ height: `${height}%` }}
+                      />
+                    </div>
+                  </Tip>
                   <span className="text-[10px] text-text-faint">{MONTH.format(new Date(p.date))}</span>
                 </div>
               );
