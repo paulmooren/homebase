@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 
-import { returnFocusTo, useOpener } from "@/components/ui/focus";
+import { openedByKeyboard, returnFocusTo, useOpener } from "@/components/ui/focus";
 
 // The first thing to type into or press, in document order. Skips the visually hidden inputs Base UI renders
 // next to its Select and Checkbox.
@@ -58,7 +58,7 @@ export function Modal({
               if (active instanceof HTMLElement && active !== popup && popup.contains(active)) return active;
               // From the keyboard, the first field. By pointer or touch, the dialog itself: no field lights up
               // that didn't before, and on a phone the on-screen keyboard stays closed. Tab then reaches the fields.
-              return openType === "keyboard" ? (popup.querySelector<HTMLElement>(FIRST_FIELD) ?? popup) : popup;
+              return openType === "keyboard" || openedByKeyboard(opener) ? (popup.querySelector<HTMLElement>(FIRST_FIELD) ?? popup) : popup;
             }}
             className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface shadow-2xl outline-none sm:rounded-[24px] ${width}`}
           >

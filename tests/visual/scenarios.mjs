@@ -102,6 +102,10 @@ export const SCENARIOS = [
   { name: "budgets-edit-row", persona: "Alex", path: "/finance/budgets", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await p.getByRole("tab", { name: "Household" }).click(); await p.getByRole("button", { name: "Edit Rent" }).click(); } },
   { name: "budgets-add-group", persona: "Alex", path: "/finance/budgets", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await p.getByRole("tab", { name: "Household" }).click(); await clickText("+ Add group")(p); } },
 
+  { name: "filter-category", persona: "Alex", path: "/finance/transactions", viewportOnly: true, viewports: ["desktop"], run: click("Category", { exact: true }) },
+  { name: "filter-date", persona: "Alex", path: "/finance/transactions", viewportOnly: true, viewports: ["desktop"], run: click("Date", { exact: true }) },
+  { name: "favorites-sheet", persona: "Alex", path: "/lists/shopping", viewportOnly: true, viewports: ["phone"], run: click(/Favorites/) },
+
   // ── Changes data: keep last ───────────────────────────────────────────────
   {
     name: "toast-reminder-done",

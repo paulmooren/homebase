@@ -17,3 +17,12 @@ export function useOpener() {
 export function returnFocusTo(active: Element | null) {
   return () => (active instanceof HTMLElement && active !== document.body && active.isConnected ? active : true);
 }
+
+/**
+ * Whether the pop-up was opened from the keyboard: the button that opened it shows a keyboard focus ring
+ * (`:focus-visible`), which a mouse or touch press on a button does not. Base UI cannot say, for a pop-up that is
+ * rendered already open, so we ask the opener ourselves.
+ */
+export function openedByKeyboard(opener: Element | null) {
+  return opener instanceof HTMLElement && opener.matches(":focus-visible");
+}

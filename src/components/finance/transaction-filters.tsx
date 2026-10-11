@@ -341,6 +341,7 @@ function FilterChipWithPanel({
   children: React.ReactNode;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div>
@@ -351,6 +352,7 @@ function FilterChipWithPanel({
           }`}
         >
           <Popover.Trigger
+            ref={triggerRef}
             className={`inline-flex h-full items-center gap-1.5 pl-3.5 ${active ? "pr-1.5" : "pr-3.5"}`}
           >
             {label}
@@ -368,7 +370,19 @@ function FilterChipWithPanel({
           )}
         </span>
         <Popover.Portal>
-          <Popover.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={8} className="z-50 outline-none">
+          <Popover.Positioner
+            side="bottom"
+            align="start"
+            sideOffset={8}
+            // Opens under the button's left edge, but no further right than 300px from the window's edge (as before).
+            alignOffset={() => {
+              const left = triggerRef.current?.getBoundingClientRect().left ?? 0;
+              return Math.max(8, Math.min(left, window.innerWidth - 300)) - left;
+            }}
+            collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
+            collisionPadding={8}
+            className="z-50 outline-none"
+          >
             <Popover.Popup
               ref={popupRef}
               aria-label={`${label} filter`}
