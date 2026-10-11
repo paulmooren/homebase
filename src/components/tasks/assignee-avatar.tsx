@@ -34,10 +34,9 @@ export function AssigneeAvatar({
 
   return (
     <PopoverMenu
-      trigger={({ toggle }) => (
+      trigger={
         <button
           type="button"
-          onClick={toggle}
           aria-label={`Assigned to ${label}, click to change`}
           title={label}
           className="rounded-full transition-opacity hover:opacity-80"
@@ -53,39 +52,22 @@ export function AssigneeAvatar({
             </span>
           )}
         </button>
-      )}
+      }
     >
-      {({ close }) => (
-        <>
-          {[...members]
-            .sort((a, b) => (a.user.id === currentUserId ? -1 : b.user.id === currentUserId ? 1 : 0))
-            .map((m) => (
-              <MenuItem
-                key={m.user.id}
-                active={m.user.id === ownerId}
-                onClick={() => {
-                  onChange(m.user.id);
-                  close();
-                }}
-              >
-                <Avatar name={m.user.name || m.user.email} image={m.user.image} size={22} />
-                {m.user.id === currentUserId ? "You" : m.user.name || m.user.email}
-              </MenuItem>
-            ))}
-          <MenuItem
-            active={ownerId === null}
-            onClick={() => {
-              onChange(null);
-              close();
-            }}
-          >
-            <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-surface-2 p-1 text-text-muted">
-              <SharedIcon />
-            </span>
-            Everyone
+      {[...members]
+        .sort((a, b) => (a.user.id === currentUserId ? -1 : b.user.id === currentUserId ? 1 : 0))
+        .map((m) => (
+          <MenuItem key={m.user.id} active={m.user.id === ownerId} onClick={() => onChange(m.user.id)}>
+            <Avatar name={m.user.name || m.user.email} image={m.user.image} size={22} />
+            {m.user.id === currentUserId ? "You" : m.user.name || m.user.email}
           </MenuItem>
-        </>
-      )}
+        ))}
+      <MenuItem active={ownerId === null} onClick={() => onChange(null)}>
+        <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-surface-2 p-1 text-text-muted">
+          <SharedIcon />
+        </span>
+        Everyone
+      </MenuItem>
     </PopoverMenu>
   );
 }

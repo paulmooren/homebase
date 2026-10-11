@@ -10,7 +10,7 @@ import { PriorityPill, PRIORITY_ORDER } from "@/components/tasks/priority-pill";
 import { CELL_TEXT, type Task, type Member, type TaskPriority } from "@/components/tasks/types";
 import { ReminderRow, ScheduleForm, type ReminderData } from "@/components/reminders/reminder-row";
 import { useReminderActions } from "@/components/reminders/use-reminders";
-import { PopoverMenu } from "@/components/popover-menu";
+import { PopoverPanel } from "@/components/popover-menu";
 import { dueBucket, describeSchedule, todayInHousehold, type DueBucket, type ScheduleMode, type ScheduleUnit } from "@/lib/schedule";
 
 export default function TasksPage() {
@@ -205,13 +205,13 @@ function NewReminderRow({
         className={`w-full bg-transparent ${CELL_TEXT} font-medium outline-none placeholder:font-normal placeholder:text-text-faint`}
       />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-text-muted">
-        <PopoverMenu
+        <PopoverPanel
           align="left"
-          trigger={({ toggle }) => (
-            <button type="button" onClick={toggle} className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text hover:bg-border-soft">
+          trigger={
+            <button type="button" className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text hover:bg-border-soft">
               {describeSchedule(schedule.intervalCount, schedule.intervalUnit)}
             </button>
-          )}
+          }
         >
           {({ close }) => (
             <ScheduleForm
@@ -222,7 +222,7 @@ function NewReminderRow({
               }}
             />
           )}
-        </PopoverMenu>
+        </PopoverPanel>
         <label className="flex items-center gap-2">
           First due
           <input

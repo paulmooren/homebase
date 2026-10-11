@@ -22,6 +22,7 @@ import { Modal, ModalFooter } from "@/components/modal";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import Link from "next/link";
 import { RepeatIcon } from "@/components/action-icons";
+import { Tip } from "@/components/ui/tooltip";
 import { MarkRecurringModal, type RecurringSource } from "@/components/finance/mark-recurring-modal";
 import { describeSchedule } from "@/lib/schedule";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
@@ -386,14 +387,21 @@ function TransactionsPageInner() {
                   <div className={COL_ACTIONS}>
                     {recurringItem && (
                       // Active: this transaction belongs to a recurring item. Hovering says how often.
-                      <span className="group/rec relative flex h-6 w-6 items-center justify-center text-good">
-                        <span className="block h-3.5 w-3.5">
-                          <RepeatIcon />
+                      <Tip
+                        align="end"
+                        label={`Recurring · ${describeSchedule(recurringItem.intervalCount, recurringItem.intervalUnit).replace(/^Every /, "every ")}`}
+                      >
+                        <span
+                          role="img"
+                          tabIndex={0}
+                          aria-label={`Recurring, ${describeSchedule(recurringItem.intervalCount, recurringItem.intervalUnit).replace(/^Every /, "every ")}`}
+                          className="relative flex h-6 w-6 items-center justify-center text-good outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-text"
+                        >
+                          <span className="block h-3.5 w-3.5">
+                            <RepeatIcon />
+                          </span>
                         </span>
-                        <span className="pointer-events-none absolute right-0 bottom-full z-20 mb-1.5 hidden whitespace-nowrap rounded-lg bg-text px-2.5 py-1.5 text-[11.5px] font-medium text-bg shadow-lg group-hover/rec:block">
-                          Recurring · {describeSchedule(recurringItem.intervalCount, recurringItem.intervalUnit).replace(/^Every /, "every ")}
-                        </span>
-                      </span>
+                      </Tip>
                     )}
                     {canEdit && !recurringItem && (
                       <button

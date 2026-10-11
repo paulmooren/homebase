@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Popover } from "@base-ui/react/popover";
 
 import { CATEGORY_COLORS } from "@/lib/constants";
 
@@ -20,60 +21,39 @@ export function ColorBarPicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   return (
-    <div ref={ref} className={`relative flex self-stretch ${className}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={label}
-        aria-expanded={open}
-        className="flex w-3 cursor-pointer justify-center self-stretch"
-      >
-        <span className="block w-[3px] rounded-full" style={{ background: value }} />
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          aria-label="Pick a colour"
-          className="absolute top-full left-0 z-20 mt-2 grid w-max grid-cols-10 gap-1.5 rounded-xl border border-border-soft bg-surface p-3 shadow-lg"
-        >
-          {CATEGORY_COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              role="option"
-              aria-selected={color === value}
-              aria-label={color}
-              onClick={() => {
-                onChange(color);
-                setOpen(false);
-              }}
-              className={`h-6 w-6 rounded-full transition-transform hover:scale-110 ${
-                color.toLowerCase() === value.toLowerCase() ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""
-              }`}
-              style={{ background: color }}
-            />
-          ))}
-        </div>
-      )}
+    <div className={`relative flex self-stretch ${className}`}>
+      <Popover.Root open={open} onOpenChange={setOpen}>
+        <Popover.Trigger aria-label={label} className="flex w-3 cursor-pointer justify-center self-stretch">
+          <span className="block w-[3px] rounded-full" style={{ background: value }} />
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={8} className="outline-none">
+            <Popover.Popup
+              aria-label="Pick a colour"
+              className="grid w-max grid-cols-10 gap-1.5 rounded-xl border border-border-soft bg-surface p-3 shadow-lg outline-none"
+            >
+              {CATEGORY_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-pressed={color.toLowerCase() === value.toLowerCase()}
+                  aria-label={color}
+                  onClick={() => {
+                    onChange(color);
+                    setOpen(false);
+                  }}
+                  className={`h-6 w-6 rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    color.toLowerCase() === value.toLowerCase() ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""
+                  }`}
+                  style={{ background: color }}
+                />
+              ))}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 }

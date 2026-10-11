@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CheckIcon, TrashIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { InlineEdit } from "@/components/inline-edit";
-import { PopoverMenu } from "@/components/popover-menu";
+import { PopoverPanel } from "@/components/popover-menu";
 import { SelectInput } from "@/components/settings/form";
 import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import type { Member } from "@/components/tasks/types";
@@ -177,18 +177,17 @@ export function ReminderRow({
 /** "Every week" as a button that opens a small editor: how many, which unit, and what it counts from. */
 function SchedulePopover({ reminder, onUpdate }: { reminder: ReminderData; onUpdate: (patch: ReminderPatch) => void }) {
   return (
-    <PopoverMenu
+    <PopoverPanel
       align="left"
-      trigger={({ toggle }) => (
+      trigger={
         <button
           type="button"
-          onClick={toggle}
           aria-label={`${describeSchedule(reminder.intervalCount, reminder.intervalUnit)}, click to change`}
           className="underline decoration-dotted decoration-text-faint underline-offset-2 hover:text-text"
         >
           {describeSchedule(reminder.intervalCount, reminder.intervalUnit)}
         </button>
-      )}
+      }
     >
       {({ close }) => (
         <ScheduleForm
@@ -199,7 +198,7 @@ function SchedulePopover({ reminder, onUpdate }: { reminder: ReminderData; onUpd
           }}
         />
       )}
-    </PopoverMenu>
+    </PopoverPanel>
   );
 }
 
