@@ -7,8 +7,10 @@ import { Avatar } from "@/components/avatar";
 import { Switch } from "@/components/switch";
 import { MODULES, isModuleEnabled } from "@/lib/modules";
 import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/settings/form";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export default function HouseholdSettingsPage() {
+  const confirm = useConfirm();
   const utils = trpc.useUtils();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
@@ -110,8 +112,14 @@ export default function HouseholdSettingsPage() {
               {copied ? "Copied!" : "Copy link"}
             </button>
             <button
-              onClick={() => {
-                if (confirm("Regenerate the invite link? The current one will stop working."))
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: "Regenerate the invite link?",
+                    description: "The current one will stop working.",
+                    confirmLabel: "Regenerate",
+                  })
+                )
                   regenerateInvite.mutate();
               }}
               className="rounded-xl border border-border-soft px-4 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-2 hover:text-text"

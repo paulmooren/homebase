@@ -11,6 +11,7 @@ import { groupLabel, groupOrder, type Member } from "@/components/finance/owners
 import { VisibilityToggle } from "@/components/finance/visibility-toggle";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
+import { useConfirm } from "@/components/confirm-dialog";
 
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
@@ -27,6 +28,7 @@ type Account = {
 };
 
 export default function AccountsPage() {
+  const confirm = useConfirm();
   const utils = trpc.useUtils();
   const { data: me } = trpc.user.me.useQuery();
   const { data: household } = trpc.household.current.useQuery();
@@ -134,8 +136,8 @@ export default function AccountsPage() {
                         setShowAccountForm(false);
                         setEditingAccount(a);
                       }}
-                      onDelete={() => {
-                        if (confirm(`Delete "${a.name}"?`)) deleteAccount.mutate({ id: a.id });
+                      onDelete={async () => {
+                        if (await confirm({ title: `Delete "${a.name}"?` })) deleteAccount.mutate({ id: a.id });
                       }}
                       onToggleVisibility={(visible) =>
                         updateVisibility.mutate({ id: a.id, visibleToHousehold: visible })
@@ -172,8 +174,8 @@ export default function AccountsPage() {
                         setShowAccountForm(false);
                         setEditingAccount(a);
                       }}
-                      onDelete={() => {
-                        if (confirm(`Delete "${a.name}"?`)) deleteAccount.mutate({ id: a.id });
+                      onDelete={async () => {
+                        if (await confirm({ title: `Delete "${a.name}"?` })) deleteAccount.mutate({ id: a.id });
                       }}
                       onToggleVisibility={(visible) =>
                         updateVisibility.mutate({ id: a.id, visibleToHousehold: visible })

@@ -11,6 +11,7 @@ import { AccountTypeIcon } from "@/components/account-type-icon";
 import { BalanceChart, type BalancePoint, type Granularity } from "@/components/balance-chart";
 import { CategoryCell } from "@/components/finance/category-cell";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
+import { useConfirm } from "@/components/confirm-dialog";
 
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
@@ -19,6 +20,7 @@ const COL_ACTIONS = "flex w-[24px] shrink-0 items-center justify-end";
 const CELL_TEXT = "text-[14px]";
 
 export default function AccountDetailPage() {
+  const confirm = useConfirm();
   const { id: accountId } = useParams<{ id: string }>();
   const utils = trpc.useUtils();
 
@@ -162,8 +164,8 @@ export default function AccountDetailPage() {
                   <div className={COL_ACTIONS}>
                     {canEdit && (
                       <button
-                        onClick={() => {
-                          if (confirm("Delete this transaction?")) deleteTransaction.mutate({ id: t.id });
+                        onClick={async () => {
+                          if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >

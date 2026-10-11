@@ -11,6 +11,7 @@ import { VaultEntryForm } from "@/components/vault/entry-form";
 import { expiryLabel } from "@/lib/vault";
 import { formatDate } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
+import { useConfirm } from "@/components/confirm-dialog";
 
 /** A revealed entry hides itself again after this long. */
 const AUTO_HIDE_MS = 60_000;
@@ -26,6 +27,7 @@ export default function VaultPage() {
 }
 
 function Vault() {
+  const confirm = useConfirm();
   const utils = trpc.useUtils();
   const { data: entries } = trpc.vault.list.useQuery();
   const { data: me } = trpc.user.me.useQuery();
@@ -210,8 +212,8 @@ function Vault() {
                         <button
                           type="button"
                           aria-label={`Delete ${entry.title}`}
-                          onClick={() => {
-                            if (confirm(`Delete "${entry.title}" from the Vault?`)) remove.mutate({ id: entry.id });
+                          onClick={async () => {
+                            if (await confirm({ title: `Delete "${entry.title}" from the Vault?` })) remove.mutate({ id: entry.id });
                           }}
                           className="h-4 w-4 text-text-faint hover:text-critical"
                         >

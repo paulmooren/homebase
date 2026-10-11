@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useRef } from "react";
+import { Dialog } from "@base-ui/react/dialog";
+
+const FIRST_FIELD =
+  "[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])";
 
 /**
  * A dialog over a dimmed page, for forms that deserve the whole focus: a
  * centred card on desktop, a sheet from the bottom on a phone. Escape, the ✕
  * or a click on the dimmed area closes it. The page behind doesn't scroll.
+ * Focus starts on the first form field (by touch, on the dialog itself, so the
+ * on-screen keyboard doesn't cover the sheet).
  */
 export function Modal({
   title,
@@ -18,37 +24,45 @@ export function Modal({
   children: React.ReactNode;
   width?: string;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [onClose]);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <div
-        className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface shadow-2xl sm:rounded-[24px] ${width}`}
-      >
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <h2 className="font-display text-[20px] font-bold tracking-tight">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted hover:bg-surface-2 hover:text-text"
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-black/40 supports-[-webkit-touch-callout:none]:absolute" />
+        <Dialog.Viewport className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6">
+          <Dialog.Popup
+            ref={popupRef}
+            initialFocus={(openType) => {
+              if (openType === "touch") return null;
+              const popup = popupRef.current;
+              if (!popup) return null;
+              // A field React already autofocused, else the first field.
+              const active = document.activeElement;
+              if (active instanceof HTMLElement && active !== popup && popup.contains(active)) return active;
+              return popup.querySelector<HTMLElement>(FIRST_FIELD);
+            }}
+            className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface shadow-2xl outline-none sm:rounded-[24px] ${width}`}
           >
-            ✕
-          </button>
-        </div>
-        <div className="overflow-y-auto px-6 pt-3">{children}</div>
-      </div>
-    </div>
+            <div className="flex items-center justify-between px-6 pt-6 pb-2">
+              <Dialog.Title className="font-display text-[20px] font-bold tracking-tight">{title}</Dialog.Title>
+              <Dialog.Close
+                aria-label="Close"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted hover:bg-surface-2 hover:text-text"
+              >
+                ✕
+              </Dialog.Close>
+            </div>
+            <div className="overflow-y-auto px-6 pt-3">{children}</div>
+          </Dialog.Popup>
+        </Dialog.Viewport>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
