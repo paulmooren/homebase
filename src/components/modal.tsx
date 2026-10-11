@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
+
+import { openerOf } from "@/components/ui/focus";
 
 const FIRST_FIELD =
   "[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])";
@@ -25,6 +27,8 @@ export function Modal({
   width?: string;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  // Focus goes back to what opened this when it closes.
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
 
   return (
     <Dialog.Root
@@ -38,6 +42,7 @@ export function Modal({
         <Dialog.Viewport className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6">
           <Dialog.Popup
             ref={popupRef}
+            finalFocus={openerOf(opener)}
             initialFocus={(openType) => {
               const popup = popupRef.current;
               if (!popup) return null;
