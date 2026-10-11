@@ -20,6 +20,8 @@ import {
   type ScheduleUnit,
 } from "@/lib/schedule";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type ReminderData = {
   id: string;
   title: string;
@@ -80,7 +82,7 @@ export function ReminderRow({
   return (
     <div className="group border-b border-border-soft px-6 py-3 transition-colors last:border-b-0 hover:bg-surface-hover">
       <div className="flex items-start gap-3">
-        <button
+        <Button
           type="button"
           onClick={onTick}
           aria-label={`Mark ${reminder.title} as done`}
@@ -89,7 +91,7 @@ export function ReminderRow({
           <span className="block h-3.5 w-3.5">
             <CheckIcon />
           </span>
-        </button>
+        </Button>
 
         <div className="min-w-0 flex-1">
           <InlineEdit
@@ -103,14 +105,14 @@ export function ReminderRow({
             <SchedulePopover reminder={reminder} onUpdate={onUpdate} />
             <span className="text-text-faint">·</span>
             {last ? (
-              <button
+              <Button
                 type="button"
                 onClick={() => !compact && setShowHistory((v) => !v)}
                 className={compact ? "cursor-default" : "hover:text-text"}
               >
                 last done {agoLabel(new Date(last.completedAt), today)}
                 {last.completedBy && ` by ${nameOf(last.completedBy, currentUserId, last.completedBy.id)}`}
-              </button>
+              </Button>
             ) : (
               <span>not done yet</span>
             )}
@@ -136,14 +138,14 @@ export function ReminderRow({
         )}
 
         {!compact && (
-          <button
+          <Button
             type="button"
             onClick={() => setConfirming(true)}
             aria-label={`Delete ${reminder.title}`}
             className="mt-1 h-4 w-4 shrink-0 text-text-faint hover:text-critical"
           >
             <TrashIcon />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -180,13 +182,13 @@ function SchedulePopover({ reminder, onUpdate }: { reminder: ReminderData; onUpd
     <PopoverPanel
       align="left"
       trigger={
-        <button
+        <Button
           type="button"
           aria-label={`${describeSchedule(reminder.intervalCount, reminder.intervalUnit)}, click to change`}
           className="underline decoration-dotted decoration-text-faint underline-offset-2 hover:text-text"
         >
           {describeSchedule(reminder.intervalCount, reminder.intervalUnit)}
-        </button>
+        </Button>
       }
     >
       {({ close }) => (
@@ -229,7 +231,7 @@ export function ScheduleForm({
     >
       <div className="flex items-center gap-2 text-[13px]">
         <span className="text-text-muted">Every</span>
-        <input
+        <Input
           value={count}
           onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
           inputMode="numeric"
@@ -253,13 +255,13 @@ export function ScheduleForm({
           <option value="FIXED">A fixed rhythm</option>
         </SelectInput>
       </div>
-      <button
+      <Button
         type="button"
         onClick={() => onSave({ intervalCount: n, intervalUnit: unit, mode })}
         className="rounded-lg bg-accent-fill px-4 py-2 text-[13px] font-semibold text-accent-ink hover:opacity-90"
       >
         Save
-      </button>
+      </Button>
     </div>
   );
 }

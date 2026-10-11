@@ -5,6 +5,7 @@ import { useState } from "react";
 import { trpc } from "@/trpc/react";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 
+import { Button } from "@base-ui/react/button";
 const formatNext = (d: Date | string) =>
   new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
@@ -36,7 +37,7 @@ export function useReminderActions() {
       onClose={() => setUndo(null)}
       actions={
         <>
-          <button
+          <Button
             type="button"
             onClick={() => {
               undoComplete.mutate({ completionId: undo.completionId });
@@ -45,10 +46,10 @@ export function useReminderActions() {
             className={toastPrimary}
           >
             Undo
-          </button>
-          <button type="button" onClick={() => setUndo(null)} className={toastSecondary}>
+          </Button>
+          <Button type="button" onClick={() => setUndo(null)} className={toastSecondary}>
             Close
-          </button>
+          </Button>
         </>
       }
     >

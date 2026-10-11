@@ -9,6 +9,8 @@ import { monthlyOf, type BudgetItem, type Entry } from "@/lib/budget-scope";
 import { formatEUR } from "@/lib/format";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type BudgetGroup = { id: string; name: string };
 
 type GroupedItem = BudgetItem & { budgetGroupId: string | null };
@@ -88,7 +90,7 @@ export function ExpenseSections<T extends GroupedItem>({
                     onCommit={(name) => name.trim() && name.trim() !== section.group!.name && onRename(section.group!.id, name.trim())}
                     className="text-[12.5px] font-semibold"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={async () => {
                       if (await confirm({ title: `Delete the group “${section.group!.name}”?`, description: "Its items stay, under Other." })) onDelete(section.group!.id);
@@ -98,7 +100,7 @@ export function ExpenseSections<T extends GroupedItem>({
                     className="h-3.5 w-3.5 shrink-0 text-text-faint hover:text-critical"
                   >
                     <TrashIcon />
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <span className="text-[12.5px] font-semibold text-text-muted">Other</span>
@@ -130,13 +132,13 @@ export function AddGroup({ onAdd, error }: { onAdd: (name: string) => void; erro
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="px-6 py-3 text-left text-[12.5px] text-text-faint transition-colors hover:text-text"
       >
         + Add group
-      </button>
+      </Button>
     );
   }
   return (
@@ -150,7 +152,7 @@ export function AddGroup({ onAdd, error }: { onAdd: (name: string) => void; erro
         setOpen(false);
       }}
     >
-      <input
+      <Input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -159,12 +161,12 @@ export function AddGroup({ onAdd, error }: { onAdd: (name: string) => void; erro
         aria-label="New group name"
         className="min-w-0 flex-1 rounded-lg border border-border-soft bg-surface px-3 py-1.5 text-[13px] outline-none focus:border-text-faint"
       />
-      <button type="submit" className="rounded-lg bg-accent-fill px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink">
+      <Button type="submit" className="rounded-lg bg-accent-fill px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink">
         Add
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-[12.5px] text-text-muted hover:text-text">
+      </Button>
+      <Button type="button" onClick={() => setOpen(false)} className="text-[12.5px] text-text-muted hover:text-text">
         Cancel
-      </button>
+      </Button>
       {error && <span className="text-[12px] text-critical">{error}</span>}
     </form>
   );

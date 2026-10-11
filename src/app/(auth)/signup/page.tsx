@@ -6,6 +6,8 @@ import { isDemoServer } from "@/lib/demo";
 
 import { signUpWithPassword } from "./actions";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 const ERROR_MESSAGES: Record<string, string> = {
   "weak-password": "Password must be at least 8 characters.",
   "email-taken": "That email is already registered — try signing in instead.",
@@ -42,20 +44,20 @@ export default async function SignUpPage({
         )}
 
         <form action={signUpWithPassword} className="flex flex-col gap-3">
-          <input
+          <Input
             type="text"
             name="name"
             placeholder="Your name (optional)"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <input
+          <Input
             type="email"
             name="email"
             required
             placeholder="you@example.com"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <input
+          <Input
             type="password"
             name="password"
             required
@@ -63,12 +65,12 @@ export default async function SignUpPage({
             placeholder="Password (min. 8 characters)"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <button
+          <Button
             type="submit"
             className="w-full rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink transition-opacity hover:opacity-90"
           >
             Create account
-          </button>
+          </Button>
         </form>
 
         <p className="mt-5 text-center text-[13px] text-text-muted">

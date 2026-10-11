@@ -6,6 +6,7 @@ import { trpc } from "@/trpc/react";
 import { Switch } from "@/components/switch";
 import { SettingsSection } from "@/components/settings/form";
 
+import { Button } from "@base-ui/react/button";
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
 /** The browser wants the public key as bytes, not base64url text. */
@@ -149,14 +150,14 @@ export default function NotificationsSettingsPage() {
 
         {status && (
           <div className="flex flex-col gap-2">
-            <button
+            <Button
               type="button"
               onClick={() => sendTest.mutate()}
               disabled={sendTest.isPending || status.devices === 0}
               className="self-start rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium hover:bg-surface-hover disabled:text-text-faint disabled:hover:bg-transparent"
             >
               {sendTest.isPending ? "Sending…" : "Send me a test notification"}
-            </button>
+            </Button>
             <p className="text-[12.5px] text-text-muted">
               {status.devices === 0
                 ? "No device has notifications on yet."

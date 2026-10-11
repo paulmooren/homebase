@@ -4,6 +4,7 @@ import { Avatar } from "@/components/avatar";
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
 import type { Member } from "@/components/tasks/types";
 
+import { Button } from "@base-ui/react/button";
 function SharedIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
@@ -35,7 +36,7 @@ export function AssigneeAvatar({
   return (
     <PopoverMenu
       trigger={
-        <button
+        <Button
           type="button"
           aria-label={`Assigned to ${label}, click to change`}
           title={label}
@@ -51,7 +52,7 @@ export function AssigneeAvatar({
               <SharedIcon />
             </span>
           )}
-        </button>
+        </Button>
       }
     >
       {[...members]

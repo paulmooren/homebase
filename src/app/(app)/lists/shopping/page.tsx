@@ -16,6 +16,8 @@ import {
   useTickGrace,
 } from "@/components/shopping/use-shopping";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export default function ShoppingPage() {
   return (
     <ModuleGate module="shopping">
@@ -108,14 +110,14 @@ function ShoppingLists() {
         <h2 className="text-[16px] font-semibold">Favorites</h2>
         <p className="text-[12px] text-text-muted">What you buy often, for {selected.name}</p>
       </div>
-      <button
+      <Button
         type="button"
         onClick={() => setSheetOpen(false)}
         className="text-[12.5px] font-medium text-text-muted hover:text-text lg:hidden"
         hidden={!sheetOpen}
       >
         Close
-      </button>
+      </Button>
     </div>
   );
 
@@ -137,7 +139,7 @@ function ShoppingLists() {
         {lists.map((list) => {
           const active = list.id === selected?.id;
           return (
-            <button
+            <Button
               key={list.id}
               type="button"
               aria-pressed={active}
@@ -157,16 +159,16 @@ function ShoppingLists() {
               {list.ownerId !== null && (
                 <span className={`text-[11px] ${active ? "text-bg/70" : "text-text-faint"}`}>Private</span>
               )}
-            </button>
+            </Button>
           );
         })}
-        <button
+        <Button
           type="button"
           onClick={() => setCreating((c) => !c)}
           className="inline-flex h-9 items-center rounded-full border border-dashed border-border px-4 text-[13.5px] font-medium text-text-muted hover:border-text-faint hover:text-text"
         >
           {creating ? "Cancel" : "+ New list"}
-        </button>
+        </Button>
       </div>
 
       {creating && (
@@ -179,7 +181,7 @@ function ShoppingLists() {
       {selected && (
         <div className="flex rounded-xl bg-surface-2 p-1 text-[13px] font-medium lg:hidden" role="tablist">
           {(["list", "favorites"] as const).map((view) => (
-            <button
+            <Button
               key={view}
               type="button"
               role="tab"
@@ -190,7 +192,7 @@ function ShoppingLists() {
               }`}
             >
               {view === "list" ? "List" : `Favorites${favorites?.length ? ` · ${favorites.length}` : ""}`}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -213,20 +215,20 @@ function ShoppingLists() {
               </p>
             </div>
             <div className="flex items-center gap-3 text-[12.5px] font-medium">
-              <button
+              <Button
                 type="button"
                 onClick={() => setSheetOpen(true)}
                 className="rounded-full border border-border px-3 py-1 text-text hover:border-text lg:hidden"
               >
                 ★ Favorites
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setConfirmDeleteList(true)}
                 className="text-text-muted hover:text-critical"
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -270,7 +272,7 @@ function ShoppingLists() {
 
       {selected && sheetOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Favorites">
-          <button
+          <Button
             type="button"
             aria-label="Close favorites"
             onClick={() => setSheetOpen(false)}
@@ -304,7 +306,7 @@ function NewListForm({
         if (name.trim()) onSubmit(name.trim(), shared);
       }}
     >
-      <input
+      <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
         autoFocus
@@ -318,7 +320,7 @@ function NewListForm({
           { value: true, label: "Shared" },
           { value: false, label: "Private" },
         ].map((option) => (
-          <button
+          <Button
             key={option.label}
             type="button"
             role="radio"
@@ -329,16 +331,16 @@ function NewListForm({
             }`}
           >
             {option.label}
-          </button>
+          </Button>
         ))}
       </div>
-      <button
+      <Button
         type="submit"
         disabled={!name.trim() || pending}
         className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
       >
         Create
-      </button>
+      </Button>
     </form>
   );
 }

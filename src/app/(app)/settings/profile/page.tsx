@@ -9,6 +9,8 @@ import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/s
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { signOutAction } from "../actions";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export default function ProfileSettingsPage() {
   return (
     <>
@@ -17,12 +19,12 @@ export default function ProfileSettingsPage() {
       {!IS_DEMO_CLIENT && <SecuritySection />}
       <SettingsSection title="Session">
         <form action={signOutAction}>
-          <button
+          <Button
             type="submit"
             className="rounded-xl border border-border-soft px-5 py-2.5 text-[13.5px] font-medium text-critical hover:bg-surface-2"
           >
             Sign out
-          </button>
+          </Button>
         </form>
       </SettingsSection>
     </>
@@ -69,13 +71,13 @@ function ProfileSection() {
             />
           </label>
           {me?.image && (
-            <button
+            <Button
               type="button"
               onClick={() => updateAvatar.mutate({ image: null })}
               className="text-text-muted hover:text-critical"
             >
               Remove
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -89,7 +91,7 @@ function ProfileSection() {
         }}
       >
         <Field label="Name">
-          <input
+          <Input
             value={value}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
@@ -98,7 +100,7 @@ function ProfileSection() {
           />
         </Field>
         <Field label="Email">
-          <input value={me?.email ?? ""} disabled readOnly className={inputClass} />
+          <Input value={me?.email ?? ""} disabled readOnly className={inputClass} />
         </Field>
         <UpdateButton disabled={!dirty || updateName.isPending} />
       </form>
@@ -151,7 +153,7 @@ function SecuritySection() {
       >
         {hasPassword && (
           <Field label="Current password">
-            <input
+            <Input
               type="password"
               autoComplete="current-password"
               value={current}
@@ -163,7 +165,7 @@ function SecuritySection() {
         )}
         <Field label="New password">
           <div className="relative">
-            <input
+            <Input
               type={show ? "text" : "password"}
               autoComplete="new-password"
               value={next}
@@ -171,17 +173,17 @@ function SecuritySection() {
               placeholder="New password (min. 8 characters)"
               className={`${inputClass} pr-16`}
             />
-            <button
+            <Button
               type="button"
               onClick={() => setShow((s) => !s)}
               className="absolute inset-y-0 right-3.5 text-[12px] font-medium text-text-muted hover:text-text"
             >
               {show ? "Hide" : "Show"}
-            </button>
+            </Button>
           </div>
         </Field>
         <Field label="Confirm new password">
-          <input
+          <Input
             type={show ? "text" : "password"}
             autoComplete="new-password"
             value={confirm}

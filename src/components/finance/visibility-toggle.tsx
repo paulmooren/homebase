@@ -1,3 +1,4 @@
+import { Button } from "@base-ui/react/button";
 /**
  * Inline visibility control for a personally-owned row (account, recurring
  * item, or budget). Only ever shown for rows the viewer owns — shared rows
@@ -14,7 +15,7 @@ export function VisibilityToggle({
   pending?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={() => onChange(!visible)}
       disabled={pending}
@@ -26,7 +27,7 @@ export function VisibilityToggle({
       title={visible ? "Visible to household — click to make private" : "Private — click to share the view"}
     >
       {visible ? "Visible to household" : "Private"}
-    </button>
+    </Button>
   );
 }
 

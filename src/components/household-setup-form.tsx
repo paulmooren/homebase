@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { trpc } from "@/trpc/react";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 type Mode = "create" | "join";
 
 export function HouseholdSetupForm() {
@@ -45,7 +47,7 @@ export function HouseholdSetupForm() {
       </p>
 
       <div className="mb-5 flex gap-1 rounded-xl border border-border-soft bg-surface-2 p-1">
-        <button
+        <Button
           type="button"
           onClick={() => setMode("create")}
           className={`flex-1 rounded-lg py-2 text-[13px] font-medium transition-colors ${
@@ -53,8 +55,8 @@ export function HouseholdSetupForm() {
           }`}
         >
           Create household
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={() => setMode("join")}
           className={`flex-1 rounded-lg py-2 text-[13px] font-medium transition-colors ${
@@ -62,7 +64,7 @@ export function HouseholdSetupForm() {
           }`}
         >
           Join with code
-        </button>
+        </Button>
       </div>
 
       {mode === "create" ? (
@@ -74,19 +76,19 @@ export function HouseholdSetupForm() {
             create.mutate({ name: String(form.get("name")) });
           }}
         >
-          <input
+          <Input
             name="name"
             required
             placeholder="e.g. The Mooren Household"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <button
+          <Button
             type="submit"
             disabled={pending}
             className="w-full rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {create.isPending ? "Creating…" : "Create household"}
-          </button>
+          </Button>
         </form>
       ) : (
         <form
@@ -97,20 +99,20 @@ export function HouseholdSetupForm() {
             join.mutate({ code: String(form.get("code")) });
           }}
         >
-          <input
+          <Input
             name="code"
             required
             defaultValue={prefillCode}
             placeholder="Invite code"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] tracking-[0.08em] text-text uppercase placeholder:text-text-faint placeholder:normal-case outline-none focus:border-accent"
           />
-          <button
+          <Button
             type="submit"
             disabled={pending}
             className="w-full rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {join.isPending ? "Joining…" : "Join household"}
-          </button>
+          </Button>
         </form>
       )}
 

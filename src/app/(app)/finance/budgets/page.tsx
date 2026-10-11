@@ -33,6 +33,8 @@ import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 import { InlineSelect } from "@/components/ui/select";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
 const NEW_GROUP = "__new__";
@@ -197,7 +199,7 @@ function LeftEachMonth({
         {showScopes && (
           <div role="tablist" aria-label="Whose budget" className="flex gap-1 rounded-xl bg-surface-2 p-1">
             {scopes.map((s) => (
-              <button
+              <Button
                 key={s.key}
                 role="tab"
                 aria-selected={scope === s.key}
@@ -207,7 +209,7 @@ function LeftEachMonth({
                 }`}
               >
                 {s.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -225,13 +227,13 @@ function LeftEachMonth({
           : "Add your recurring income and expenses below, or confirm the suggestions, to see what is left each month."}
       </p>
       {changed > 0 && (
-        <button
+        <Button
           type="button"
           onClick={() => document.querySelector("[data-proposal]")?.scrollIntoView({ behavior: "smooth", block: "center" })}
           className="mt-3 rounded-lg bg-surface-2 px-3 py-1.5 text-[12.5px] font-medium text-text hover:bg-surface-hover"
         >
           {changed} amount{changed === 1 ? "" : "s"} changed — review
-        </button>
+        </Button>
       )}
       {hasItems && (
         <p className="mt-1 text-[12px] text-text-faint">
@@ -273,7 +275,7 @@ function AccountCards({
           const { income, expenses } = totalsOf(entries.filter((e) => e.accountId === a.id));
           const active = selected === a.id;
           return (
-            <button
+            <Button
               key={a.id}
               type="button"
               aria-pressed={active}
@@ -309,7 +311,7 @@ function AccountCards({
                   <p className="text-[16px] font-semibold tabular-nums">{formatEUR(expenses)}</p>
                 </div>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -349,13 +351,13 @@ function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
             confident ones are ticked — nothing is added until you say so.
           </p>
         </div>
-        <button
+        <Button
           onClick={() => add.mutate({ matchKeys: ticked.map((c) => c.matchKey) })}
           disabled={ticked.length === 0 || add.isPending}
           className="rounded-xl bg-accent-fill px-4 py-2 text-[13px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
         >
           {add.isPending ? "Adding…" : `Add selected (${ticked.length})`}
-        </button>
+        </Button>
       </div>
       {sorted.map((c) => (
         <label
@@ -380,7 +382,7 @@ function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
               &times;
             </div>
           </div>
-          <button
+          <Button
             type="button"
             onClick={(e) => {
               e.preventDefault();
@@ -389,7 +391,7 @@ function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
             className="rounded-lg border border-border-soft px-3 py-1.5 text-[12.5px] font-medium text-text-muted hover:text-text"
           >
             Not recurring
-          </button>
+          </Button>
         </label>
       ))}
     </section>
@@ -691,7 +693,7 @@ function RecurringColumn({
           onCancel={() => setAdding(false)}
         />
       ) : (
-        <button
+        <Button
           onClick={() => setAdding(true)}
           className="flex w-full items-center gap-3 border-b border-border-soft px-6 py-3 text-left text-text-faint transition-colors last:border-b-0 hover:text-text"
         >
@@ -699,7 +701,7 @@ function RecurringColumn({
             <PlusIcon />
           </span>
           <span className="text-[13.5px]">Add {type === "INCOME" ? "income" : "expense"}</span>
-        </button>
+        </Button>
       )}
       {type === "EXPENSE" && <AddGroup onAdd={onAddGroup} error={addGroupError} />}
     </section>
@@ -781,7 +783,7 @@ function RecurringRow({
     >
       {/* The grip: the only part that drags, so scrolling and clicking the name or amount work as usual. */}
       {canEdit ? (
-        <button
+        <Button
           type="button"
           ref={setActivatorNodeRef}
           {...attributes}
@@ -791,7 +793,7 @@ function RecurringRow({
           className="-ml-3 flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-faint hover:text-text active:cursor-grabbing"
         >
           <GripIcon />
-        </button>
+        </Button>
       ) : (
         <span className="-ml-3 block w-5 shrink-0" aria-hidden />
       )}
@@ -837,22 +839,22 @@ function RecurringRow({
             </span>
             {canEdit && (
               <>
-                <button
+                <Button
                   type="button"
                   disabled={acceptProposal.isPending}
                   onClick={() => acceptProposal.mutate({ id: item.id })}
                   className="rounded-md bg-accent-fill px-2 py-0.5 font-semibold text-accent-ink hover:opacity-90"
                 >
                   Update
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   disabled={keepAmount.isPending}
                   onClick={() => keepAmount.mutate({ id: item.id })}
                   className="rounded-md border border-border-soft px-2 py-0.5 font-medium text-text-muted hover:text-text"
                 >
                   Keep
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -894,31 +896,31 @@ function RecurringRow({
           <VisibilityBadge />
         ))}
       {item.paymentCount > 0 && (
-        <button
+        <Button
           onClick={() => setShowHistory(true)}
           aria-label={`Payment history of ${item.name}`}
           title="Payment history"
           className="h-4 w-4 shrink-0 text-text-muted hover:text-text"
         >
           <ChartIcon />
-        </button>
+        </Button>
       )}
       {canEdit && (
         <>
-          <button
+          <Button
             onClick={() => setEditing(true)}
             aria-label={`Edit ${item.name}`}
             className="h-4 w-4 shrink-0 text-text-muted hover:text-text"
           >
             <PencilIcon />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onDelete}
             aria-label={`Delete ${item.name}`}
             className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
           >
             <TrashIcon />
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -1003,7 +1005,7 @@ function InlineRecurringRow({
     >
       <span className="block w-[3px] shrink-0 self-stretch rounded-full" style={{ background: selectedColor }} />
       <div className="min-w-0 flex-1">
-        <input
+        <Input
           name="name"
           required
           autoFocus
@@ -1054,7 +1056,7 @@ function InlineRecurringRow({
                 ]}
               />
               {groupChoice === NEW_GROUP && (
-                <input
+                <Input
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   maxLength={60}
@@ -1092,7 +1094,7 @@ function InlineRecurringRow({
       </div>
       <div className="flex items-center gap-1 text-[14px] font-semibold">
         <span className="text-text-faint">€</span>
-        <input
+        <Input
           name="amount"
           type="number"
           step="0.01"
@@ -1102,17 +1104,17 @@ function InlineRecurringRow({
           className="w-20 bg-transparent text-right tabular-nums outline-none placeholder:text-text-faint placeholder:font-normal"
         />
       </div>
-      <button type="submit" aria-label="Save" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+      <Button type="submit" aria-label="Save" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={onCancel}
         aria-label="Cancel"
         className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
       >
         <CloseIcon />
-      </button>
+      </Button>
     </form>
   );
 }

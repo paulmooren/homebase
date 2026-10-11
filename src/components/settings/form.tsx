@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
+import { Button } from "@base-ui/react/button";
+import { Field as BaseField } from "@base-ui/react/field";
+
 import { SelectField, optionsFromChildren, type SelectChangeEvent } from "@/components/ui/select";
 
 export const inputClass =
   "w-full rounded-xl border border-border-soft bg-surface px-3.5 py-3 text-[14px] outline-none transition-colors placeholder:text-text-faint focus:border-accent disabled:bg-surface-2 disabled:text-text-muted";
 
+/** A labelled control. The label is tied to the control inside it (an Input, Select or Number Field), so clicking it focuses the control and a screen reader reads it with the control. */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-2">
-      <span className="text-[12.5px] text-text-muted">{label}</span>
+    <BaseField.Root className="flex flex-col gap-2">
+      <BaseField.Label className="text-[12.5px] text-text-muted">{label}</BaseField.Label>
       {children}
-    </label>
+    </BaseField.Root>
   );
 }
 
@@ -22,13 +26,13 @@ export function UpdateButton({
   children?: ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="submit"
       disabled={disabled}
       className="self-start rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink transition-opacity hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint disabled:hover:opacity-100"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

@@ -13,6 +13,8 @@ import { useReminderActions } from "@/components/reminders/use-reminders";
 import { PopoverPanel } from "@/components/popover-menu";
 import { dueBucket, describeSchedule, todayInHousehold, type DueBucket, type ScheduleMode, type ScheduleUnit } from "@/lib/schedule";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export default function TasksPage() {
   const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery();
@@ -77,7 +79,7 @@ function RemindersPanel({ members, currentUserId }: { members: Member[]; current
         <div className="flex flex-wrap items-center gap-2 px-6 pb-4" role="group" aria-label="Show reminders for">
           {[{ id: "all", label: "All" }, ...members.map((m) => ({ id: m.user.id, label: m.user.id === currentUserId ? "You" : m.user.name || m.user.email }))].map(
             (p) => (
-              <button
+              <Button
                 key={p.id}
                 type="button"
                 aria-pressed={filter === p.id}
@@ -89,7 +91,7 @@ function RemindersPanel({ members, currentUserId }: { members: Member[]; current
                 }`}
               >
                 {p.label}
-              </button>
+              </Button>
             ),
           )}
         </div>
@@ -133,7 +135,7 @@ function RemindersPanel({ members, currentUserId }: { members: Member[]; current
           onClose={() => setAdding(false)}
         />
       ) : (
-        <button
+        <Button
           onClick={() => setAdding(true)}
           className="flex w-full items-center gap-3 border-b border-border-soft px-6 py-3 text-left text-text-faint transition-colors last:border-b-0 hover:text-text"
         >
@@ -141,7 +143,7 @@ function RemindersPanel({ members, currentUserId }: { members: Member[]; current
             <PlusIcon />
           </span>
           <span className={CELL_TEXT}>New reminder</span>
-        </button>
+        </Button>
       )}
     </section>
   );
@@ -194,7 +196,7 @@ function NewReminderRow({
       }}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
-      <input
+      <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
@@ -208,9 +210,9 @@ function NewReminderRow({
         <PopoverPanel
           align="left"
           trigger={
-            <button type="button" className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text hover:bg-border-soft">
+            <Button type="button" className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text hover:bg-border-soft">
               {describeSchedule(schedule.intervalCount, schedule.intervalUnit)}
-            </button>
+            </Button>
           }
         >
           {({ close }) => (
@@ -225,7 +227,7 @@ function NewReminderRow({
         </PopoverPanel>
         <label className="flex items-center gap-2">
           First due
-          <input
+          <Input
             type="date"
             name="firstDue"
             defaultValue={new Date().toLocaleDateString("en-CA")}
@@ -236,12 +238,12 @@ function NewReminderRow({
           <AssigneeAvatar ownerId={ownerId} members={members} currentUserId={currentUserId} onChange={setOwnerId} size={26} />
         )}
         <div className="ml-auto flex items-center gap-3">
-          <button type="submit" aria-label="Add reminder" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+          <Button type="submit" aria-label="Add reminder" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
             <CheckIcon />
-          </button>
-          <button type="button" onClick={onClose} aria-label="Cancel" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
+          </Button>
+          <Button type="button" onClick={onClose} aria-label="Cancel" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
             <CloseIcon />
-          </button>
+          </Button>
         </div>
       </div>
     </form>
@@ -309,7 +311,7 @@ function TaskChecklist({
           onClose={() => setAdding(false)}
         />
       ) : (
-        <button
+        <Button
           onClick={() => setAdding(true)}
           className="flex w-full items-center gap-3 border-b border-border-soft px-6 py-3 text-left text-text-faint transition-colors last:border-b-0 hover:text-text"
         >
@@ -317,12 +319,12 @@ function TaskChecklist({
             <PlusIcon />
           </span>
           <span className={CELL_TEXT}>New todo</span>
-        </button>
+        </Button>
       )}
 
       {completed.length > 0 && (
         <>
-          <button
+          <Button
             type="button"
             onClick={() => setShowCompleted((v) => !v)}
             aria-expanded={showCompleted}
@@ -332,7 +334,7 @@ function TaskChecklist({
               Completed · {completed.length}
             </span>
             <span className="text-[12.5px] font-medium text-accent">{showCompleted ? "Hide" : "Show"}</span>
-          </button>
+          </Button>
           {showCompleted && completed.map(row)}
         </>
       )}
@@ -369,7 +371,7 @@ function NewTaskRow({
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <span className="block h-6 w-6 shrink-0 rounded-lg border border-dashed border-border" aria-hidden />
-      <input
+      <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
@@ -383,12 +385,12 @@ function NewTaskRow({
       {multiMember && (
         <AssigneeAvatar ownerId={ownerId} members={members} currentUserId={currentUserId} onChange={setOwnerId} />
       )}
-      <button type="submit" aria-label="Add todo" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+      <Button type="submit" aria-label="Add todo" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
-      </button>
-      <button type="button" onClick={onClose} aria-label="Done adding" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
+      </Button>
+      <Button type="button" onClick={onClose} aria-label="Done adding" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
         <CloseIcon />
-      </button>
+      </Button>
     </form>
   );
 }

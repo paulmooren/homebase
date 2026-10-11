@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 /**
  * An amount is "<number> <unit>": "2" → 2, "500 g" → 500 g, "1,5 kg" → 1.5 kg.
  * No number means one of it: nothing at all is 1, "a bit" is 1 "a bit".
@@ -50,7 +52,7 @@ export function QuantityPill({
 
   return (
     <div className="flex shrink-0 items-center rounded-full bg-surface-2 p-0.5">
-      <button
+      <Button
         type="button"
         aria-label="One less"
         onClick={() => {
@@ -61,9 +63,9 @@ export function QuantityPill({
         className={stepButton}
       >
         −
-      </button>
+      </Button>
       {editing ? (
-        <input
+        <Input
           defaultValue={value ?? "1"}
           autoFocus
           maxLength={30}
@@ -85,18 +87,18 @@ export function QuantityPill({
           }}
         />
       ) : (
-        <button
+        <Button
           type="button"
           onClick={() => setEditing(true)}
           aria-label={`Amount ${value ?? "1"}, click to change`}
           className="min-w-7 px-1 text-center text-[15px] font-semibold tabular-nums"
         >
           {shown}
-        </button>
+        </Button>
       )}
-      <button type="button" aria-label="One more" onClick={() => onChange(stepAmount(value, 1) as string | null)} className={stepButton}>
+      <Button type="button" aria-label="One more" onClick={() => onChange(stepAmount(value, 1) as string | null)} className={stepButton}>
         +
-      </button>
+      </Button>
     </div>
   );
 }

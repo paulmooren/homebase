@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildPoints, smoothPath, areaPath, CHART_HEIGHT, PAD_X } from "@/lib/chart";
 import { formatEUR, formatSignedEUR } from "@/lib/format";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 const PRESETS = [
   { key: "1M", label: "1 M", days: 30 },
   { key: "3M", label: "3 M", days: 90 },
@@ -196,7 +198,7 @@ export function BalanceChart({
         <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
           <div className="flex h-fit flex-wrap gap-0.5 rounded-[11px] border border-border-soft bg-surface-2 p-[3px]">
             {PRESETS.map((p) => (
-              <button
+              <Button
                 key={p.key}
                 onClick={() => setPresetKey(p.key)}
                 className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
@@ -206,9 +208,9 @@ export function BalanceChart({
                 }`}
               >
                 {p.label}
-              </button>
+              </Button>
             ))}
-            <button
+            <Button
               onClick={() => setPresetKey("custom")}
               className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
                 presetKey === "custom"
@@ -217,13 +219,13 @@ export function BalanceChart({
               }`}
             >
               Custom
-            </button>
+            </Button>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             {presetKey === "custom" && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <input
+                <Input
                   type="date"
                   value={customFrom || isoDate(from)}
                   max={isoDate(to)}
@@ -231,7 +233,7 @@ export function BalanceChart({
                   className="rounded-lg border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent"
                 />
                 <span className="text-text-faint">–</span>
-                <input
+                <Input
                   type="date"
                   value={customTo || isoDate(to)}
                   max={isoDate(today)}
@@ -242,7 +244,7 @@ export function BalanceChart({
             )}
             <div className="flex h-fit gap-0.5 rounded-[9px] border border-border-soft bg-surface-2 p-[2px]">
               {GRANULARITIES.map((g) => (
-                <button
+                <Button
                   key={g.key}
                   onClick={() => setGranularity(g.key)}
                   className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
@@ -252,7 +254,7 @@ export function BalanceChart({
                   }`}
                 >
                   {g.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

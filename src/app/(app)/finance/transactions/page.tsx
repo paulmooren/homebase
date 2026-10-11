@@ -38,6 +38,8 @@ import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
 const PAGE_SIZE = 200;
@@ -149,7 +151,7 @@ function TransactionsPageInner() {
       {categoryToast}
       <PageActions>
         {removableCount > 0 && !filtering && (
-          <button
+          <Button
             onClick={async () => {
               const scope = filteredAccount ? `on ${filteredAccount.name}` : "on your accounts";
               if (
@@ -165,20 +167,20 @@ function TransactionsPageInner() {
             className="px-2 text-[13px] font-medium text-critical hover:opacity-80 disabled:opacity-60"
           >
             Remove all
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           onClick={() => setMode("import")}
           className="rounded-xl border border-border bg-surface px-4 py-2.5 text-[13.5px] font-medium hover:bg-surface-hover"
         >
           Import CSV
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setMode("manual")}
           className="rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
         >
           + Transaction
-        </button>
+        </Button>
       </PageActions>
 
       <section>
@@ -277,9 +279,9 @@ function TransactionsPageInner() {
                 <Link href="/finance/budgets" onClick={() => setRecurringAdded(null)} className={toastPrimary}>
                   View in Budgets
                 </Link>
-                <button type="button" onClick={() => setRecurringAdded(null)} className={toastSecondary}>
+                <Button type="button" onClick={() => setRecurringAdded(null)} className={toastSecondary}>
                   Close
-                </button>
+                </Button>
               </>
             }
           >
@@ -294,9 +296,9 @@ function TransactionsPageInner() {
           <Toast
             onClose={() => setImported(null)}
             actions={
-              <button type="button" onClick={() => setImported(null)} className={toastPrimary}>
+              <Button type="button" onClick={() => setImported(null)} className={toastPrimary}>
                 Done
-              </button>
+              </Button>
             }
           >
             <p className="font-semibold">✓ {describeImport(imported).headline}</p>
@@ -408,7 +410,7 @@ function TransactionsPageInner() {
                       </Tip>
                     )}
                     {canEdit && !recurringItem && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() =>
                           setRecurringFor({
@@ -437,17 +439,17 @@ function TransactionsPageInner() {
                         <span className="block h-3.5 w-3.5">
                           <RepeatIcon />
                         </span>
-                      </button>
+                      </Button>
                     )}
                     {canEdit && (
-                      <button
+                      <Button
                         onClick={async () => {
                           if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >
                         ✕
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -455,13 +457,13 @@ function TransactionsPageInner() {
             })}
 
             {transactions && transactions.length >= limit && (
-              <button
+              <Button
                 type="button"
                 onClick={() => setLimit((l) => l + PAGE_SIZE)}
                 className="block w-full px-6 py-3.5 text-left text-[13px] font-medium text-accent hover:opacity-80"
               >
                 Showing the latest {transactions.length} — load more
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -514,7 +516,7 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
       title={title}
@@ -526,7 +528,7 @@ function FilterChip({
       }`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -593,10 +595,10 @@ function ManualTransactionForm({
         </SelectInput>
       </Field>
       <Field label="Description">
-        <input name="merchant" required autoFocus placeholder="e.g. Albert Heijn" className={inputClass} />
+        <Input name="merchant" required autoFocus placeholder="e.g. Albert Heijn" className={inputClass} />
       </Field>
       <Field label="Amount (€)">
-        <input name="amount" type="number" step="0.01" required placeholder="0.00" className={inputClass} />
+        <Input name="amount" type="number" step="0.01" required placeholder="0.00" className={inputClass} />
       </Field>
       {type === "TRANSFER" ? (
         <Field label="To account">
@@ -624,23 +626,23 @@ function ManualTransactionForm({
         </Field>
       )}
       <Field label="Date">
-        <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+        <Input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
       </Field>
       <ModalFooter className="col-span-full">
-        <button
+        <Button
           type="submit"
           disabled={pending}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
         >
           Add transaction
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onCancel}
           className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Cancel
-        </button>
+        </Button>
       </ModalFooter>
     </form>
   );
@@ -895,20 +897,20 @@ function CsvImportForm({
       )}
 
       <ModalFooter>
-        <button
+        <Button
           onClick={handleImport}
           disabled={importCsv.isPending || headers.length === 0}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
         >
           {importCsv.isPending ? "Importing…" : headers.length > 0 ? `Import ${rows.length} transactions` : "Import"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onCancel}
           className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Cancel
-        </button>
+        </Button>
       </ModalFooter>
     </div>
   );

@@ -6,6 +6,7 @@ import { trpc } from "@/trpc/react";
 import { SettingsSection } from "@/components/settings/form";
 import { IS_DEMO_CLIENT } from "@/lib/demo";
 
+import { Button } from "@base-ui/react/button";
 export default function DataSettingsPage() {
   const utils = trpc.useUtils();
 
@@ -37,18 +38,18 @@ export default function DataSettingsPage() {
     <SettingsSection title="Export data">
       <p className="-mt-2 text-[13px] text-text-muted">Your data belongs to you — download it anytime.</p>
       <div className="flex flex-wrap gap-3">
-        <button
+        <Button
           onClick={exportCsv}
           className="rounded-xl border border-border-soft px-5 py-2.5 text-[13.5px] font-medium hover:bg-surface-2"
         >
           Transactions (CSV)
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={exportJson}
           className="rounded-xl border border-border-soft px-5 py-2.5 text-[13.5px] font-medium hover:bg-surface-2"
         >
           All data (JSON)
-        </button>
+        </Button>
       </div>
     </SettingsSection>
     </>
@@ -72,13 +73,13 @@ function ResetDemo() {
         brought up to today.
       </p>
       <div>
-        <button
+        <Button
           onClick={() => reset.mutate()}
           disabled={reset.isPending}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
         >
           {reset.isPending ? "Resetting…" : "Reset demo"}
-        </button>
+        </Button>
         {reset.error && <p className="mt-2 text-[13px] text-critical">{reset.error.message}</p>}
       </div>
     </SettingsSection>

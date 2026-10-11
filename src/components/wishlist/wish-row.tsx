@@ -8,6 +8,7 @@ import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
 import { InlineWishRow, type WishFormValues } from "@/components/wishlist/wish-form";
 
+import { Button } from "@base-ui/react/button";
 export type WishData = {
   id: string;
   title: string;
@@ -123,22 +124,22 @@ export function WishRow({
           wish.claimedByMe ? (
             <>
               <span className="rounded-full bg-good/15 px-2.5 py-1 text-good">You&apos;re getting this</span>
-              <button type="button" onClick={onUnclaim} className="text-text-muted hover:text-text">
+              <Button type="button" onClick={onUnclaim} className="text-text-muted hover:text-text">
                 Unclaim
-              </button>
+              </Button>
             </>
           ) : claimerName ? (
             <span className="rounded-full border border-border-soft bg-surface-2 px-2.5 py-1 text-text-muted">
               Claimed by {claimerName}
             </span>
           ) : (
-            <button
+            <Button
               type="button"
               onClick={onClaim}
               className="rounded-full border border-border px-3.5 py-1.5 text-text hover:border-text"
             >
               I&apos;ll get this
-            </button>
+            </Button>
           )
         )}
         {!ownList && received && wish.claimedByMe && (
@@ -147,31 +148,31 @@ export function WishRow({
 
         {canEdit && (
           <>
-            <button
+            <Button
               type="button"
               onClick={() => onSetReceived(!received)}
               className="text-accent hover:opacity-80"
             >
               {received ? "Undo" : "Mark received"}
-            </button>
+            </Button>
             {!received && (
-              <button
+              <Button
                 type="button"
                 onClick={() => setEditing(true)}
                 aria-label={`Edit ${wish.title}`}
                 className="h-4 w-4 text-text-faint hover:text-text"
               >
                 <PencilIcon />
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
               onClick={onDelete}
               aria-label={`Delete ${wish.title}`}
               className="h-4 w-4 text-text-faint hover:text-critical"
             >
               <TrashIcon />
-            </button>
+            </Button>
           </>
         )}
       </div>

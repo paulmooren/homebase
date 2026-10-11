@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 
+import { Button } from "@base-ui/react/button";
 const BACKDROP = "fixed inset-0 bg-black/40 supports-[-webkit-touch-callout:none]:absolute";
 const VIEWPORT = "fixed inset-0 flex items-end justify-center p-4 sm:items-center";
 const POPUP = "relative w-full max-w-sm rounded-[20px] bg-surface p-5 shadow-2xl outline-none";
@@ -46,9 +47,9 @@ export function ConfirmDialog({
               <AlertDialog.Description className="mt-1 text-[13.5px] text-text-muted">{description}</AlertDialog.Description>
             )}
             <div className="mt-5 flex gap-2">
-              <button type="button" onClick={onConfirm} className={CONFIRM_BUTTON}>
+              <Button type="button" onClick={onConfirm} className={CONFIRM_BUTTON}>
                 {confirmLabel}
-              </button>
+              </Button>
               <AlertDialog.Close ref={cancelRef} className={CANCEL_BUTTON}>
                 Cancel
               </AlertDialog.Close>
@@ -114,9 +115,9 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 </AlertDialog.Description>
               )}
               <div className="mt-5 flex gap-2">
-                <button type="button" onClick={() => settle(true)} className={CONFIRM_BUTTON}>
+                <Button type="button" onClick={() => settle(true)} className={CONFIRM_BUTTON}>
                   {pending?.confirmLabel ?? "Delete"}
-                </button>
+                </Button>
                 <AlertDialog.Close ref={cancelRef} className={CANCEL_BUTTON}>
                   Cancel
                 </AlertDialog.Close>

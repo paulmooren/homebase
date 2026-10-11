@@ -5,6 +5,7 @@ import { Popover } from "@base-ui/react/popover";
 
 import { CATEGORY_COLORS } from "@/lib/constants";
 
+import { Button } from "@base-ui/react/button";
 /**
  * The category's vertical colour bar (same as in the transaction and
  * recurring rows) doubling as the trigger for a palette popover.
@@ -35,7 +36,7 @@ export function ColorBarPicker({
               className="grid w-max grid-cols-10 gap-1.5 rounded-xl border border-border-soft bg-surface p-3 shadow-lg outline-none"
             >
               {CATEGORY_COLORS.map((color) => (
-                <button
+                <Button
                   key={color}
                   type="button"
                   aria-pressed={color.toLowerCase() === value.toLowerCase()}

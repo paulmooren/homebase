@@ -11,6 +11,7 @@ import { InlineWishRow } from "@/components/wishlist/wish-form";
 import { WishRow } from "@/components/wishlist/wish-row";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
 const HOME = "home";
 
 export default function WishlistPage() {
@@ -74,7 +75,7 @@ function Wishlists() {
           const label = isMe ? "You" : m.user.name || m.user.email;
           const isActive = selected === m.user.id;
           return (
-            <button
+            <Button
               key={m.user.id}
               type="button"
               aria-pressed={isActive}
@@ -90,10 +91,10 @@ function Wishlists() {
             >
               <Avatar name={m.user.name || m.user.email} image={m.user.image} size={24} />
               {label}
-            </button>
+            </Button>
           );
         })}
-        <button
+        <Button
           type="button"
           aria-pressed={isHome}
           onClick={() => {
@@ -107,7 +108,7 @@ function Wishlists() {
           }`}
         >
           Home
-        </button>
+        </Button>
       </div>
 
       <section className="md:-mx-6">
@@ -166,7 +167,7 @@ function Wishlists() {
                 onCancel={() => setAdding(false)}
               />
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={() => setAdding(true)}
                 className="flex w-full items-center gap-3 border-b border-border-soft px-4 py-3.5 text-left text-text-faint transition-colors last:rounded-b-[20px] last:border-b-0 hover:text-text md:px-6"
@@ -175,12 +176,12 @@ function Wishlists() {
                   <PlusIcon />
                 </span>
                 <span className="text-[14px]">Add wish</span>
-              </button>
+              </Button>
             ))}
 
           {received.length > 0 && (
             <>
-              <button
+              <Button
                 type="button"
                 onClick={() => setShowReceived((s) => !s)}
                 className="flex w-full items-center justify-between border-t border-border-soft bg-surface-2 px-4 py-2.5 text-left md:px-6"
@@ -190,7 +191,7 @@ function Wishlists() {
                   Received · {received.length}
                 </span>
                 <span className="text-[12.5px] font-medium text-accent">{showReceived ? "Hide" : "Show"}</span>
-              </button>
+              </Button>
               {showReceived &&
                 received.map((wish) => (
                   <WishRow

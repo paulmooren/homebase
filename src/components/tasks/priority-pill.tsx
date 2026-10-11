@@ -3,6 +3,7 @@
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
 import type { TaskPriority } from "@/components/tasks/types";
 
+import { Button } from "@base-ui/react/button";
 export const PRIORITIES: { value: TaskPriority; label: string; dot: string }[] = [
   { value: "HIGH", label: "High", dot: "#e5484d" },
   { value: "MEDIUM", label: "Medium", dot: "#e0b04d" },
@@ -25,7 +26,7 @@ export function PriorityPill({
   return (
     <PopoverMenu
       trigger={
-        <button
+        <Button
           type="button"
           aria-label={`Priority: ${current.label}, click to change`}
           className={`inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-border-soft ${
@@ -34,7 +35,7 @@ export function PriorityPill({
         >
           <span className="block h-2 w-2 rounded-full" style={{ background: current.dot }} />
           {current.label}
-        </button>
+        </Button>
       }
     >
       {PRIORITIES.map((p) => (

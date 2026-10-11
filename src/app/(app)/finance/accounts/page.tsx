@@ -13,6 +13,8 @@ import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
 type Account = {
@@ -71,7 +73,7 @@ export default function AccountsPage() {
     <section className="rounded-[20px] border border-border-soft bg-surface p-6">
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold">Accounts</h2>
-        <button
+        <Button
           onClick={() => {
             setEditingAccount(null);
             setShowAccountForm(true);
@@ -79,7 +81,7 @@ export default function AccountsPage() {
           className="text-[12.5px] font-medium text-accent hover:opacity-80"
         >
           + Add account
-        </button>
+        </Button>
       </div>
 
       {showAccountForm && (
@@ -239,18 +241,18 @@ function AccountRow({
       </div>
       {canEdit && (
         <div className="flex gap-1">
-          <button
+          <Button
             onClick={onEdit}
             className="rounded-lg px-2 py-1 text-[12px] text-text-muted hover:bg-surface-2 hover:text-text"
           >
             Edit
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onDelete}
             className="rounded-lg px-2 py-1 text-[12px] text-text-muted hover:bg-surface-2 hover:text-critical"
           >
             Delete
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -308,7 +310,7 @@ function AccountForm({
       }}
     >
       <Field label="Account name">
-        <input
+        <Input
           name="name"
           required
           autoFocus
@@ -318,7 +320,7 @@ function AccountForm({
         />
       </Field>
       <Field label="Bank (optional)">
-        <input
+        <Input
           name="institution"
           defaultValue={initial?.institution ?? ""}
           placeholder="e.g. bunq"
@@ -326,7 +328,7 @@ function AccountForm({
         />
       </Field>
       <Field label="IBAN (optional)">
-        <input
+        <Input
           name="iban"
           defaultValue={initial?.iban ?? ""}
           placeholder="Filled in from your first bank statement"
@@ -357,7 +359,7 @@ function AccountForm({
       )}
       <div className="flex flex-col gap-2">
         <Field label="Starting balance (€)">
-          <input
+          <Input
             name="startingBalance"
             type="number"
             step="0.01"
@@ -378,20 +380,20 @@ function AccountForm({
         </p>
       )}
       <ModalFooter className="col-span-full">
-        <button
+        <Button
           type="submit"
           disabled={pending}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
         >
           {submitLabel}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onCancel}
           className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Cancel
-        </button>
+        </Button>
       </ModalFooter>
     </form>
   );

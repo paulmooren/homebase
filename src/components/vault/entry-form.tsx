@@ -5,6 +5,8 @@ import { useState } from "react";
 import { VAULT_CATEGORIES, type VaultCategory } from "@/lib/vault";
 import { SelectField } from "@/components/ui/select";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type VaultFormValues = {
   title: string;
   category: VaultCategory;
@@ -73,7 +75,7 @@ export function VaultEntryForm({
       }}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px]">
-        <input
+        <Input
           name="title"
           defaultValue={initial?.title}
           required
@@ -96,7 +98,7 @@ export function VaultEntryForm({
         <p className="text-[12.5px] text-text-muted">Values — encrypted, hidden until revealed</p>
         {fields.map((field, i) => (
           <div key={i} className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[180px_1fr_auto]">
-            <input
+            <Input
               value={field.label}
               onChange={(e) => setField(i, { label: e.target.value })}
               maxLength={60}
@@ -104,7 +106,7 @@ export function VaultEntryForm({
               aria-label={`Label ${i + 1}`}
               className={`${inputClass} col-span-2 sm:col-span-1`}
             />
-            <input
+            <Input
               value={field.value}
               onChange={(e) => setField(i, { value: e.target.value })}
               maxLength={500}
@@ -113,24 +115,24 @@ export function VaultEntryForm({
               autoComplete="off"
               className={inputClass}
             />
-            <button
+            <Button
               type="button"
               onClick={() => setFields((prev) => prev.filter((_, idx) => idx !== i))}
               aria-label={`Remove field ${i + 1}`}
               className="px-2 text-[13px] text-text-faint hover:text-critical"
             >
               ✕
-            </button>
+            </Button>
           </div>
         ))}
         {fields.length < 20 && (
-          <button
+          <Button
             type="button"
             onClick={() => setFields((prev) => [...prev, { label: "", value: "" }])}
             className="self-start text-[12.5px] font-medium text-accent hover:opacity-80"
           >
             + Add field
-          </button>
+          </Button>
         )}
       </div>
 
@@ -147,7 +149,7 @@ export function VaultEntryForm({
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <label className="flex items-center gap-2 text-[13px] text-text-muted">
           Expires
-          <input
+          <Input
             type="date"
             name="expiresOn"
             defaultValue={initial?.expiresOn ? new Date(initial.expiresOn).toISOString().slice(0, 10) : ""}
@@ -162,7 +164,7 @@ export function VaultEntryForm({
               { value: false, label: "Personal" },
               { value: true, label: "Shared" },
             ].map((option) => (
-              <button
+              <Button
                 key={option.label}
                 type="button"
                 role="radio"
@@ -173,27 +175,27 @@ export function VaultEntryForm({
                 }`}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
       </div>
 
       <div className="flex gap-2">
-        <button
+        <Button
           type="submit"
           disabled={pending}
           className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
         >
           {initial ? "Save" : "Add to Vault"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onCancel}
           className="rounded-xl border border-border-soft px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:text-text"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

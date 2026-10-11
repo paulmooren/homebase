@@ -6,6 +6,8 @@ import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
 
 import { signInAsPersona, signInWithGoogle, signInWithPassword } from "./actions";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 const ERROR_MESSAGES: Record<string, string> = {
   CredentialsSignin: "Incorrect email or password.",
   OAuthAccountNotLinked:
@@ -48,13 +50,13 @@ export default async function SignInPage({
             {DEMO_PERSONAS.map((p) => (
               <form key={p.key} action={signInAsPersona}>
                 <input type="hidden" name="persona" value={p.key} />
-                <button
+                <Button
                   type="submit"
                   className="flex w-full flex-col items-start rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-hover"
                 >
                   <span className="text-[14.5px] font-semibold">Continue as {p.name}</span>
                   <span className="text-[12.5px] text-text-muted">{p.blurb}</span>
-                </button>
+                </Button>
               </form>
             ))}
           </div>
@@ -70,7 +72,7 @@ function SignInOptions() {
   return (
     <>
         <form action={signInWithGoogle}>
-          <button
+          <Button
             type="submit"
             className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-2.5 text-[14px] font-semibold text-text transition-colors hover:bg-surface-hover"
           >
@@ -81,7 +83,7 @@ function SignInOptions() {
               <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A11.99 11.99 0 0 0 1.27 6.61l4 3.11C6.22 6.86 8.87 4.75 12 4.75Z" />
             </svg>
             Continue with Google
-          </button>
+          </Button>
         </form>
 
         <div className="my-5 flex items-center gap-3">
@@ -91,26 +93,26 @@ function SignInOptions() {
         </div>
 
         <form action={signInWithPassword} className="flex flex-col gap-3">
-          <input
+          <Input
             type="email"
             name="email"
             required
             placeholder="you@example.com"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <input
+          <Input
             type="password"
             name="password"
             required
             placeholder="Password"
             className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] text-text placeholder:text-text-faint outline-none focus:border-accent"
           />
-          <button
+          <Button
             type="submit"
             className="w-full rounded-xl bg-accent-fill py-2.5 text-[14px] font-semibold text-accent-ink transition-opacity hover:opacity-90"
           >
             Sign in
-          </button>
+          </Button>
         </form>
 
         <p className="mt-5 text-center text-[13px] text-text-muted">

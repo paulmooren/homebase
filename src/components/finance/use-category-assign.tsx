@@ -6,6 +6,7 @@ import { trpc } from "@/trpc/react";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import type { Category } from "@/components/finance/category-cell";
 
+import { Button } from "@base-ui/react/button";
 type Prompt = { id: string; categoryId: string; merchant: string; count: number };
 
 /**
@@ -42,7 +43,7 @@ export function useCategoryAssign(categories: Category[]) {
       onClose={() => setPrompt(null)}
       actions={
         <>
-          <button
+          <Button
             type="button"
             disabled={apply.isPending}
             onClick={() => {
@@ -52,10 +53,10 @@ export function useCategoryAssign(categories: Category[]) {
             className={toastPrimary}
           >
             Yes, apply to {prompt.count === 1 ? "it" : `all ${prompt.count}`}
-          </button>
-          <button type="button" onClick={() => setPrompt(null)} className={toastSecondary}>
+          </Button>
+          <Button type="button" onClick={() => setPrompt(null)} className={toastSecondary}>
             No thanks
-          </button>
+          </Button>
         </>
       }
     >

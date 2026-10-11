@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { CheckIcon, CloseIcon } from "@/components/action-icons";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type WishFormValues = {
   title: string;
   url: string | null;
@@ -54,7 +56,7 @@ export function InlineWishRow({
       }}
     >
       <div className="min-w-0 flex-1">
-        <input
+        <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           autoFocus
@@ -65,7 +67,7 @@ export function InlineWishRow({
           className="w-full bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
         />
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <input
+          <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             maxLength={500}
@@ -74,7 +76,7 @@ export function InlineWishRow({
             inputMode="url"
             className={`${subInput} basis-40`}
           />
-          <input
+          <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
@@ -86,7 +88,7 @@ export function InlineWishRow({
       </div>
       <div className="flex items-center gap-1 text-[14px] font-semibold">
         <span className="text-text-faint">€</span>
-        <input
+        <Input
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           placeholder="0.00"
@@ -95,22 +97,22 @@ export function InlineWishRow({
           className="w-20 bg-transparent text-right tabular-nums outline-none placeholder:font-normal placeholder:text-text-faint"
         />
       </div>
-      <button
+      <Button
         type="submit"
         aria-label="Save"
         disabled={!title.trim() || pending}
         className="h-4 w-4 shrink-0 text-good hover:opacity-80 disabled:text-text-faint"
       >
         <CheckIcon />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={onCancel}
         aria-label="Cancel"
         className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
       >
         <CloseIcon />
-      </button>
+      </Button>
     </form>
   );
 }

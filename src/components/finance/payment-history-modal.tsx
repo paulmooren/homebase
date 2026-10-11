@@ -14,6 +14,8 @@ import { parseMoney } from "@/lib/money";
 import { monthlyEquivalent } from "@/lib/recurring";
 import { describeSchedule } from "@/lib/schedule";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 const BASIS_LABELS: Record<BudgetBasis, { title: string; hint: string }> = {
   LATEST: { title: "Latest", hint: "the most recent payment" },
   LOWEST: { title: "Lowest", hint: `the lowest of the last ${BASIS_WINDOW}` },
@@ -151,7 +153,7 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
                     <p className="text-[11.5px] text-text-muted">{BASIS_LABELS[b].hint}</p>
                   </div>
                   {b === "FIXED" ? (
-                    <input
+                    <Input
                       value={fixedText}
                       onChange={(e) => {
                         setTyped(e.target.value);
@@ -199,14 +201,14 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
                 <span className="min-w-0 flex-1 truncate">{p.merchant}</span>
                 <span className={`font-medium tabular-nums ${p.excluded ? "line-through" : ""}`}>{formatEUR(p.amount)}</span>
                 {data.canEdit && (
-                  <button
+                  <Button
                     type="button"
                     disabled={setAside.isPending}
                     onClick={() => setAside.mutate({ transactionId: p.id, excluded: !p.excluded })}
                     className="w-24 shrink-0 text-right text-[12px] font-medium text-text-muted hover:text-text"
                   >
                     {p.excluded ? "Include again" : "Set aside"}
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -222,7 +224,7 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
 
       <ModalFooter>
         {data.canEdit && (
-          <button
+          <Button
             type="button"
             disabled={setBasis.isPending || resulting === null || resulting <= 0 || unchanged}
             onClick={() =>
@@ -231,15 +233,15 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
             className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:bg-surface-2 disabled:text-text-faint"
           >
             {setBasis.isPending ? "Saving…" : resulting !== null ? `Budget ${formatEUR(resulting)}` : "Use this"}
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
           onClick={onClose}
           className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
         >
           {data.canEdit ? "Cancel" : "Close"}
-        </button>
+        </Button>
       </ModalFooter>
     </Modal>
   );

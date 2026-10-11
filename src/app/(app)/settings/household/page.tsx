@@ -9,6 +9,8 @@ import { MODULES, isModuleEnabled } from "@/lib/modules";
 import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/settings/form";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export default function HouseholdSettingsPage() {
   const confirm = useConfirm();
   const utils = trpc.useUtils();
@@ -48,7 +50,7 @@ export default function HouseholdSettingsPage() {
           }}
         >
           <Field label="Household name">
-            <input
+            <Input
               value={value}
               onChange={(e) => setName(e.target.value)}
               placeholder="Household name"
@@ -105,13 +107,13 @@ export default function HouseholdSettingsPage() {
             <code className="flex-1 rounded-xl border border-border-soft bg-surface-2 px-3.5 py-3 text-[13px] tracking-[0.06em]">
               {household.inviteCode}
             </code>
-            <button
+            <Button
               onClick={copyInviteLink}
               className="rounded-xl border border-border-soft px-4 py-2.5 text-[13.5px] font-medium hover:bg-surface-2"
             >
               {copied ? "Copied!" : "Copy link"}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={async () => {
                 if (
                   await confirm({
@@ -125,7 +127,7 @@ export default function HouseholdSettingsPage() {
               className="rounded-xl border border-border-soft px-4 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-2 hover:text-text"
             >
               Regenerate
-            </button>
+            </Button>
           </div>
         )}
       </SettingsSection>

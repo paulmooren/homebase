@@ -23,6 +23,7 @@ import { SCENARIOS, VIEWPORTS } from "./scenarios.mjs";
 
 const BASE = process.env.VISUAL_BASE_URL ?? "http://127.0.0.1:3100";
 const OUT = path.resolve(".visual");
+const POPUP = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
 const FREEZE = `
   *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; }
@@ -83,6 +84,12 @@ async function capture(label, only) {
         }
         await page.screenshot({ path: path.join(dir, `${scenario.name}@${vpName}.png`), fullPage: !scenario.viewportOnly });
         taken++;
+        // Pop-ups, menus and dialogs are also captured on their own: the list behind them can come back in a
+        // different order between page loads, which has nothing to do with the pop-up.
+        if (scenario.popup) {
+          const popup = page.locator(POPUP).last();
+          if (await popup.count()) await popup.screenshot({ path: path.join(dir, `${scenario.name}@${vpName}.popup.png`) });
+        }
         // A scenario that changed data puts it back, so captures can follow each other without a reset.
         if (scenario.cleanup) {
           await scenario.cleanup(page);

@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 /**
  * Text you can click to edit right where it is. Clicking only selects the text:
  * the field has no background, border or padding and grows with what you type,
@@ -49,12 +51,12 @@ export function InlineEdit({
         >
           {draft || placeholder || " "}
         </span>
-        <input
+        <Input
           ref={(el) => {
             // On open: focus and select everything, so the text is simply highlighted.
             if (el && document.activeElement !== el) {
               el.focus();
-              el.select();
+              (el as HTMLInputElement).select();
             }
           }}
           value={draft}
@@ -85,13 +87,13 @@ export function InlineEdit({
   }
 
   return (
-    <button
+    <Button
       type="button"
       onClick={() => setDraft(editValue ?? value)}
       aria-label={`${ariaLabel}: ${value || "empty"}, click to change`}
       className={`${buttonClassName} ${className}`}
     >
       {value ? (display ?? value) : <span className="text-text-faint">{placeholder}</span>}
-    </button>
+    </Button>
   );
 }

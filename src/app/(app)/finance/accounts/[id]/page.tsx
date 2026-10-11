@@ -13,6 +13,7 @@ import { CategoryCell } from "@/components/finance/category-cell";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
 const COL_AMOUNT = "w-[110px] shrink-0";
@@ -163,14 +164,14 @@ export default function AccountDetailPage() {
                   </div>
                   <div className={COL_ACTIONS}>
                     {canEdit && (
-                      <button
+                      <Button
                         onClick={async () => {
                           if (await confirm({ title: "Delete this transaction?" })) deleteTransaction.mutate({ id: t.id });
                         }}
                         className="text-[12px] text-text-muted hover:text-critical"
                       >
                         ✕
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>

@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 import { trpc } from "@/trpc/react";
 import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 /**
  * "+ Add item" at the bottom of the list, same pattern as the other lists in
  * the app. Opens into a new line; Enter adds the item and leaves a fresh line
@@ -45,7 +47,7 @@ export function AddItemRow({
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="flex w-full items-center gap-3 border-b border-border-soft px-4 py-3.5 text-left text-text-faint transition-colors last:rounded-b-[20px] last:border-b-0 hover:text-text md:px-6"
@@ -54,7 +56,7 @@ export function AddItemRow({
           <PlusIcon />
         </span>
         <span className="text-[14px]">Add item</span>
-      </button>
+      </Button>
     );
   }
 
@@ -70,7 +72,7 @@ export function AddItemRow({
       }}
     >
       <span className="block h-7 w-7 shrink-0 rounded-lg border border-dashed border-border" aria-hidden />
-      <input
+      <Input
         ref={nameRef}
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -84,24 +86,24 @@ export function AddItemRow({
         enterKeyHint="done"
         className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
       />
-      <button type="submit" aria-label="Add item" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+      <Button type="submit" aria-label="Add item" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={close}
         aria-label="Done adding"
         className="h-4 w-4 shrink-0 text-text-muted hover:text-critical"
       >
         <CloseIcon />
-      </button>
+      </Button>
 
       {showSuggestions && (
         <ul className="absolute top-full right-4 left-4 z-20 mt-1 overflow-hidden rounded-xl border border-border-soft bg-surface shadow-lg md:right-6 md:left-6">
           {suggestions?.map((suggestion) => (
             <li key={suggestion}>
               {/* onMouseDown so the pick lands before the input's blur hides the list */}
-              <button
+              <Button
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -110,7 +112,7 @@ export function AddItemRow({
                 className="block w-full px-3.5 py-2.5 text-left text-[14px] hover:bg-surface-hover"
               >
                 {suggestion}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

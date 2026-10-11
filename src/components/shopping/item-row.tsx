@@ -8,6 +8,7 @@ import { InlineEdit } from "@/components/inline-edit";
 import { QuantityPill, parseAmount } from "@/components/shopping/quantity-stepper";
 import { TICK_GRACE_MS } from "@/components/shopping/use-shopping";
 
+import { Button } from "@base-ui/react/button";
 export type ShoppingItemData = {
   id: string;
   name: string;
@@ -58,7 +59,7 @@ export function ShoppingItemRow({
       }`}
       style={leaving && checked ? { animationDuration: `${TICK_GRACE_MS}ms` } : undefined}
     >
-      <button
+      <Button
         type="button"
         onClick={() => onToggle(!checked)}
         aria-label={checked ? `Put ${item.name} back on the list` : `Tick off ${item.name}`}
@@ -72,7 +73,7 @@ export function ShoppingItemRow({
         <span className="block h-4 w-4">
           <CheckIcon />
         </span>
-      </button>
+      </Button>
 
       {checked ? (
         // In the basket: a plain amount, no stepper — it's done.
@@ -97,7 +98,7 @@ export function ShoppingItemRow({
       </div>
 
       {onToggleFavorite && (
-        <button
+        <Button
           type="button"
           onClick={onToggleFavorite}
           aria-label={isFavorite ? `Remove ${item.name} from favorites` : `Add ${item.name} to favorites`}
@@ -107,7 +108,7 @@ export function ShoppingItemRow({
           }`}
         >
           {isFavorite ? "★" : "☆"}
-        </button>
+        </Button>
       )}
 
       {confirmRemove && (

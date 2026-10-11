@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
 import { useConfirm } from "@/components/confirm-dialog";
 
+import { Button } from "@base-ui/react/button";
 /** A revealed entry hides itself again after this long. */
 const AUTO_HIDE_MS = 60_000;
 
@@ -88,13 +89,13 @@ function Vault() {
   return (
     <div className="flex flex-col gap-4">
       <PageActions>
-        <button
+        <Button
           type="button"
           onClick={() => setCreating((c) => !c)}
           className="rounded-xl bg-accent-fill px-4 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90"
         >
           {creating ? "Cancel" : "+ New entry"}
-        </button>
+        </Button>
       </PageActions>
       <p className="text-[13px] text-text-muted">
         Numbers and notes are encrypted and stay hidden until you reveal them.
@@ -183,22 +184,22 @@ function Vault() {
                     )}
                     {!isMine && !isShared && <VisibilityBadge />}
                     {data ? (
-                      <button type="button" onClick={() => hide(entry.id)} className="text-text-muted hover:text-text">
+                      <Button type="button" onClick={() => hide(entry.id)} className="text-text-muted hover:text-text">
                         Hide
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => show(entry.id)}
                         disabled={reveal.isPending}
                         className="rounded-full border border-border px-3.5 py-1.5 text-text hover:border-text disabled:opacity-60"
                       >
                         Reveal
-                      </button>
+                      </Button>
                     )}
                     {canEdit && (
                       <>
-                        <button
+                        <Button
                           type="button"
                           aria-label={`Edit ${entry.title}`}
                           onClick={async () => {
@@ -208,8 +209,8 @@ function Vault() {
                           className="h-4 w-4 text-text-faint hover:text-text"
                         >
                           <PencilIcon />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
                           aria-label={`Delete ${entry.title}`}
                           onClick={async () => {
@@ -218,7 +219,7 @@ function Vault() {
                           className="h-4 w-4 text-text-faint hover:text-critical"
                         >
                           <TrashIcon />
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
@@ -255,7 +256,7 @@ function Vault() {
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <Button
       type="button"
       onClick={async () => {
         await navigator.clipboard.writeText(value);
@@ -265,6 +266,6 @@ function CopyButton({ value }: { value: string }) {
       className="text-[12px] font-medium text-accent hover:opacity-80"
     >
       {copied ? "Copied" : "Copy"}
-    </button>
+    </Button>
   );
 }

@@ -9,6 +9,7 @@ import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import { PriorityPill } from "@/components/tasks/priority-pill";
 import type { Member, Task, TaskPriority } from "@/components/tasks/types";
 
+import { Button } from "@base-ui/react/button";
 /**
  * One line of the task checklist: tick box, a title you can click to rename,
  * a priority pill and who it's for. No dates, no repeats — a task is a thing
@@ -38,7 +39,7 @@ export function ChecklistRow({
 
   return (
     <div className="group flex items-center gap-3 border-b border-border-soft px-6 py-2.5 transition-colors last:border-b-0 hover:bg-surface-hover">
-      <button
+      <Button
         type="button"
         onClick={onToggle}
         aria-label={done ? "Mark as not done" : "Mark as done"}
@@ -50,7 +51,7 @@ export function ChecklistRow({
         <span className="block h-3.5 w-3.5">
           <CheckIcon />
         </span>
-      </button>
+      </Button>
 
       <div className="min-w-0 flex-1">
         <InlineEdit
@@ -75,14 +76,14 @@ export function ChecklistRow({
       )}
 
       {!compact && (
-        <button
+        <Button
           type="button"
           onClick={() => setConfirming(true)}
           aria-label={`Delete ${task.title}`}
           className="h-4 w-4 shrink-0 text-text-faint hover:text-critical"
         >
           <TrashIcon />
-        </button>
+        </Button>
       )}
 
       {confirming && (

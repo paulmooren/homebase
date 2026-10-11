@@ -10,6 +10,7 @@ import { TRPCClientError } from "@trpc/client";
 
 import { describeImport, readStatement, type ImportResult } from "@/lib/statement-import";
 
+import { Button } from "@base-ui/react/button";
 function WarningIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -141,7 +142,7 @@ export function MissingStatementsCard() {
                   — {r.accountName} has no transactions recorded for {month}.
                 </span>
               </p>
-              <button
+              <Button
                 type="button"
                 disabled={busyAccount !== null}
                 onClick={() => {
@@ -151,7 +152,7 @@ export function MissingStatementsCard() {
                 className="shrink-0 rounded-lg bg-accent-fill px-4 py-2 text-[12.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
               >
                 {busyAccount === r.accountId ? "Importing…" : "Import statement"}
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -169,9 +170,9 @@ export function MissingStatementsCard() {
               >
                 View transactions
               </Link>
-              <button type="button" onClick={() => setOutcome(null)} className={toastSecondary}>
+              <Button type="button" onClick={() => setOutcome(null)} className={toastSecondary}>
                 Close
-              </button>
+              </Button>
             </>
           }
         >
@@ -196,9 +197,9 @@ export function MissingStatementsCard() {
               >
                 Open the importer
               </Link>
-              <button type="button" onClick={() => setOutcome(null)} className={toastSecondary}>
+              <Button type="button" onClick={() => setOutcome(null)} className={toastSecondary}>
                 Close
-              </button>
+              </Button>
             </>
           }
         >

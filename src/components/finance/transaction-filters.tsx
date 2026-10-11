@@ -7,6 +7,8 @@ import { parseMoney } from "@/lib/money";
 import { Checkbox } from "@/components/checkbox";
 import type { Category } from "@/components/finance/category-cell";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 /** Dates are "YYYY-MM-DD"; `categoryIds` may include "none" for uncategorized. Amounts are absolute (no minus sign). */
 export type TransactionFilters = {
   from?: string;
@@ -187,7 +189,7 @@ export function TransactionFilterBar({
       </FilterChipWithPanel>
 
       {hasFilters(filters) && (
-        <button
+        <Button
           type="button"
           onClick={() => {
             onChange(NO_FILTERS);
@@ -196,7 +198,7 @@ export function TransactionFilterBar({
           className="px-1 text-[12.5px] font-medium text-text-muted hover:text-text"
         >
           Clear all
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -212,14 +214,14 @@ function DatePanel({
   return (
     <div className="w-72 p-1">
       {PRESETS.map((p) => (
-        <button
+        <Button
           key={p.label}
           type="button"
           onClick={() => onApply({ ...p.range(), dateLabel: p.label })}
           className="block w-full rounded-lg px-3 py-2 text-left text-[13.5px] hover:bg-surface-hover"
         >
           {p.label}
-        </button>
+        </Button>
       ))}
       <form
         className="mt-1 border-t border-border-soft p-3"
@@ -234,7 +236,7 @@ function DatePanel({
       >
         <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-text-faint uppercase">Custom range</p>
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="date"
             name="from"
             aria-label="From"
@@ -242,7 +244,7 @@ function DatePanel({
             className="min-w-0 flex-1 rounded-lg border border-border-soft bg-surface px-2.5 py-2 text-[13px] outline-none focus:border-accent"
           />
           <span className="text-text-faint">–</span>
-          <input
+          <Input
             type="date"
             name="to"
             aria-label="To"
@@ -250,12 +252,12 @@ function DatePanel({
             className="min-w-0 flex-1 rounded-lg border border-border-soft bg-surface px-2.5 py-2 text-[13px] outline-none focus:border-accent"
           />
         </div>
-        <button
+        <Button
           type="submit"
           className="mt-3 w-full rounded-lg bg-accent-fill px-4 py-2 text-[13px] font-semibold text-accent-ink hover:opacity-90"
         >
           Apply
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -286,7 +288,7 @@ function AmountPanel({
     >
       <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-text-faint uppercase">Amount</p>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           name="min"
           aria-label="Minimum amount"
           placeholder="Min €"
@@ -295,7 +297,7 @@ function AmountPanel({
           className="min-w-0 flex-1 rounded-lg border border-border-soft bg-surface px-2.5 py-2 text-[13px] tabular-nums outline-none placeholder:text-text-faint focus:border-accent"
         />
         <span className="text-text-faint">–</span>
-        <input
+        <Input
           name="max"
           aria-label="Maximum amount"
           placeholder="Max €"
@@ -305,12 +307,12 @@ function AmountPanel({
         />
       </div>
       <p className="mt-2 text-[11.5px] text-text-muted">Income and expenses alike, ignoring the minus sign.</p>
-      <button
+      <Button
         type="submit"
         className="mt-3 w-full rounded-lg bg-accent-fill px-4 py-2 text-[13px] font-semibold text-accent-ink hover:opacity-90"
       >
         Apply
-      </button>
+      </Button>
     </form>
   );
 }
@@ -370,7 +372,7 @@ function FilterChipWithPanel({
           active ? "border-text bg-text text-bg" : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
         }`}
       >
-        <button
+        <Button
           ref={buttonRef}
           type="button"
           aria-haspopup="dialog"
@@ -380,16 +382,16 @@ function FilterChipWithPanel({
         >
           {label}
           {active && summary && <span className="max-w-[180px] truncate text-bg/80">· {summary}</span>}
-        </button>
+        </Button>
         {active && (
-          <button
+          <Button
             type="button"
             onClick={onClear}
             aria-label={`Clear ${label.toLowerCase()} filter`}
             className="mr-1 flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-bg/80 hover:bg-white/15"
           >
             ✕
-          </button>
+          </Button>
         )}
       </span>
       {open && pos && (

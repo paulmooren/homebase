@@ -12,6 +12,8 @@ import { cleanMerchant } from "@/lib/csv";
 import { formatEUR } from "@/lib/format";
 import type { Category } from "@/components/finance/category-cell";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type RecurringSource = {
   id: string;
   merchant: string;
@@ -102,7 +104,7 @@ export function MarkRecurringModal({
         </p>
         <div className="col-span-full">
           <Field label="Name">
-            <input
+            <Input
               name="name"
               required
               autoFocus
@@ -137,7 +139,7 @@ export function MarkRecurringModal({
           </div>
         </Field>
         <Field label="Amount (€)">
-          <input
+          <Input
             name="amount"
             required
             inputMode="decimal"
@@ -165,20 +167,20 @@ export function MarkRecurringModal({
         )}
 
         <ModalFooter className="col-span-full">
-          <button
+          <Button
             type="submit"
             disabled={create.isPending}
             className="rounded-xl bg-accent-fill px-5 py-2.5 text-[13.5px] font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
           >
             {create.isPending ? "Saving…" : "Mark as recurring"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={onClose}
             className="rounded-xl border border-border px-5 py-2.5 text-[13.5px] font-medium text-text-muted hover:bg-surface-hover hover:text-text"
           >
             Cancel
-          </button>
+          </Button>
         </ModalFooter>
       </form>
     </Modal>

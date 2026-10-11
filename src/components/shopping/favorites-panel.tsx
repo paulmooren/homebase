@@ -6,6 +6,8 @@ import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 import { InlineEdit } from "@/components/inline-edit";
 import type { ShoppingItemData } from "@/components/shopping/item-row";
 
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 export type FavoriteData = { id: string; name: string };
 
 /**
@@ -48,7 +50,7 @@ export function FavoritesPanel({
             key={fav.id}
             className="group flex items-center gap-2.5 border-b border-border-soft px-4 py-2.5 transition-colors hover:bg-surface-hover md:px-5"
           >
-            <button
+            <Button
               type="button"
               disabled={onList}
               onClick={() => (existing ? onRestore(existing.id) : onAdd(fav))}
@@ -60,7 +62,7 @@ export function FavoritesPanel({
               }`}
             >
               <span className="block h-3.5 w-3.5">{onList ? <CheckIcon /> : <PlusIcon />}</span>
-            </button>
+            </Button>
             <div className="min-w-0 flex-1">
               <InlineEdit
                 value={fav.name}
@@ -69,14 +71,14 @@ export function FavoritesPanel({
                 className={`text-[14.5px] ${onList ? "text-text-faint" : "font-medium"}`}
               />
             </div>
-            <button
+            <Button
               type="button"
               onClick={() => onRemove(fav.id)}
               aria-label={`Remove ${fav.name} from favorites`}
               className="h-3 w-3 shrink-0 text-text-faint hover:text-critical lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
             >
               <CloseIcon />
-            </button>
+            </Button>
           </div>
         );
       })}
@@ -98,7 +100,7 @@ function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-text-faint transition-colors hover:text-text md:px-5"
@@ -107,7 +109,7 @@ function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
           <PlusIcon />
         </span>
         <span className="text-[14px]">Add favorite</span>
-      </button>
+      </Button>
     );
   }
 
@@ -125,7 +127,7 @@ function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
         if (e.key === "Escape") close();
       }}
     >
-      <input
+      <Input
         name="name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -136,12 +138,12 @@ function AddFavoriteRow({ onCreate }: { onCreate: (name: string) => void }) {
         autoComplete="off"
         className="min-w-0 flex-1 bg-transparent text-[14.5px] font-medium outline-none placeholder:font-normal placeholder:text-text-faint"
       />
-      <button type="submit" aria-label="Add favorite" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
+      <Button type="submit" aria-label="Add favorite" className="h-4 w-4 shrink-0 text-good hover:opacity-80">
         <CheckIcon />
-      </button>
-      <button type="button" onClick={close} aria-label="Done adding" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
+      </Button>
+      <Button type="button" onClick={close} aria-label="Done adding" className="h-4 w-4 shrink-0 text-text-muted hover:text-critical">
         <CloseIcon />
-      </button>
+      </Button>
     </form>
   );
 }
