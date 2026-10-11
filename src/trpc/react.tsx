@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, createTRPCReact } from "@trpc/react-query";
 import superjson from "superjson";
 
 import { ConfirmProvider } from "@/components/confirm-dialog";
 import { ToastProvider } from "@/components/toast";
+import { makeQueryClient } from "@/trpc/query-client";
 import type { AppRouter } from "@/server/api/root";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -17,7 +18,7 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(makeQueryClient);
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
