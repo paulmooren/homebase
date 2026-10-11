@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { NumberField } from "@base-ui/react/number-field";
+
 import { trpc } from "@/trpc/react";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
@@ -113,15 +115,18 @@ export function MarkRecurringModal({
         <Field label="How often">
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-text-muted">Every</span>
-            <input
-              type="number"
+            <NumberField.Root
+              className="w-20 shrink-0"
               min={1}
               max={365}
-              value={intervalCount}
-              onChange={(e) => setIntervalCount(e.target.value)}
-              aria-label="Every how many"
-              className={`${inputClass} w-20`}
-            />
+              step={1}
+              locale="en-US"
+              format={{ maximumFractionDigits: 0, useGrouping: false }}
+              value={intervalCount === "" ? null : Number(intervalCount)}
+              onValueChange={(next) => setIntervalCount(next === null ? "" : String(next))}
+            >
+              <NumberField.Input aria-label="Every how many" className={`${inputClass} w-20`} />
+            </NumberField.Root>
             <SelectInput value={intervalUnit} onChange={(e) => setIntervalUnit(e.target.value as ScheduleUnit)}>
               {SCHEDULE_UNITS.map((u) => (
                 <option key={u} value={u}>

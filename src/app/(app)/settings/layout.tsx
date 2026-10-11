@@ -5,6 +5,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="flex flex-col gap-5">
       <TabBar
+        label="Settings sections"
         tabs={[
           { href: "/settings/profile", label: "Profile" },
           { href: "/settings/categories", label: "Categories" },

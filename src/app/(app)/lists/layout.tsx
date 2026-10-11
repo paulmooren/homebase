@@ -15,7 +15,7 @@ export default function ListsLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex flex-col gap-5">
-      {tabs.length > 1 && <TabBar tabs={tabs} />}
+      {tabs.length > 1 && <TabBar tabs={tabs} label="List sections" />}
       {children}
     </div>
   );

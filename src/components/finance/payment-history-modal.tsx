@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
+
 import { trpc } from "@/trpc/react";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Tip } from "@/components/ui/tooltip";
@@ -120,7 +123,13 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
           <p className="mb-2 text-[10.5px] font-semibold tracking-[0.09em] text-text-faint uppercase">
             What to budget
           </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Budgeted amount basis">
+          <RadioGroup<BudgetBasis>
+            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+            aria-label="Budgeted amount basis"
+            value={basis}
+            onValueChange={(next) => setPicked(next)}
+            disabled={!data.canEdit}
+          >
             {BASES.map((b) => {
               const amount = b === "FIXED" ? fixedAmount : amountForBasis(b, counted);
               const active = basis === b;
@@ -131,13 +140,12 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
                     active ? "border-text" : "border-border-soft hover:bg-surface-hover"
                   } ${!data.canEdit ? "pointer-events-none opacity-70" : ""}`}
                 >
-                  <input
-                    type="radio"
-                    name="basis"
-                    checked={active}
-                    onChange={() => setPicked(b)}
-                    className="h-4 w-4 shrink-0 accent-[var(--accent-fill)]"
-                  />
+                  <Radio.Root
+                    value={b}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border bg-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent data-checked:border-accent-fill data-checked:bg-accent-fill"
+                  >
+                    <Radio.Indicator className="h-1.5 w-1.5 rounded-full bg-accent-ink" />
+                  </Radio.Root>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-medium">{BASIS_LABELS[b].title}</p>
                     <p className="text-[11.5px] text-text-muted">{BASIS_LABELS[b].hint}</p>
@@ -161,7 +169,7 @@ export function PaymentHistoryModal({ itemId, onClose }: { itemId: string; onClo
                 </label>
               );
             })}
-          </div>
+          </RadioGroup>
           <p className="mt-3 text-[13px] text-text-muted">
             {monthly === null ? (
               "Nothing to budget with this choice yet."

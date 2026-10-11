@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatEUR } from "@/lib/format";
 import { parseMoney } from "@/lib/money";
+import { Checkbox } from "@/components/checkbox";
 import type { Category } from "@/components/finance/category-cell";
 
 /** Dates are "YYYY-MM-DD"; `categoryIds` may include "none" for uncategorized. Amounts are absolute (no minus sign). */
@@ -150,16 +151,15 @@ export function TransactionFilterBar({
             const checked = filters.categoryIds.includes(c.id);
             return (
               <label key={c.id} className="flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-[13.5px] hover:bg-surface-hover">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
+                  className="data-checked:border-accent data-checked:bg-accent"
                   onChange={() =>
                     onChange({
                       ...filters,
                       categoryIds: checked ? filters.categoryIds.filter((id) => id !== c.id) : [...filters.categoryIds, c.id],
                     })
                   }
-                  className="h-4 w-4 accent-[var(--accent)]"
                 />
                 <span className="block h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
                 {c.name}
