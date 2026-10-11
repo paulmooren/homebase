@@ -1,4 +1,8 @@
+"use client";
+
+import { Select } from "@base-ui/react/select";
 import { ChevronDownIcon } from "@/components/action-icons";
+import { SelectPopup } from "@/components/ui/select";
 
 export type Category = { id: string; name: string; color: string };
 
@@ -14,31 +18,32 @@ export function CategoryCell({
   onChange: (categoryId: string | null) => void;
 }) {
   const current = categories.find((c) => c.id === categoryId);
+  const options = [
+    { value: "", label: "No category" },
+    ...categories.map((c) => ({ value: c.id, label: c.name })),
+  ];
 
   return (
     <span className="relative inline-flex w-full items-center">
-      <select
+      <Select.Root
+        items={options}
         value={categoryId ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+        onValueChange={(v) => onChange(v || null)}
       >
-        <option value="">No category</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      <span className={`pointer-events-none flex items-center gap-1.5 truncate ${CELL_TEXT} text-text-muted`}>
-        <span
-          className="block h-2 w-2 shrink-0 rounded-full"
-          style={{ background: current?.color ?? "#c7c9cf" }}
-        />
-        <span className="truncate">{current ? current.name : "No category"}</span>
-        <span className="block h-3 w-3 shrink-0">
-          <ChevronDownIcon />
-        </span>
-      </span>
+        <Select.Trigger
+          className={`flex w-full min-w-0 cursor-pointer items-center gap-1.5 text-left outline-none ${CELL_TEXT} text-text-muted`}
+        >
+          <span
+            className="block h-2 w-2 shrink-0 rounded-full"
+            style={{ background: current?.color ?? "#c7c9cf" }}
+          />
+          <Select.Value className="truncate" />
+          <Select.Icon className="block h-3 w-3 shrink-0">
+            <ChevronDownIcon />
+          </Select.Icon>
+        </Select.Trigger>
+        <SelectPopup options={options} />
+      </Select.Root>
     </span>
   );
 }

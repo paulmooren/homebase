@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { trpc } from "@/trpc/react";
 import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/constants";
+import { SelectField } from "@/components/ui/select";
 
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
@@ -69,17 +70,12 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               placeholder="Bank (optional)"
               className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
-            <select
+            <SelectField
               name="type"
               defaultValue="CHECKING"
+              options={ACCOUNT_TYPES.map((t) => ({ value: t, label: ACCOUNT_TYPE_LABELS[t] }))}
               className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
-            >
-              {ACCOUNT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {ACCOUNT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+            />
             <input
               name="startingBalance"
               type="number"
@@ -127,14 +123,16 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
               className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
             />
             <div className="flex gap-3">
-              <select
+              <SelectField
                 name="type"
                 defaultValue="EXPENSE"
-                className="flex-1 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
-              >
-                <option value="EXPENSE">Expense</option>
-                <option value="INCOME">Income</option>
-              </select>
+                options={[
+                  { value: "EXPENSE", label: "Expense" },
+                  { value: "INCOME", label: "Income" },
+                ]}
+                wrapperClassName="flex-1"
+                className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
+              />
               <input
                 name="amount"
                 type="number"
@@ -144,18 +142,15 @@ export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
                 className="flex-1 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
               />
             </div>
-            <select
+            <SelectField
               name="categoryId"
               defaultValue=""
+              options={[
+                { value: "", label: "Category (optional)" },
+                ...(categories ?? []).map((c) => ({ value: c.id, label: c.name })),
+              ]}
               className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[14px] outline-none focus:border-accent"
-            >
-              <option value="">Category (optional)</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            />
             <input
               name="date"
               type="date"

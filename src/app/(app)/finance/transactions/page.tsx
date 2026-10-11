@@ -26,6 +26,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { MarkRecurringModal, type RecurringSource } from "@/components/finance/mark-recurring-modal";
 import { describeSchedule } from "@/lib/schedule";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
+import { SelectField } from "@/components/ui/select";
 import { CategoryCell } from "@/components/finance/category-cell";
 import {
   NO_FILTERS,
@@ -856,18 +857,16 @@ function CsvImportForm({
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <span className="block h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
-                          <select
+                          <SelectField
                             value={categoryId}
-                            onChange={(e) => setCategoryOverrides((prev) => ({ ...prev, [i]: e.target.value }))}
-                            className="w-full min-w-[120px] rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent"
-                          >
-                            <option value="">No category</option>
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
+                            onValueChange={(v) => setCategoryOverrides((prev) => ({ ...prev, [i]: v }))}
+                            options={[
+                              { value: "", label: "No category" },
+                              ...categories.map((c) => ({ value: c.id, label: c.name })),
+                            ]}
+                            wrapperClassName="w-full"
+                            className="min-w-[120px] rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text outline-none focus:border-accent"
+                          />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
