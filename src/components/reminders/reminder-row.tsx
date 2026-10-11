@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { CheckIcon, TrashIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -20,8 +22,6 @@ import {
   type ScheduleUnit,
 } from "@/lib/schedule";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type ReminderData = {
   id: string;
   title: string;

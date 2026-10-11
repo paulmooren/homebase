@@ -2,6 +2,9 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
@@ -20,7 +23,6 @@ import { Avatar } from "@/components/avatar";
 import { PageActions } from "@/components/page-actions";
 import { Modal, ModalFooter } from "@/components/modal";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
-import Link from "next/link";
 import { RepeatIcon } from "@/components/action-icons";
 import { Tip } from "@/components/ui/tooltip";
 import { MarkRecurringModal, type RecurringSource } from "@/components/finance/mark-recurring-modal";
@@ -38,8 +40,6 @@ import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
 const PAGE_SIZE = 200;

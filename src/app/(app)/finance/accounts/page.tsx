@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { ACCOUNT_TYPE_LABELS, ASSET_ACCOUNT_TYPES, type AccountType } from "@/lib/constants";
@@ -13,8 +15,6 @@ import { Modal, ModalFooter } from "@/components/modal";
 import { Field, SelectInput, inputClass } from "@/components/settings/form";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
 type Account = {

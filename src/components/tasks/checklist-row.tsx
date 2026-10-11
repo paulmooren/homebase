@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { CheckIcon, TrashIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -9,7 +10,6 @@ import { AssigneeAvatar } from "@/components/tasks/assignee-avatar";
 import { PriorityPill } from "@/components/tasks/priority-pill";
 import type { Member, Task, TaskPriority } from "@/components/tasks/types";
 
-import { Button } from "@base-ui/react/button";
 /**
  * One line of the task checklist: tick box, a title you can click to rename,
  * a priority pill and who it's for. No dates, no repeats — a task is a thing

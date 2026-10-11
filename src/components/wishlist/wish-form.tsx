@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { CheckIcon, CloseIcon } from "@/components/action-icons";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type WishFormValues = {
   title: string;
   url: string | null;

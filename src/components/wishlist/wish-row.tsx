@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { formatEUR } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
@@ -8,7 +9,6 @@ import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
 import { InlineWishRow, type WishFormValues } from "@/components/wishlist/wish-form";
 
-import { Button } from "@base-ui/react/button";
 export type WishData = {
   id: string;
   title: string;

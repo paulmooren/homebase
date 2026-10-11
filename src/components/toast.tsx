@@ -3,6 +3,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Toast as BaseToast } from "@base-ui/react/toast";
 
+/** How long a toast stays up unless the page says otherwise. */
+const DEFAULT_DURATION_MS = 15_000;
+
 type ToastData = { actions: ReactNode };
 
 // One manager for the whole app, created outside React: the `Toast` component below adds and updates toasts
@@ -16,7 +19,7 @@ const manager = BaseToast.createToastManager<ToastData>();
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   return (
-    <BaseToast.Provider toastManager={manager} timeout={15_000}>
+    <BaseToast.Provider toastManager={manager} timeout={DEFAULT_DURATION_MS}>
       {children}
       <BaseToast.Portal>
         <BaseToast.Viewport className="fixed bottom-24 left-1/2 z-[60] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 outline-none md:bottom-6">
@@ -55,7 +58,7 @@ export function Toast({
   children,
   actions,
   onClose,
-  durationMs = 15_000,
+  durationMs = DEFAULT_DURATION_MS,
 }: {
   children: ReactNode;
   actions: ReactNode;

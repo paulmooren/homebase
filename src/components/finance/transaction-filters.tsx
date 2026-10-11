@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Popover } from "@base-ui/react/popover";
+import { Input } from "@base-ui/react/input";
 
 import { formatEUR } from "@/lib/format";
 import { parseMoney } from "@/lib/money";
 import { Checkbox } from "@/components/checkbox";
 import type { Category } from "@/components/finance/category-cell";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 /** Dates are "YYYY-MM-DD"; `categoryIds` may include "none" for uncategorized. Amounts are absolute (no minus sign). */
 export type TransactionFilters = {
   from?: string;
@@ -318,9 +319,9 @@ function AmountPanel({
 }
 
 /**
- * A pill that opens a floating panel. The panel is positioned with `fixed`
- * from the pill's own position, so the card around the list (which clips its
- * overflow) can't cut it off; it closes on outside click, Escape or scroll.
+ * A pill that opens a floating panel. The panel is portalled and placed under
+ * the pill by Base UI, so the card around the list (which clips its overflow)
+ * can't cut it off; it closes on outside click or Escape.
  */
 function FilterChipWithPanel({
   label,
@@ -339,71 +340,47 @@ function FilterChipWithPanel({
   onClear: () => void;
   children: React.ReactNode;
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.bottom + 8, left: Math.max(8, Math.min(rect.left, window.innerWidth - 300)) });
-    const onPointer = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) onOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onOpen(false);
-    const onScroll = () => onOpen(false);
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={wrapRef} className="relative">
-      <span
-        className={`inline-flex h-8 items-center rounded-full border text-[13px] font-medium transition-colors ${
-          active ? "border-text bg-text text-bg" : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
-        }`}
-      >
-        <Button
-          ref={buttonRef}
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => onOpen(!open)}
-          className={`inline-flex h-full items-center gap-1.5 pl-3.5 ${active ? "pr-1.5" : "pr-3.5"}`}
+    <div>
+      <Popover.Root open={open} onOpenChange={onOpen}>
+        <span
+          className={`inline-flex h-8 items-center rounded-full border text-[13px] font-medium transition-colors ${
+            active ? "border-text bg-text text-bg" : "border-transparent bg-surface-2 text-text-muted hover:bg-border-soft hover:text-text"
+          }`}
         >
-          {label}
-          {active && summary && <span className="max-w-[180px] truncate text-bg/80">· {summary}</span>}
-        </Button>
-        {active && (
-          <Button
-            type="button"
-            onClick={onClear}
-            aria-label={`Clear ${label.toLowerCase()} filter`}
-            className="mr-1 flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-bg/80 hover:bg-white/15"
+          <Popover.Trigger
+            className={`inline-flex h-full items-center gap-1.5 pl-3.5 ${active ? "pr-1.5" : "pr-3.5"}`}
           >
-            ✕
-          </Button>
-        )}
-      </span>
-      {open && pos && (
-        <div
-          role="dialog"
-          aria-label={`${label} filter`}
-          style={{ position: "fixed", top: pos.top, left: pos.left }}
-          className="z-50 overflow-hidden rounded-xl border border-border-soft bg-surface shadow-xl"
-        >
-          {children}
-        </div>
-      )}
+            {label}
+            {active && summary && <span className="max-w-[180px] truncate text-bg/80">· {summary}</span>}
+          </Popover.Trigger>
+          {active && (
+            <Button
+              type="button"
+              onClick={onClear}
+              aria-label={`Clear ${label.toLowerCase()} filter`}
+              className="mr-1 flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-bg/80 hover:bg-white/15"
+            >
+              ✕
+            </Button>
+          )}
+        </span>
+        <Popover.Portal>
+          <Popover.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={8} className="z-50 outline-none">
+            <Popover.Popup
+              ref={popupRef}
+              aria-label={`${label} filter`}
+              // First field from the keyboard; the panel itself by pointer or touch, so no field lights up that didn't before.
+              initialFocus={(openType) => (openType === "keyboard" ? true : popupRef.current)}
+              className="overflow-hidden rounded-xl border border-border-soft bg-surface shadow-xl outline-none"
+            >
+              {children}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 }

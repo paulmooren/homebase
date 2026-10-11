@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { SettingsSection } from "@/components/settings/form";
 import { IS_DEMO_CLIENT } from "@/lib/demo";
 
-import { Button } from "@base-ui/react/button";
 export default function DataSettingsPage() {
   const utils = trpc.useUtils();
 

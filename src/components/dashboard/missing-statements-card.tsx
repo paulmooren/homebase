@@ -2,15 +2,14 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { TRPCClientError } from "@trpc/client";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import { suggestCategoryId } from "@/lib/categorize";
-import { TRPCClientError } from "@trpc/client";
-
 import { describeImport, readStatement, type ImportResult } from "@/lib/statement-import";
 
-import { Button } from "@base-ui/react/button";
 function WarningIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

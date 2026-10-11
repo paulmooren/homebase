@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/constants";
 import { SelectField } from "@/components/ui/select";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 const ACCOUNT_TYPES = Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[];
 
 export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {

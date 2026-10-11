@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 /**
  * "+ Add item" at the bottom of the list, same pattern as the other lists in
  * the app. Opens into a new line; Enter adds the item and leaves a fresh line

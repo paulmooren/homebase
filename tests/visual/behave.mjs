@@ -62,6 +62,24 @@ await check("dialog: opens from the keyboard, focus lands inside, Tab stays insi
   assert((await activeName()).includes("+ Transaction"), `focus did not return to the trigger (is on "${await activeName()}")`);
 });
 
+await check("dialog: opened from the keyboard, focus lands on a leading Select's trigger, not on a hidden input", async () => {
+  await open("/finance/transactions", page.getByRole("button", { name: "Import CSV" }));
+  await page.getByRole("button", { name: "Import CSV" }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("dialog").waitFor({ timeout: 10_000 });
+  // Focus moves in a moment after the dialog appears.
+  await page
+    .waitForFunction(() => !!document.activeElement?.closest('[role="dialog"]') && document.activeElement !== document.querySelector('[role="dialog"]'), null, { timeout: 3_000 })
+    .catch(() => {});
+  const focused = await page.evaluate(() => {
+    const el = document.activeElement;
+    return { role: el?.getAttribute("role"), tag: el?.tagName, hidden: el?.getAttribute("aria-hidden") === "true" || el?.getAttribute("tabindex") === "-1" };
+  });
+  assert(focused.role === "combobox" && !focused.hidden, `focus is on <${focused.tag}> role=${focused.role}, not the Select trigger`);
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "detached", timeout: 10_000 });
+});
+
 await check("dialog: the page behind does not scroll while it is open", async () => {
   await open("/finance/transactions", page.getByRole("button", { name: "+ Transaction" }));
   await page.getByRole("button", { name: "+ Transaction" }).click();
@@ -213,6 +231,49 @@ await check("radio group: arrow keys move between the budgeting choices", async 
   await page.keyboard.press("ArrowDown");
   assert(await page.evaluate(() => document.activeElement?.getAttribute("role") === "radio"), "arrow did not stay in the radio group");
   await page.keyboard.press("Escape");
+});
+
+await check("sortable list: a budget row can be reordered with the keyboard (then put back)", async () => {
+  await open("/finance/budgets", page.getByRole("tab", { name: "Household" }));
+  await page.getByRole("tab", { name: "Household" }).click();
+  const grip = page.getByRole("button", { name: "Reorder Energy" });
+  await grip.waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(1500); // let the page hydrate before pressing keys
+  const order = () => page.evaluate(() => [...document.querySelectorAll('[aria-label^="Reorder "]')].map((el) => el.getAttribute("aria-label")));
+  const waitForOrder = (differsFrom) =>
+    page.waitForFunction(
+      (before) => JSON.stringify([...document.querySelectorAll('[aria-label^="Reorder "]')].map((el) => el.getAttribute("aria-label"))) !== before,
+      JSON.stringify(differsFrom),
+      { timeout: 8_000 },
+    );
+  const move = async (key) => {
+    await grip.focus();
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(300);
+    await page.keyboard.press(key);
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Space");
+  };
+  const original = await order();
+  const at = original.indexOf("Reorder Energy");
+  assert(at >= 0 && at < original.length - 1, "Energy is missing or last in its list");
+  let moved = false;
+  try {
+    await move("ArrowDown");
+    await waitForOrder(original);
+    moved = true;
+    const after = await order();
+    assert(after.indexOf("Reorder Energy") === at + 1, `Energy is at ${after.indexOf("Reorder Energy")}, expected ${at + 1}`);
+  } finally {
+    // Whatever happened, leave the Demo as it was.
+    if (moved) {
+      const changed = await order();
+      await move("ArrowUp");
+      await waitForOrder(changed).catch(() => {});
+      await page.waitForTimeout(1000);
+    }
+  }
+  assert(JSON.stringify(await order()) === JSON.stringify(original), "could not put the order back");
 });
 
 await check("tooltip: the repeat icon shows its tip when reached with the keyboard", async () => {

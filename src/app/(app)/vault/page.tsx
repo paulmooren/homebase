@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
@@ -13,7 +14,6 @@ import { formatDate } from "@/lib/format";
 import { PencilIcon, TrashIcon } from "@/components/action-icons";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
 /** A revealed entry hides itself again after this long. */
 const AUTO_HIDE_MS = 60_000;
 

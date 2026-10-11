@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { ColorBarPicker } from "@/components/finance/color-picker";
 import { SettingsSection, inputClass } from "@/components/settings/form";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export default function CategoriesSettingsPage() {
   const utils = trpc.useUtils();
   const { data: categories } = trpc.category.list.useQuery();

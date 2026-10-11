@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { CheckIcon } from "@/components/action-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -8,7 +9,6 @@ import { InlineEdit } from "@/components/inline-edit";
 import { QuantityPill, parseAmount } from "@/components/shopping/quantity-stepper";
 import { TICK_GRACE_MS } from "@/components/shopping/use-shopping";
 
-import { Button } from "@base-ui/react/button";
 export type ShoppingItemData = {
   id: string;
   name: string;

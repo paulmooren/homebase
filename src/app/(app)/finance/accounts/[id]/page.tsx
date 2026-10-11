@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatDate } from "@/lib/format";
@@ -13,7 +14,6 @@ import { CategoryCell } from "@/components/finance/category-cell";
 import { useCategoryAssign } from "@/components/finance/use-category-assign";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
 const COL_DATE = "w-[100px] shrink-0";
 const COL_CATEGORY = "w-[160px] shrink-0";
 const COL_AMOUNT = "w-[110px] shrink-0";

@@ -1,9 +1,10 @@
 "use client";
 
+import { Button } from "@base-ui/react/button";
+
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
 import type { TaskPriority } from "@/components/tasks/types";
 
-import { Button } from "@base-ui/react/button";
 export const PRIORITIES: { value: TaskPriority; label: string; dot: string }[] = [
   { value: "HIGH", label: "High", dot: "#e5484d" },
   { value: "MEDIUM", label: "Medium", dot: "#e0b04d" },

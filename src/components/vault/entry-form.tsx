@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
 
 import { VAULT_CATEGORIES, type VaultCategory } from "@/lib/vault";
 import { SelectField } from "@/components/ui/select";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type VaultFormValues = {
   title: string;
   category: VaultCategory;
@@ -159,25 +161,25 @@ export function VaultEntryForm({
         </label>
 
         {!initial && (
-          <div className="flex overflow-hidden rounded-xl border border-border-soft text-[13px] font-medium" role="radiogroup" aria-label="Who owns this">
+          <RadioGroup
+            aria-label="Who owns this"
+            value={shared ? "shared" : "personal"}
+            onValueChange={(next) => setShared(next === "shared")}
+            className="flex overflow-hidden rounded-xl border border-border-soft text-[13px] font-medium"
+          >
             {[
-              { value: false, label: "Personal" },
-              { value: true, label: "Shared" },
+              { value: "personal", label: "Personal" },
+              { value: "shared", label: "Shared" },
             ].map((option) => (
-              <Button
-                key={option.label}
-                type="button"
-                role="radio"
-                aria-checked={shared === option.value}
-                onClick={() => setShared(option.value)}
-                className={`px-4 py-2.5 transition-colors ${
-                  shared === option.value ? "bg-text text-bg" : "text-text-muted hover:text-text"
-                }`}
+              <Radio.Root
+                key={option.value}
+                value={option.value}
+                className="cursor-pointer px-4 py-2.5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent data-checked:bg-text data-checked:text-bg data-unchecked:text-text-muted data-unchecked:hover:text-text"
               >
                 {option.label}
-              </Button>
+              </Radio.Root>
             ))}
-          </div>
+          </RadioGroup>
         )}
       </div>
 

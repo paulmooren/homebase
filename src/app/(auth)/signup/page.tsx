@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { AuthFrame } from "@/components/auth-frame";
 import { isDemoServer } from "@/lib/demo";
-
 import { signUpWithPassword } from "./actions";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 const ERROR_MESSAGES: Record<string, string> = {
   "weak-password": "Password must be at least 8 characters.",
   "email-taken": "That email is already registered — try signing in instead.",

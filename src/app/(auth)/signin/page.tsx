@@ -1,13 +1,11 @@
 import Link from "next/link";
-
-import { AuthFrame } from "@/components/auth-frame";
-
-import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
-
-import { signInAsPersona, signInWithGoogle, signInWithPassword } from "./actions";
-
 import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
+
+import { AuthFrame } from "@/components/auth-frame";
+import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
+import { signInAsPersona, signInWithGoogle, signInWithPassword } from "./actions";
+
 const ERROR_MESSAGES: Record<string, string> = {
   CredentialsSignin: "Incorrect email or password.",
   OAuthAccountNotLinked:

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { buildPoints, smoothPath, areaPath, CHART_HEIGHT, PAD_X } from "@/lib/chart";
 import { formatEUR, formatSignedEUR } from "@/lib/format";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 const PRESETS = [
   { key: "1M", label: "1 M", days: 30 },
   { key: "3M", label: "3 M", days: 90 },

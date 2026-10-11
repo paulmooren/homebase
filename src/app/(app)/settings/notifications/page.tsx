@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { Switch } from "@/components/switch";
 import { SettingsSection } from "@/components/settings/form";
 
-import { Button } from "@base-ui/react/button";
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
 /** The browser wants the public key as bytes, not base64url text. */

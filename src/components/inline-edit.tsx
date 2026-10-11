@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-
 import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
+
 /**
  * Text you can click to edit right where it is. Clicking only selects the text:
  * the field has no background, border or padding and grows with what you type,

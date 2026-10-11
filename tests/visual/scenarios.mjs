@@ -61,6 +61,37 @@ export const SCENARIOS = [
     viewportOnly: true,
     run: async (p) => { await click(/^Payment history of Salary/)(p); await dialogOpen(p); },
   },
+  {
+    name: "select-open",
+    popup: true,
+    persona: "Alex",
+    path: "/finance/transactions",
+    viewportOnly: true,
+    viewports: ["desktop"],
+    run: async (p) => {
+      await click("+ Transaction")(p);
+      await dialogOpen(p);
+      await p.getByRole("dialog").getByRole("combobox").first().click()  // the Account select;
+      await p.getByRole("listbox").waitFor({ timeout: 5_000 });
+    },
+  },
+  {
+    name: "tooltip-recurring",
+    persona: "Alex",
+    path: "/finance/transactions",
+    viewportOnly: true,
+    viewports: ["desktop"],
+    run: async (p) => {
+      await p.getByRole("img", { name: /^Recurring/ }).first().waitFor({ timeout: 15_000 });
+      await p.getByRole("button", { name: "Import CSV" }).focus();
+      let reached = false;
+      for (let i = 0; i < 200 && !reached; i++) {
+        await p.keyboard.press("Tab");
+        reached = await p.evaluate(() => (document.activeElement?.getAttribute("aria-label") ?? "").startsWith("Recurring"));
+      }
+      await p.getByText(/^Recurring · /).first().waitFor({ timeout: 5_000 });
+    },
+  },
   { name: "menu-assignee", popup: true, persona: "Alex", path: "/tasks", viewportOnly: true, viewports: ["desktop"], run: click("Assigned to Alex, click to change") },
   { name: "menu-priority", popup: true, persona: "Alex", path: "/tasks", viewportOnly: true, viewports: ["desktop"], run: click("Priority: High, click to change") },
   { name: "menu-reminder-schedule", popup: true, persona: "Alex", path: "/tasks", viewportOnly: true, viewports: ["desktop"], run: click("Every week, click to change") },

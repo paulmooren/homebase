@@ -1,12 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 
-import { openerOf } from "@/components/ui/focus";
+import { returnFocusTo, useOpener } from "@/components/ui/focus";
 
-const FIRST_FIELD =
-  "[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])";
+// The first thing to type into or press, in document order. Skips the visually hidden inputs Base UI renders
+// next to its Select and Checkbox.
+const FIRST_FIELD = [
+  "[autofocus]",
+  'input:not([type=hidden]):not([disabled]):not([aria-hidden=true]):not([tabindex="-1"])',
+  "textarea:not([disabled])",
+  'button[role="combobox"]:not([disabled])',
+  '[role="checkbox"]',
+].join(", ");
 
 /**
  * A dialog over a dimmed page, for forms that deserve the whole focus: a
@@ -28,7 +35,7 @@ export function Modal({
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
   // Focus goes back to what opened this when it closes.
-  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
+  const opener = useOpener();
 
   return (
     <Dialog.Root
@@ -42,7 +49,7 @@ export function Modal({
         <Dialog.Viewport className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6">
           <Dialog.Popup
             ref={popupRef}
-            finalFocus={openerOf(opener)}
+            finalFocus={returnFocusTo(opener)}
             initialFocus={(openType) => {
               const popup = popupRef.current;
               if (!popup) return null;

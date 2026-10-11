@@ -54,7 +54,12 @@ export function MenuItem({
       className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2 text-left text-[13.5px] outline-none select-none data-highlighted:bg-surface-hover"
     >
       <span className="flex min-w-0 flex-1 items-center gap-2.5">{children}</span>
-      {active && <span className="text-[12px] text-text-muted">✓</span>}
+      {active && (
+        <span className="text-[12px] text-text-muted">
+          <span aria-hidden>✓</span>
+          <span className="sr-only">(selected)</span>
+        </span>
+      )}
     </Menu.Item>
   );
 }

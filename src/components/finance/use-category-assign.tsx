@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { Toast, toastPrimary, toastSecondary } from "@/components/toast";
 import type { Category } from "@/components/finance/category-cell";
 
-import { Button } from "@base-ui/react/button";
 type Prompt = { id: string; categoryId: string; merchant: string; count: number };
 
 /**

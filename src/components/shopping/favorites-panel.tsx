@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { CheckIcon, CloseIcon, PlusIcon } from "@/components/action-icons";
 import { InlineEdit } from "@/components/inline-edit";
 import type { ShoppingItemData } from "@/components/shopping/item-row";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type FavoriteData = { id: string; name: string };
 
 /**

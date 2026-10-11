@@ -6,10 +6,10 @@ We considered Radix or shadcn (a styled layer that would impose its own look, or
 
 ## Consequences
 
-- Date inputs stay native (Base UI has no date picker), and money-amount fields stay plain inputs (a number stepper gets in the way of typing "€1,250.50").
+- Date inputs stay native (Base UI has no date picker), as do file inputs and the vault note textarea (Base UI has none of these), and money-amount fields stay plain inputs (a number stepper gets in the way of typing "€1,250.50").
 - Dropdowns are a styled list everywhere, so phones no longer show the native picker wheel.
 - Delete confirmations always use the app's own styled alert pop-up, never the browser's.
-- Toast messages are shown by calling a function, not by rendering a component.
+- Toast messages go through Base UI's toast manager and are announced in a live region. Pages keep rendering a `Toast` component while the message should show, and it registers one with the manager.
 - A pop-up focuses its first form field (not its close button) and an alert focuses Cancel, so each wrapper sets this explicitly.
 - The page content sits in a stacking-context root so portalled pop-ups stay above it, and the body is positioned for iOS 26+ Safari backdrops.
 - The migration is checked by the before/after screenshot comparison in `tests/visual` (a one-off migration check, not a permanent suite). New screens should use the shared controls instead of re-creating them.

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-
 import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
+
 /**
  * An amount is "<number> <unit>": "2" → 2, "500 g" → 500 g, "1,5 kg" → 1.5 kg.
  * No number means one of it: nothing at all is 1, "a bit" is 1 "a bit".

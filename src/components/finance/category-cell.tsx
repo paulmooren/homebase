@@ -31,6 +31,7 @@ export function CategoryCell({
         onValueChange={(v) => onChange(v || null)}
       >
         <Select.Trigger
+          aria-label="Category"
           className={`flex w-full min-w-0 cursor-pointer items-center gap-1.5 text-left outline-none ${CELL_TEXT} text-text-muted`}
         >
           <span

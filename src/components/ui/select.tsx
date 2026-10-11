@@ -76,7 +76,7 @@ type RootProps = {
 };
 
 /** Base UI Select.Root wired for string options. Uncontrolled starts on the first option, like a native select. */
-export function SelectRoot({
+function SelectRoot({
   options,
   value,
   defaultValue,
@@ -128,18 +128,7 @@ export function SelectField({
             className="pointer-events-none absolute top-1/2 right-3.5 block h-4 w-4 -translate-y-1/2 text-text-muted"
             aria-hidden
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <ChevronDownIcon />
           </Select.Icon>
         </Select.Trigger>
         <SelectPopup options={root.options} />

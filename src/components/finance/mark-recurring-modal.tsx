@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-
 import { NumberField } from "@base-ui/react/number-field";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { Modal, ModalFooter } from "@/components/modal";
@@ -12,8 +13,6 @@ import { cleanMerchant } from "@/lib/csv";
 import { formatEUR } from "@/lib/format";
 import type { Category } from "@/components/finance/category-cell";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type RecurringSource = {
   id: string;
   merchant: string;

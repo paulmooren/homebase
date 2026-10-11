@@ -1,4 +1,5 @@
 import { Button } from "@base-ui/react/button";
+
 /**
  * Inline visibility control for a personally-owned row (account, recurring
  * item, or budget). Only ever shown for rows the viewer owns — shared rows

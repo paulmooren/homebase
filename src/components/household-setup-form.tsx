@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 type Mode = "create" | "join";
 
 export function HouseholdSetupForm() {

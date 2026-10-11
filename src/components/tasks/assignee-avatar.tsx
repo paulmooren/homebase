@@ -1,10 +1,11 @@
 "use client";
 
+import { Button } from "@base-ui/react/button";
+
 import { Avatar } from "@/components/avatar";
 import { MenuItem, PopoverMenu } from "@/components/popover-menu";
 import type { Member } from "@/components/tasks/types";
 
-import { Button } from "@base-ui/react/button";
 function SharedIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">

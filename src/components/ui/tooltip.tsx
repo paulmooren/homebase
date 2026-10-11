@@ -27,11 +27,16 @@ export function Tip({
   /** Extra classes for the tip card, e.g. `text-center`. */
   className?: string;
 }) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   return (
     <Tooltip.Provider delay={0} closeDelay={0}>
       <Tooltip.Root disableHoverablePopup>
-        <Tooltip.Trigger ref={triggerRef} render={children} />
+        <Tooltip.Trigger
+          ref={(el: HTMLButtonElement | null) => {
+            triggerRef.current = el;
+          }}
+          render={children}
+        />
         <Tooltip.Portal>
           <Tooltip.Positioner
             side={side}

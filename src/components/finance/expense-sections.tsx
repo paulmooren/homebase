@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { TrashIcon } from "@/components/action-icons";
 import { InlineEdit } from "@/components/inline-edit";
@@ -9,8 +11,6 @@ import { monthlyOf, type BudgetItem, type Entry } from "@/lib/budget-scope";
 import { formatEUR } from "@/lib/format";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export type BudgetGroup = { id: string; name: string };
 
 type GroupedItem = BudgetItem & { budgetGroupId: string | null };

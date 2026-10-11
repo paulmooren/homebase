@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Popover } from "@base-ui/react/popover";
+import { Button } from "@base-ui/react/button";
 
 import { CATEGORY_COLORS } from "@/lib/constants";
 
-import { Button } from "@base-ui/react/button";
 /**
  * The category's vertical colour bar (same as in the transaction and
  * recurring rows) doubling as the trigger for a palette popover.
@@ -24,7 +24,7 @@ export function ColorBarPicker({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`relative flex self-stretch ${className}`}>
+    <div className={`flex self-stretch ${className}`}>
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger aria-label={label} className="flex w-3 cursor-pointer justify-center self-stretch">
           <span className="block w-[3px] rounded-full" style={{ background: value }} />

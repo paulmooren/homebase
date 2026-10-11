@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { PlusIcon, CloseIcon, CheckIcon } from "@/components/action-icons";
@@ -13,8 +15,6 @@ import { useReminderActions } from "@/components/reminders/use-reminders";
 import { PopoverPanel } from "@/components/popover-menu";
 import { dueBucket, describeSchedule, todayInHousehold, type DueBucket, type ScheduleMode, type ScheduleUnit } from "@/lib/schedule";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export default function TasksPage() {
   const utils = trpc.useUtils();
   const { data: tasks } = trpc.task.list.useQuery();

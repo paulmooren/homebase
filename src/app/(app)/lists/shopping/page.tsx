@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Dialog } from "@base-ui/react/dialog";
+import { Input } from "@base-ui/react/input";
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
 
 import { trpc } from "@/trpc/react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { InlineEdit } from "@/components/inline-edit";
+import { returnFocusTo, useOpener } from "@/components/ui/focus";
 import { ModuleGate } from "@/components/use-modules";
 import { AddItemRow } from "@/components/shopping/add-item-row";
 import { FavoritesPanel } from "@/components/shopping/favorites-panel";
@@ -16,8 +22,6 @@ import {
   useTickGrace,
 } from "@/components/shopping/use-shopping";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export default function ShoppingPage() {
   return (
     <ModuleGate module="shopping">
@@ -60,13 +64,6 @@ function ShoppingLists() {
       refreshLists();
     },
   });
-
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSheetOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [sheetOpen]);
 
   if (!lists || !me) return null;
 
@@ -271,20 +268,39 @@ function ShoppingLists() {
       )}
 
       {selected && sheetOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Favorites">
-          <Button
-            type="button"
-            aria-label="Close favorites"
-            onClick={() => setSheetOpen(false)}
-            className="absolute inset-0 bg-black/40"
-          />
-          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-[20px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
-            {favoritesHeader}
-            {favoritesPanel}
-          </div>
-        </div>
+        <FavoritesSheet onClose={() => setSheetOpen(false)}>
+          {favoritesHeader}
+          {favoritesPanel}
+        </FavoritesSheet>
       )}
     </div>
+  );
+}
+
+/** The favorites as a sheet from the bottom of the screen (phones and tablets only; on a desktop they sit beside the list). */
+function FavoritesSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  // Focus goes back to what opened the sheet when it closes.
+  const opener = useOpener();
+  return (
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 supports-[-webkit-touch-callout:none]:absolute lg:hidden" />
+        <Dialog.Viewport className="fixed inset-0 z-40 flex items-end lg:hidden">
+          <Dialog.Popup
+            aria-label="Favorites"
+            finalFocus={returnFocusTo(opener)}
+            className="max-h-[80vh] w-full overflow-y-auto rounded-t-[20px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl outline-none"
+          >
+            {children}
+          </Dialog.Popup>
+        </Dialog.Viewport>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -315,25 +331,25 @@ function NewListForm({
         aria-label="List name"
         className="min-w-0 flex-1 rounded-xl border border-border-soft bg-surface px-3.5 py-2.5 text-[14px] outline-none placeholder:text-text-faint focus:border-accent"
       />
-      <div className="flex overflow-hidden rounded-xl border border-border-soft text-[13px] font-medium" role="radiogroup">
+      <RadioGroup
+        aria-label="List visibility"
+        value={shared ? "shared" : "private"}
+        onValueChange={(next) => setShared(next === "shared")}
+        className="flex overflow-hidden rounded-xl border border-border-soft text-[13px] font-medium"
+      >
         {[
-          { value: true, label: "Shared" },
-          { value: false, label: "Private" },
+          { value: "shared", label: "Shared" },
+          { value: "private", label: "Private" },
         ].map((option) => (
-          <Button
-            key={option.label}
-            type="button"
-            role="radio"
-            aria-checked={shared === option.value}
-            onClick={() => setShared(option.value)}
-            className={`px-4 py-2.5 transition-colors ${
-              shared === option.value ? "bg-text text-bg" : "text-text-muted hover:text-text"
-            }`}
+          <Radio.Root
+            key={option.value}
+            value={option.value}
+            className="cursor-pointer px-4 py-2.5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent data-checked:bg-text data-checked:text-bg data-unchecked:text-text-muted data-unchecked:hover:text-text"
           >
             {option.label}
-          </Button>
+          </Radio.Root>
         ))}
-      </div>
+      </RadioGroup>
       <Button
         type="submit"
         disabled={!name.trim() || pending}

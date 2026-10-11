@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { NumberField } from "@base-ui/react/number-field";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
 import { trpc } from "@/trpc/react";
 import { formatEUR, formatSignedEUR, formatDate } from "@/lib/format";
@@ -26,15 +29,12 @@ import { applyMove, applyReorder } from "@/lib/recurring-order";
 import { AddGroup, ExpenseSections, type BudgetGroup } from "@/components/finance/expense-sections";
 import { Avatar } from "@/components/avatar";
 import { Checkbox } from "@/components/checkbox";
-import { NumberField } from "@base-ui/react/number-field";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
 import { InlineSelect } from "@/components/ui/select";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
 const NEW_GROUP = "__new__";

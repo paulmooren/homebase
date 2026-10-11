@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { IS_DEMO_CLIENT } from "@/lib/demo";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 
+import { IS_DEMO_CLIENT } from "@/lib/demo";
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
 import { Field, SettingsSection, UpdateButton, inputClass } from "@/components/settings/form";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { signOutAction } from "../actions";
 
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
 export default function ProfileSettingsPage() {
   return (
     <>

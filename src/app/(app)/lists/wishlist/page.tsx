@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { trpc } from "@/trpc/react";
 import { Avatar } from "@/components/avatar";
@@ -11,7 +12,6 @@ import { InlineWishRow } from "@/components/wishlist/wish-form";
 import { WishRow } from "@/components/wishlist/wish-row";
 import { useConfirm } from "@/components/confirm-dialog";
 
-import { Button } from "@base-ui/react/button";
 const HOME = "home";
 
 export default function WishlistPage() {
