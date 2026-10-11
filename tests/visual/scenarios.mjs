@@ -52,7 +52,7 @@ export const SCENARIOS = [
   { name: "modal-new-account", popup: true, persona: "Alex", path: "/finance/accounts", viewportOnly: true, run: async (p) => { await click("+ Add account")(p); await dialogOpen(p); } },
   { name: "modal-edit-account", popup: true, persona: "Alex", path: "/finance/accounts", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await click("Edit", { exact: true })(p); await dialogOpen(p); } },
   { name: "form-vault-new", persona: "Alex", path: "/vault", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await click("+ New entry")(p); await p.waitForTimeout(800); } },
-  { name: "form-vault-edit", persona: "Alex", path: "/vault", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await click("Edit Car registration")(p); await p.waitForTimeout(800); } },
+  { name: "form-vault-edit", persona: "Alex", path: "/vault", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await click("Edit Car registration")(p); await p.getByRole("button", { name: "Save", exact: true }).waitFor({ timeout: 20_000 }); await p.waitForTimeout(800); } },
   { name: "modal-mark-recurring", popup: true, persona: "Alex", path: "/finance/transactions", viewportOnly: true, viewports: ["desktop"], run: async (p) => { await p.getByRole("button", { name: /^Mark .* as recurring$/ }).first().click(); await dialogOpen(p); } },
   {
     name: "modal-payment-history",
@@ -115,8 +115,9 @@ export const SCENARIOS = [
     viewports: ["desktop"],
     run: async (p) => {
       await click("Mark Hoover the living room as done")(p);
-      await p.getByRole("button", { name: "Undo" }).waitFor({ timeout: 20_000 });
+      // (In development the toast is mounted twice and the first copy is still fading out: the live one is the last.)
+      await p.getByRole("button", { name: "Undo" }).last().waitFor({ timeout: 20_000 });
     },
-    cleanup: (page) => page.getByRole("button", { name: "Undo" }).click(),
+    cleanup: (page) => page.getByRole("button", { name: "Undo" }).last().click(),
   },
 ];
