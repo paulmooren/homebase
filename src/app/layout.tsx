@@ -39,7 +39,10 @@ export default function RootLayout({
       <body
         className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}
       >
-        <TRPCProvider>{children}</TRPCProvider>
+        {/* Base UI pop-ups are portalled to the body; this stacking context keeps them above the page (see docs/adr/0006). */}
+        <TRPCProvider>
+          <div className="isolate">{children}</div>
+        </TRPCProvider>
         <Script id="register-sw" strategy="afterInteractive">
           {`if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }`}
         </Script>

@@ -57,6 +57,8 @@ html {
 }
 
 body {
+  /* Base UI on iOS 26+ Safari: pop-up backdrops are positioned against the body. */
+  position: relative;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
