@@ -10,8 +10,8 @@ const FIRST_FIELD =
  * A dialog over a dimmed page, for forms that deserve the whole focus: a
  * centred card on desktop, a sheet from the bottom on a phone. Escape, the ✕
  * or a click on the dimmed area closes it. The page behind doesn't scroll.
- * Focus starts on the first form field (by touch, on the dialog itself, so the
- * on-screen keyboard doesn't cover the sheet).
+ * Focus moves into the dialog: to its first form field when opened from the
+ * keyboard, to the dialog itself when opened by pointer or touch.
  */
 export function Modal({
   title,
@@ -39,13 +39,14 @@ export function Modal({
           <Dialog.Popup
             ref={popupRef}
             initialFocus={(openType) => {
-              if (openType === "touch") return null;
               const popup = popupRef.current;
               if (!popup) return null;
-              // A field React already autofocused, else the first field.
+              // A field React already autofocused keeps it.
               const active = document.activeElement;
               if (active instanceof HTMLElement && active !== popup && popup.contains(active)) return active;
-              return popup.querySelector<HTMLElement>(FIRST_FIELD);
+              // From the keyboard, the first field. By pointer or touch, the dialog itself: no field lights up
+              // that didn't before, and on a phone the on-screen keyboard stays closed. Tab then reaches the fields.
+              return openType === "keyboard" ? (popup.querySelector<HTMLElement>(FIRST_FIELD) ?? popup) : popup;
             }}
             className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface shadow-2xl outline-none sm:rounded-[24px] ${width}`}
           >

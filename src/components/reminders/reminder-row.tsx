@@ -218,7 +218,8 @@ export function ScheduleForm({
   return (
     // A div, not a <form>: this opens from inside the "new reminder" form, and forms can't nest.
     <div
-      className="flex w-[260px] flex-col gap-3 p-3"
+      // Muted text, as the panel used to inherit from the row it opened from; it now sits in a portal and inherits nothing.
+      className="flex w-[260px] flex-col gap-3 p-3 text-text-muted"
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 
@@ -74,12 +74,20 @@ export function PopoverPanel({
   align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger render={trigger} />
       <Popover.Portal>
         <Popover.Positioner side="bottom" align={ALIGN[align]} sideOffset={6} collisionPadding={8} className="outline-none">
-          <Popover.Popup className={PANEL}>{children({ close: () => setOpen(false) })}</Popover.Popup>
+          <Popover.Popup
+            ref={popupRef}
+            // First field from the keyboard; the panel itself by pointer or touch, so no field lights up that didn't before.
+            initialFocus={(openType) => (openType === "keyboard" ? true : popupRef.current)}
+            className={PANEL}
+          >
+            {children({ close: () => setOpen(false) })}
+          </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
