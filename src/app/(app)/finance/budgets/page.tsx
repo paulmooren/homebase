@@ -19,7 +19,7 @@ import {
   type ScopeKey,
 } from "@/lib/budget-scope";
 import { describeSchedule, todayInHousehold, SCHEDULE_UNITS, unitLabel, type ScheduleUnit } from "@/lib/schedule";
-import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChevronDownIcon, ChartIcon, GripIcon } from "@/components/action-icons";
+import { PencilIcon, TrashIcon, PlusIcon, CloseIcon, CheckIcon, ChartIcon, GripIcon } from "@/components/action-icons";
 import { PaymentHistoryModal } from "@/components/finance/payment-history-modal";
 import { SortableList } from "@/components/sortable-list";
 import { applyMove, applyReorder } from "@/lib/recurring-order";
@@ -29,6 +29,7 @@ import { groupOrder, groupLabel, type Member } from "@/components/finance/owners
 import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
 import { VisibilityToggle, VisibilityBadge } from "@/components/finance/visibility-toggle";
+import { InlineSelect } from "@/components/ui/select";
 
 type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 
@@ -1108,48 +1109,5 @@ function InlineRecurringRow({
         <CloseIcon />
       </button>
     </form>
-  );
-}
-
-/**
- * A native <select> sized to fit its currently selected value, not (as
- * browsers do by default) to its widest option — otherwise picking "No
- * category" while a long category name exists leaves the chevron stranded
- * far past the visible text. The real select sits invisibly on top of a
- * label sized to just the current value; `peer-hover`/`peer-focus` on the
- * label let the chevron's color follow the select's hover/focus state even
- * though the label itself doesn't receive the pointer events.
- */
-function InlineSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  const currentLabel = options.find((o) => o.value === value)?.label ?? "";
-
-  return (
-    <span className="relative inline-flex items-center">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-surface text-text">
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <span className="pointer-events-none flex items-center gap-0.5 text-text-muted transition-colors peer-hover:text-text peer-focus:text-text">
-        {currentLabel}
-        <span className="block h-3 w-3">
-          <ChevronDownIcon />
-        </span>
-      </span>
-    </span>
   );
 }

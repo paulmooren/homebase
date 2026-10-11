@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { VAULT_CATEGORIES, type VaultCategory } from "@/lib/vault";
+import { SelectField } from "@/components/ui/select";
 
 export type VaultFormValues = {
   title: string;
@@ -82,18 +83,13 @@ export function VaultEntryForm({
           aria-label="Title"
           className={`${inputClass} text-[15px]`}
         />
-        <select
+        <SelectField
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onValueChange={setCategory}
           aria-label="Category"
+          options={VAULT_CATEGORIES.map((c) => ({ value: c, label: c }))}
           className={inputClass}
-        >
-          {VAULT_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="flex flex-col gap-2">
