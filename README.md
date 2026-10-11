@@ -51,6 +51,10 @@ Postgres database (no code changes needed — it's already built against both):
 4. Set `NEXTAUTH_URL` to the production URL Vercel gives the project.
 5. Deploy. Every future push to the main branch auto-deploys.
 
+Keep the function region and the database region together: `vercel.json` pins the
+functions to Frankfurt (`fra1`), so create the Neon project in `aws-eu-central-1`.
+Functions in one continent with the database in another make every query slower.
+
 After the first deploy, run `npx prisma migrate deploy` against the
 production database (via `vercel env pull` locally, or a one-off Vercel
 CLI/GitHub Action step) so the schema is up to date.
@@ -80,5 +84,5 @@ change and notifications.
    `AUTH_SECRET`, `VAULT_KEY`, `DEMO_MODE=true`, `NEXT_PUBLIC_DEMO_MODE=true`. Set them
    **before** the first deploy: `NEXT_PUBLIC_DEMO_MODE` is baked into the build. Leave out
    everything else (Google, notifications, `CRON_SECRET`) — the Demo has no use for them.
-3. Keep the function region at Washington, D.C. (iad1): next to the database, so a reset takes seconds.
+3. Keep the function region next to the database — Frankfurt (`fra1`, set in `vercel.json`) with a Neon project in `aws-eu-central-1` — so a reset takes seconds.
 4. Deploy, open the address, continue as Alex. The data is already there; "Reset demo" puts it back.
