@@ -30,7 +30,8 @@ export const SCENARIOS = [
     persona: "Alex",
     path: "/finance/accounts",
     run: async (page) => {
-      await page.locator('a[href^="/finance/accounts/"]').first().click();
+      // Straight to the link: on a phone the sticky bar can sit over it, so a pointer click would wait forever.
+      await page.locator('a[href^="/finance/accounts/"]').first().evaluate((el) => el.click());
       await page.waitForURL("**/finance/accounts/*");
     },
   },

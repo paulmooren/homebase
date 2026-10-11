@@ -126,7 +126,13 @@ function compare(before, after) {
     const imgA = PNG.sync.read(fs.readFileSync(path.join(a, name)));
     const imgB = PNG.sync.read(fs.readFileSync(fileB));
     if (imgA.width !== imgB.width || imgA.height !== imgB.height) {
-      rows.push({ name, note: `size ${imgA.width}x${imgA.height} -> ${imgB.width}x${imgB.height}` });
+      // A pop-up crop of the old code is its full-screen overlay, of the new code the card itself: not comparable.
+      // The full-page screenshot of the same scenario is the real test.
+      rows.push({
+        name,
+        note: `size ${imgA.width}x${imgA.height} -> ${imgB.width}x${imgB.height}`,
+        informational: name.includes(".popup."),
+      });
       continue;
     }
     const diff = new PNG({ width: imgA.width, height: imgA.height });
@@ -138,9 +144,10 @@ function compare(before, after) {
   for (const name of fs.readdirSync(b).filter((f) => f.endsWith(".png"))) {
     if (!names.includes(name)) rows.push({ name, note: "new in after" });
   }
-  const bad = rows.filter((r) => r.note || r.pct > 0.02);
+  const isBad = (r) => (r.note && !r.informational) || r.pct > 0.02;
+  const bad = rows.filter(isBad);
   for (const r of rows) {
-    const flag = r.note || r.pct > 0.02 ? "DIFF" : "ok  ";
+    const flag = isBad(r) ? "DIFF" : r.informational ? "info" : "ok  ";
     console.log(`${flag} ${r.name.padEnd(46)} ${r.note ?? `${r.changed} px (${r.pct.toFixed(3)}%)`}`);
   }
   console.log(`\n${rows.length - bad.length}/${rows.length} identical (≤0.02% of pixels). Diffs: ${path.relative(".", diffDir)}`);

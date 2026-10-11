@@ -10,6 +10,6 @@ We considered Radix or shadcn (a styled layer that would impose its own look, or
 - Dropdowns are a styled list everywhere, so phones no longer show the native picker wheel.
 - Delete confirmations always use the app's own styled alert pop-up, never the browser's.
 - Toast messages go through Base UI's toast manager and are announced in a live region. Pages keep rendering a `Toast` component while the message should show, and it registers one with the manager.
-- A pop-up focuses its first form field (not its close button) and an alert focuses Cancel, so each wrapper sets this explicitly.
+- Focus moves into a pop-up when it opens: to its first form field when opened from the keyboard, to the pop-up itself when opened by pointer or touch (so no field lights up and a phone keyboard stays closed), never to the close button; an alert focuses Cancel, and closing returns focus to what opened it. Each wrapper sets this explicitly.
 - The page content sits in a stacking-context root so portalled pop-ups stay above it, and the body is positioned for iOS 26+ Safari backdrops.
 - The migration is checked by the before/after screenshot comparison in `tests/visual` (a one-off migration check, not a permanent suite). New screens should use the shared controls instead of re-creating them.
