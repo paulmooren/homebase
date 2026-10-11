@@ -1,8 +1,14 @@
 /**
- * Keyboard and accessibility checks for the Base UI migration (docs/specs/base-ui-component-layer.md):
- * what a Member can do without a mouse, and what a screen reader would find.
+ * Behaviour checks, run in a browser against the Demo:
+ *  - keyboard and accessibility checks for the Base UI migration (docs/specs/base-ui-component-layer.md): what a
+ *    Member can do without a mouse, and what a screen reader would find;
+ *  - checks for optimistic updates (docs/specs/optimistic-updates.md): every API call is delayed by about 800 ms and
+ *    the screen must already show the change, a call is made to fail on purpose and the change must be undone with
+ *    "Couldn't save, change undone", quick sequences must reach the server in order, and the changes the server has
+ *    to work out must still wait.
  *
- *   node tests/visual/behave.mjs        # against the Demo on http://127.0.0.1:3100 (VISUAL_BASE_URL to change)
+ *   node tests/visual/behave.mjs                     # against the Demo on http://127.0.0.1:3100 (VISUAL_BASE_URL to change)
+ *   BEHAVE_ONLY=optimistic node tests/visual/behave.mjs   # only the checks whose name contains the text
  *
  * Checks that change data put it back. Not a permanent suite: a migration check.
  */
@@ -10,7 +16,9 @@ import { chromium } from "playwright";
 
 const BASE = process.env.VISUAL_BASE_URL ?? "http://127.0.0.1:3100";
 const results = [];
+const only = process.env.BEHAVE_ONLY;
 const check = async (name, fn) => {
+  if (only && !name.includes(only)) return;
   try {
     await fn();
     results.push([true, name]);
@@ -31,6 +39,75 @@ async function open(path, ready) {
   await page.waitForFunction(() => !document.body.innerText.includes("Loading…"), null, { timeout: 60_000 }).catch(() => {});
   if (ready) await ready.waitFor({ timeout: 30_000 });
   await page.waitForTimeout(500);
+}
+
+// ── Optimistic updates: the test seam ─────────────────────────────────────
+// What the Member sees. Every API call can be delayed (SLOW_MS) so a screen that already shows a change could not
+// have waited for the server; a call can be made to fail; and `settle` waits until everything has been saved.
+const SLOW_MS = 800;
+/** "Within a fraction of a second": well under SLOW_MS, so the server cannot have answered yet. */
+const AT_ONCE = 500;
+let inFlight = 0;
+let lastTraffic = 0;
+page.on("request", (r) => r.url().includes("/api/trpc/") && (inFlight++, (lastTraffic = Date.now())));
+page.on("requestfinished", (r) => r.url().includes("/api/trpc/") && (inFlight--, (lastTraffic = Date.now())));
+page.on("requestfailed", (r) => r.url().includes("/api/trpc/") && (inFlight--, (lastTraffic = Date.now())));
+
+async function slowly(run) {
+  const delay = async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, SLOW_MS));
+    await route.continue().catch(() => {});
+  };
+  await page.route("**/api/trpc/**", delay);
+  try {
+    return await run();
+  } finally {
+    await settle();
+    await page.unroute("**/api/trpc/**", delay);
+  }
+}
+/** Makes every call to these procedures fail (the network drops it) while `run` goes on; the rest are delayed as in `slowly`. */
+async function failing(procedures, run) {
+  const handler = async (route) => {
+    if (procedures.some((name) => route.request().url().includes(`/api/trpc/${name}`))) return route.abort("failed");
+    await new Promise((resolve) => setTimeout(resolve, SLOW_MS));
+    await route.continue().catch(() => {});
+  };
+  await page.route("**/api/trpc/**", handler);
+  try {
+    return await run();
+  } finally {
+    await settle();
+    await page.unroute("**/api/trpc/**", handler);
+  }
+}
+/** Waits until nothing has been sent to the API for a moment and nothing is in flight: everything is saved. */
+async function settle() {
+  const until = Date.now() + 30_000;
+  while (Date.now() < until && (inFlight > 0 || Date.now() - lastTraffic < 900)) await page.waitForTimeout(100);
+}
+const notifications = () => page.getByRole("region", { name: "Notifications" });
+async function expectUndone() {
+  await notifications().getByText("Couldn't save, change undone").waitFor({ timeout: 8_000 });
+}
+async function expectNoUndone() {
+  assert((await notifications().getByText("Couldn't save, change undone").count()) === 0, "a change was undone with an error message");
+}
+async function within(ms, what, promise) {
+  const started = Date.now();
+  await promise;
+  const took = Date.now() - started;
+  assert(took < ms, `${what} took ${took} ms (limit ${ms} ms)`);
+}
+/** Calls the API as the signed-in Member, to look at the saved state or put something back. */
+async function api(procedure, input, { write = false } = {}) {
+  const body = input === undefined ? { json: null, meta: { values: ["undefined"] } } : { json: input };
+  const response = write
+    ? await context.request.post(`/api/trpc/${procedure}?batch=1`, { data: { 0: body } })
+    : await context.request.get(`/api/trpc/${procedure}?batch=1&input=${encodeURIComponent(JSON.stringify({ 0: body }))}`);
+  const parsed = await response.json();
+  if (!response.ok() || parsed[0]?.error) throw new Error(`${procedure} failed: ${JSON.stringify(parsed[0]?.error?.json?.message ?? response.status())}`);
+  return parsed[0].result.data.json;
 }
 const activeName = () =>
   page.evaluate(() => {
@@ -287,6 +364,155 @@ await check("tooltip: the repeat icon shows its tip when reached with the keyboa
   assert(reached, "could not Tab to the recurring icon");
   // Base UI's tip is a plain dark card with no ARIA role; find it by its text.
   await page.getByText("Recurring · every month").first().waitFor({ timeout: 5_000 });
+});
+
+
+// ── Optimistic updates ────────────────────────────────────────────────────
+// Each check delays every API call by ~800 ms and asserts the screen changed within AT_ONCE, then waits for the
+// saves to finish and looks at what was kept. Whatever was created is removed again through the API.
+
+await check("optimistic tasks: a new todo shows at once, ticking it straight away reaches the server in order, and a reload agrees", async () => {
+  const title = "Behave todo";
+  const leftovers = async () => {
+    for (const task of await api("task.list", undefined)) if (task.title === title) await api("task.delete", { id: task.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/tasks", page.getByRole("button", { name: "New todo" }));
+    const completedBefore = Number(((await page.getByRole("button", { name: /^Completed/ }).textContent()) ?? "").match(/\d+/)?.[0] ?? 0);
+    await slowly(async () => {
+      await page.getByRole("button", { name: "New todo" }).click();
+      const input = page.getByRole("textbox", { name: "New todo" });
+      await input.fill(title);
+      await input.press("Enter");
+      const tick = page.locator("div.group", { has: page.getByRole("button", { name: `Delete ${title}` }) }).getByRole("button", { name: "Mark as done" });
+      await within(AT_ONCE, "the new todo appearing", tick.waitFor());
+      await tick.click();
+      // It moves under "Completed" at once, before the add has even reached the server.
+      await within(AT_ONCE, "the todo being ticked", page.getByRole("button", { name: `Completed · ${completedBefore + 1}` }).waitFor());
+    });
+    await expectNoUndone();
+    await page.reload();
+    await page.getByRole("button", { name: `Completed · ${completedBefore + 1}` }).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: /^Completed/ }).click();
+    await page.getByRole("button", { name: `Delete ${title}` }).waitFor({ timeout: 5_000 });
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic tasks: a change the server refuses is undone, with \"Couldn't save, change undone\" announced", async () => {
+  await open("/tasks", page.getByRole("button", { name: "Mark as done", exact: true }).first());
+  const completed = async () => Number(((await page.getByRole("button", { name: /^Completed/ }).textContent()) ?? "").match(/\d+/)?.[0] ?? 0);
+  const before = await completed();
+  const openBefore = await page.getByRole("button", { name: "Mark as done", exact: true }).count();
+  await failing(["task.toggleComplete"], async () => {
+    await page.getByRole("button", { name: "Mark as done", exact: true }).first().click();
+    await within(AT_ONCE, "the todo being ticked", page.getByRole("button", { name: `Completed · ${before + 1}` }).waitFor());
+    await expectUndone();
+    // Back to how it was.
+    await page.getByRole("button", { name: `Completed · ${before}` }).waitFor({ timeout: 5_000 });
+  });
+  assert((await page.getByRole("button", { name: "Mark as done", exact: true }).count()) === openBefore, "the todo did not come back");
+  const live = await notifications().getAttribute("aria-live");
+  assert(live === "polite", `the message is not in a polite live region ("${live}")`);
+});
+
+await check("optimistic shopping: a new list is selected at once and takes items straight away, ticking and favourites are instant, and a reload agrees", async () => {
+  const name = "Behave list";
+  const leftovers = async () => {
+    for (const list of await api("shopping.lists", undefined)) if (list.name === name) await api("shopping.deleteList", { id: list.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/lists/shopping", page.getByRole("button", { name: "+ New list" }));
+    await slowly(async () => {
+      await page.getByRole("button", { name: "+ New list" }).click();
+      await page.getByRole("textbox", { name: "List name" }).fill(name);
+      await page.getByRole("button", { name: "Create", exact: true }).click();
+      const chip = page.getByRole("button", { name: new RegExp(`^${name}`) });
+      await within(AT_ONCE, "the new list appearing", chip.waitFor());
+      assert((await chip.getAttribute("aria-pressed")) === "true", "the new list is not selected");
+      const item = page.getByRole("textbox", { name: "Item" });
+      for (const text of ["Behave milk", "Behave eggs"]) {
+        await item.fill(text);
+        await item.press("Enter");
+        await within(AT_ONCE, `${text} appearing`, page.getByRole("button", { name: `Tick off ${text}` }).waitFor());
+      }
+      await page.getByRole("button", { name: "Add Behave milk to favorites" }).click();
+      await within(AT_ONCE, "the favourite appearing", page.getByRole("button", { name: "Remove Behave milk from favorites" }).first().waitFor());
+      await page.getByRole("button", { name: "Tick off Behave eggs" }).click();
+      await within(AT_ONCE, "the tick showing", page.getByRole("button", { name: "Put Behave eggs back on the list" }).waitFor());
+      assert((await chip.textContent())?.includes("1"), "the open count on the list button did not follow the tick");
+    });
+    await expectNoUndone();
+    await page.reload();
+    const chip = page.getByRole("button", { name: new RegExp(`^${name}`) });
+    await chip.waitFor({ timeout: 30_000 });
+    await chip.click();
+    await page.getByRole("button", { name: "Tick off Behave milk" }).waitFor({ timeout: 10_000 });
+    assert((await page.getByRole("button", { name: "Tick off Behave eggs" }).count()) === 0, "the ticked item is still open after a reload");
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic shopping: deleting a list (confirmed in the alert) removes it at once and selects the next; if refused it comes back selected", async () => {
+  const name = "Behave doomed list";
+  const leftovers = async () => {
+    for (const list of await api("shopping.lists", undefined)) if (list.name === name) await api("shopping.deleteList", { id: list.id }, { write: true });
+  };
+  await leftovers();
+  try {
+    await open("/lists/shopping", page.getByRole("button", { name: "+ New list" }));
+    await page.getByRole("button", { name: "+ New list" }).click();
+    await page.getByRole("textbox", { name: "List name" }).fill(name);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    const chip = page.getByRole("button", { name: new RegExp(`^${name}`) });
+    await chip.waitFor({ timeout: 15_000 });
+    await settle();
+    const remove = async () => {
+      await page.getByRole("button", { name: "Delete", exact: true }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete list" }).click();
+    };
+    // Refused: it vanishes, then returns, selected again, with the message.
+    await failing(["shopping.deleteList"], async () => {
+      await remove();
+      await within(AT_ONCE, "the list vanishing", chip.waitFor({ state: "detached" }));
+      assert((await page.locator('[role="group"][aria-label="Shopping lists"] [aria-pressed="true"]').count()) === 1, "no other list was selected after the delete");
+      await expectUndone();
+      await chip.waitFor({ timeout: 8_000 });
+      assert((await chip.getAttribute("aria-pressed")) === "true", "the returned list is not selected again");
+    });
+    // Accepted: gone, and stays gone.
+    await slowly(async () => {
+      await remove();
+      await within(AT_ONCE, "the list vanishing", chip.waitFor({ state: "detached" }));
+    });
+    await expectNoUndone();
+    await page.reload();
+    await page.getByRole("button", { name: "+ New list" }).waitFor({ timeout: 30_000 });
+    assert((await page.getByRole("button", { name: new RegExp(`^${name}`) }).count()) === 0, "the deleted list is back after a reload");
+  } finally {
+    await leftovers();
+  }
+});
+
+await check("optimistic reminders: ticking one shows the new state and the Undo toast at once, and Undo puts the due date back", async () => {
+  const title = "Water the plants";
+  const due = async () => (await api("reminder.list", undefined)).find((r) => r.title === title).nextDueDate;
+  await open("/tasks", page.getByRole("button", { name: `Mark ${title} as done` }));
+  const before = await due();
+  await slowly(async () => {
+    await page.getByRole("button", { name: `Mark ${title} as done` }).click();
+    await within(AT_ONCE, "the Undo toast", notifications().getByRole("button", { name: "Undo" }).waitFor());
+    // Due today before; three days on afterwards, so no longer under "Due today".
+    await within(AT_ONCE, "the reminder moving on", page.getByText(`✓ ${title} done`).waitFor());
+    await notifications().getByRole("button", { name: "Undo" }).click();
+    await notifications().getByRole("button", { name: "Undo" }).waitFor({ state: "detached", timeout: 5_000 });
+  });
+  await expectNoUndone();
+  assert(String(await due()) === String(before), "the due date was not put back");
 });
 
 await browser.close();
