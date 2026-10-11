@@ -42,6 +42,10 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   };
   const today = todayInHousehold(now);
   const rand = mulberry32(today.getUTCFullYear() * 400 + today.getUTCMonth() * 31 + 7);
+  // Distinct creation times: the app lists things by when they were created, and rows made in the same
+  // instant would come back in a different order from one page load to the next.
+  let tick = 0;
+  const stamp = () => new Date(now.getTime() - 3_600_000 + tick++ * 10);
   const between = (lo: number, hi: number) => round2(lo + rand() * (hi - lo));
   const pick = <T>(list: readonly T[]) => list[Math.floor(rand() * list.length)];
 
@@ -72,7 +76,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     ],
   });
 
-  await prisma.category.createMany({ data: DEFAULT_CATEGORIES.map((c) => ({ householdId, name: c.name, color: c.color })) });
+  await prisma.category.createMany({ data: DEFAULT_CATEGORIES.map((c) => ({ householdId, name: c.name, color: c.color, createdAt: stamp() })) });
   const categories = new Map((await prisma.category.findMany({ where: { householdId } })).map((c) => [c.name, c.id]));
   const cat = (name: string) => categories.get(name) ?? null;
 
@@ -103,6 +107,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
           type: a.type,
           startingBalance: a.start,
           balance: a.start,
+          createdAt: stamp(),
         },
         select: { id: true },
       });
@@ -260,7 +265,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
 
   lap("transactions generated");
   await prisma.transaction.createMany({
-    data: txs.filter((t) => Number(t.amount) > 0).map((t) => ({ ...t, householdId })),
+    data: txs.filter((t) => Number(t.amount) > 0).map((t) => ({ ...t, householdId, createdAt: stamp() })),
   });
 
   lap("transactions stored");
@@ -307,6 +312,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
       const created = await prisma.recurringItem.create({
         data: {
           householdId,
+          createdAt: stamp(),
           ownerId: def.owner,
           accountId: acc[def.account],
           toAccountId: def.to ? acc[def.to] : null,
@@ -348,6 +354,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     ownerScope: owner ?? "HOUSEHOLD",
     monthlyAmount: amount,
     visibleToHousehold: true,
+    createdAt: stamp(),
   });
   await prisma.budget.createMany({
     data: [
@@ -365,11 +372,11 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   const daysFromToday = (n: number) => addInterval(today, n, "DAY");
   await prisma.task.createMany({
     data: [
-      { householdId, ownerId: alex, title: "Book a dentist appointment", priority: "HIGH" },
-      { householdId, ownerId: sam, title: "Compare energy contracts", priority: "MEDIUM" },
-      { householdId, ownerId: null, title: "Plan the weekend away", priority: "MEDIUM" },
-      { householdId, ownerId: alex, title: "Replace the bike lock", priority: "LOW" },
-      { householdId, ownerId: sam, title: "Send the rent receipt to the landlord", priority: "HIGH", completedAt: daysFromToday(-1) },
+      { householdId, createdAt: stamp(), ownerId: alex, title: "Book a dentist appointment", priority: "HIGH" },
+      { householdId, createdAt: stamp(), ownerId: sam, title: "Compare energy contracts", priority: "MEDIUM" },
+      { householdId, createdAt: stamp(), ownerId: null, title: "Plan the weekend away", priority: "MEDIUM" },
+      { householdId, createdAt: stamp(), ownerId: alex, title: "Replace the bike lock", priority: "LOW" },
+      { householdId, createdAt: stamp(), ownerId: sam, title: "Send the rent receipt to the landlord", priority: "HIGH", completedAt: daysFromToday(-1) },
     ],
   });
   const reminderDefs = [
@@ -383,7 +390,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   await Promise.all(
     reminderDefs.map(async (r) => {
       const reminder = await prisma.reminder.create({
-        data: { householdId, ownerId: r.owner, title: r.title, intervalCount: r.count, intervalUnit: r.unit, mode: r.mode, nextDueDate: daysFromToday(r.due) },
+        data: { householdId, createdAt: stamp(), ownerId: r.owner, title: r.title, intervalCount: r.count, intervalUnit: r.unit, mode: r.mode, nextDueDate: daysFromToday(r.due) },
         select: { id: true },
       });
       if (r.title === "Water the plants") {
@@ -397,28 +404,28 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   lap("todos + reminders");
   // ── Shopping lists ───────────────────────────────────────────────────────
   const [groceries, hardware, gifts] = await Promise.all([
-    prisma.shoppingList.create({ data: { householdId, ownerId: null, name: "Groceries" }, select: { id: true } }),
-    prisma.shoppingList.create({ data: { householdId, ownerId: null, name: "Hardware store" }, select: { id: true } }),
+    prisma.shoppingList.create({ data: { householdId, createdAt: stamp(), ownerId: null, name: "Groceries" }, select: { id: true } }),
+    prisma.shoppingList.create({ data: { householdId, createdAt: stamp(), ownerId: null, name: "Hardware store" }, select: { id: true } }),
     // A private list: only Alex sees it.
-    prisma.shoppingList.create({ data: { householdId, ownerId: alex, name: "Gift ideas for Sam" }, select: { id: true } }),
+    prisma.shoppingList.create({ data: { householdId, createdAt: stamp(), ownerId: alex, name: "Gift ideas for Sam" }, select: { id: true } }),
   ]);
   await Promise.all([
     prisma.shoppingItem.createMany({
       data: [
-        { listId: groceries.id, name: "Oat milk", quantity: "2", addedById: alex },
-        { listId: groceries.id, name: "Tomatoes", quantity: "4", addedById: sam },
-        { listId: groceries.id, name: "Pasta", addedById: sam },
-        { listId: groceries.id, name: "Dish soap", addedById: alex },
-        { listId: groceries.id, name: "Coffee beans", addedById: alex, checkedAt: now },
-        { listId: groceries.id, name: "Eggs", quantity: "10", addedById: sam, checkedAt: now },
-        { listId: hardware.id, name: "Light bulbs (E27)", quantity: "4", addedById: sam },
-        { listId: hardware.id, name: "Wall plugs", addedById: alex },
-        { listId: gifts.id, name: "Linen shirt", addedById: alex },
-        { listId: gifts.id, name: "Concert tickets", note: "Their birthday, in the spring", addedById: alex },
+        { createdAt: stamp(), listId: groceries.id, name: "Oat milk", quantity: "2", addedById: alex },
+        { createdAt: stamp(), listId: groceries.id, name: "Tomatoes", quantity: "4", addedById: sam },
+        { createdAt: stamp(), listId: groceries.id, name: "Pasta", addedById: sam },
+        { createdAt: stamp(), listId: groceries.id, name: "Dish soap", addedById: alex },
+        { createdAt: stamp(), listId: groceries.id, name: "Coffee beans", addedById: alex, checkedAt: now },
+        { createdAt: stamp(), listId: groceries.id, name: "Eggs", quantity: "10", addedById: sam, checkedAt: now },
+        { createdAt: stamp(), listId: hardware.id, name: "Light bulbs (E27)", quantity: "4", addedById: sam },
+        { createdAt: stamp(), listId: hardware.id, name: "Wall plugs", addedById: alex },
+        { createdAt: stamp(), listId: gifts.id, name: "Linen shirt", addedById: alex },
+        { createdAt: stamp(), listId: gifts.id, name: "Concert tickets", note: "Their birthday, in the spring", addedById: alex },
       ],
     }),
     prisma.shoppingFavorite.createMany({
-      data: ["Oat milk", "Eggs", "Bananas", "Coffee beans", "Olive oil"].map((name) => ({ listId: groceries.id, name })),
+      data: ["Oat milk", "Eggs", "Bananas", "Coffee beans", "Olive oil"].map((name) => ({ listId: groceries.id, name, createdAt: stamp() })),
     }),
   ]);
 
@@ -427,13 +434,13 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   await prisma.wish.createMany({
     data: [
       // Sam has claimed this one; Alex, the owner, never sees that.
-      { householdId, ownerId: alex, title: "Noise-cancelling headphones", price: 279, url: "https://example.com/headphones", claimedById: sam },
-      { householdId, ownerId: alex, title: "Trail running shoes", price: 140, note: "Size 43" },
-      { householdId, ownerId: sam, title: "Ceramic pour-over coffee set", price: 64, url: "https://example.com/pour-over", claimedById: alex },
-      { householdId, ownerId: sam, title: "A weekend city break", note: "Anywhere with good food" },
-      { householdId, ownerId: null, title: "Robot vacuum", price: 399, url: "https://example.com/robot-vacuum" },
-      { householdId, ownerId: null, title: "Balcony furniture set", price: 520 },
-      { householdId, ownerId: alex, title: "Sketchbook and pens", price: 35, receivedAt: daysFromToday(-40) },
+      { householdId, createdAt: stamp(), ownerId: alex, title: "Noise-cancelling headphones", price: 279, url: "https://example.com/headphones", claimedById: sam },
+      { householdId, createdAt: stamp(), ownerId: alex, title: "Trail running shoes", price: 140, note: "Size 43" },
+      { householdId, createdAt: stamp(), ownerId: sam, title: "Ceramic pour-over coffee set", price: 64, url: "https://example.com/pour-over", claimedById: alex },
+      { householdId, createdAt: stamp(), ownerId: sam, title: "A weekend city break", note: "Anywhere with good food" },
+      { householdId, createdAt: stamp(), ownerId: null, title: "Robot vacuum", price: 399, url: "https://example.com/robot-vacuum" },
+      { householdId, createdAt: stamp(), ownerId: null, title: "Balcony furniture set", price: 520 },
+      { householdId, createdAt: stamp(), ownerId: alex, title: "Sketchbook and pens", price: 35, receivedAt: daysFromToday(-40) },
     ],
   });
 
@@ -444,6 +451,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
     prisma.vaultEntry.create({
       data: {
         householdId,
+        createdAt: stamp(),
         ownerId: owner,
         visibleToHousehold: visible,
         title,

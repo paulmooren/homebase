@@ -21,7 +21,8 @@ export function Avatar({
       className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-2 font-semibold text-text-muted ${className}`}
     >
       {image && <BaseAvatar.Image src={image} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
-      <BaseAvatar.Fallback>{name.trim().charAt(0).toUpperCase() || "?"}</BaseAvatar.Fallback>
+      {/* With a picture on its way, wait a moment before showing the initial, so a cached picture never flashes the letter first. */}
+      <BaseAvatar.Fallback delay={image ? 600 : undefined}>{name.trim().charAt(0).toUpperCase() || "?"}</BaseAvatar.Fallback>
     </BaseAvatar.Root>
   );
 }
