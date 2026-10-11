@@ -360,3 +360,19 @@ Before: first byte is dominated by the Atlantic crossing to `iad1` (≈ 100–25
 7. **Vault/session breakage** if `VAULT_KEY` or `AUTH_SECRET` were accidentally changed while editing env vars — only the two `DATABASE_URL*` vars should differ from before.
 8. **Neon free-tier cold start**: the first request after 5 minutes idle is slow before *and* after; don't read it as a regression.
 9. **Irreversible deletion** of the old projects is the only point of no return — gated by the Phase 6 checklist and a 7-day soak.
+
+---
+
+## Execution log (2026-10-11)
+
+| Step | Result |
+| --- | --- |
+| Tools | `postgresql@18` via Homebrew (pg_dump 18.6); Vercel CLI 63 logged in via device flow |
+| New projects | `homebase-eu` = `noisy-base-14705879` (branches `production`, `dev`), `homebase-demo-eu` = `dry-boat-61799931` (`main`); both `aws-eu-central-1`, PG 18 |
+| Backup test | 135 KB dump, 25 tables; rehearsal restore ≈ 9 s, no errors; `compare.sql` IDENTICAL; `prisma migrate status` up to date (25), `migrate diff` no drift |
+| Demo | new DB migrated + `demo:reset`; Vercel `homebase-demo`: region `fra1` (project setting via API), `DATABASE_URL*` replaced, redeployed; served `fra1::fra1`, sign-in as Alex works |
+| Real cutover | final dump 21:59, restore identical; env + region `fra1` set on `homebase`; unpromoted build from a clean worktree of `main@9ebe302` (`--skip-domain`), smoke-tested, **promoted 22:02:57**; straggler check on old DB: **no writes after the final dump** |
+| Local | `.env`/`.env.local` → Frankfurt `dev` branch (`NEON_BRANCH=dev`), `.env.demo` → new Demo DB, `.neon` → new project/`dev`; old values in `~/homebase-migration/old-*.bak` |
+| Latency | laptop→DB 129 ms (Ohio) → 33 ms (Frankfurt); through Vercel (dry cron, first byte, warm) 282 ms → 156 ms; function region `iad1` → `fra1` |
+
+Deviations from the plan: the region is set as a **Vercel project setting** (API `serverlessFunctionRegion`) rather than `vercel.json`, so no code change was needed for the cutover; `vercel.json` `regions` (Phase 4.8) is optional and still open. `vercel link` rewrote `.env.local` once (restored from backup). Open: #7 (repo commit), #8 (read-only old DB), #10/#11 (deleting old projects after the soak).
