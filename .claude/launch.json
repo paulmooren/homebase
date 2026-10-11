@@ -19,6 +19,16 @@
       ],
       "port": 3100,
       "url": "http://127.0.0.1:3100"
+    },
+    {
+      "name": "homebase-baseline",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd ../homebase-wt-baseline && set -a && . ./.env.demo && set +a && NEXTAUTH_URL=http://127.0.0.1:3101 exec npx next dev --webpack -p 3101"
+      ],
+      "port": 3101,
+      "url": "http://127.0.0.1:3101"
     }
   ]
 }

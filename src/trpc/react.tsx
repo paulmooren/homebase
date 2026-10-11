@@ -6,6 +6,7 @@ import { httpBatchLink, createTRPCReact } from "@trpc/react-query";
 import superjson from "superjson";
 
 import { ConfirmProvider } from "@/components/confirm-dialog";
+import { ToastProvider } from "@/components/toast";
 import type { AppRouter } from "@/server/api/root";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -31,7 +32,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <ConfirmProvider>{children}</ConfirmProvider>
+        <ConfirmProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ConfirmProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

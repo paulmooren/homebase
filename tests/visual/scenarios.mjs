@@ -76,7 +76,10 @@ export const SCENARIOS = [
     path: "/tasks",
     viewportOnly: true,
     viewports: ["desktop"],
-    run: click("Mark Hoover the living room as done"),
+    run: async (p) => {
+      await click("Mark Hoover the living room as done")(p);
+      await p.getByRole("button", { name: "Undo" }).waitFor({ timeout: 20_000 });
+    },
     cleanup: (page) => page.getByRole("button", { name: "Undo" }).click(),
   },
 ];
