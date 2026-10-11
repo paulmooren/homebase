@@ -25,6 +25,8 @@ import { SortableList } from "@/components/sortable-list";
 import { applyMove, applyReorder } from "@/lib/recurring-order";
 import { AddGroup, ExpenseSections, type BudgetGroup } from "@/components/finance/expense-sections";
 import { Avatar } from "@/components/avatar";
+import { Checkbox } from "@/components/checkbox";
+import { NumberField } from "@base-ui/react/number-field";
 import { groupOrder, groupLabel, type Member } from "@/components/finance/ownership-groups";
 import { InlineEdit } from "@/components/inline-edit";
 import { parseMoney } from "@/lib/money";
@@ -359,11 +361,9 @@ function SuggestionsPanel({ suggestions }: { suggestions: Suggestion[] }) {
           key={c.matchKey}
           className="flex cursor-pointer flex-wrap items-center gap-3 border-b border-border-soft py-3 last:border-none"
         >
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isTicked(c)}
-            onChange={(e) => setOverride((prev) => ({ ...prev, [c.matchKey]: e.target.checked }))}
-            className="h-4 w-4 shrink-0 accent-[var(--accent-fill)]"
+            onChange={(next) => setOverride((prev) => ({ ...prev, [c.matchKey]: next }))}
           />
           <div className="min-w-0 flex-1">
             <div className="text-[13.5px] font-medium">
@@ -1013,15 +1013,20 @@ function InlineRecurringRow({
         <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[12px]">
           <span className="inline-flex items-center gap-1 text-text-muted">
             Every
-            <input
-              type="number"
+            <NumberField.Root
               min={1}
               max={365}
-              value={intervalCount}
-              onChange={(e) => setIntervalCount(e.target.value)}
-              aria-label="Every how many"
-              className="w-10 rounded-md border border-border-soft bg-surface px-1.5 py-0.5 text-center text-[12px] text-text tabular-nums outline-none focus:border-text-faint"
-            />
+              step={1}
+              locale="en-US"
+              format={{ maximumFractionDigits: 0, useGrouping: false }}
+              value={intervalCount === "" ? null : Number(intervalCount)}
+              onValueChange={(next) => setIntervalCount(next === null ? "" : String(next))}
+            >
+              <NumberField.Input
+                aria-label="Every how many"
+                className="w-10 rounded-md border border-border-soft bg-surface px-1.5 py-0.5 text-center text-[12px] text-text tabular-nums outline-none focus:border-text-faint"
+              />
+            </NumberField.Root>
             <InlineSelect
               value={intervalUnit}
               onChange={(v) => setIntervalUnit(v as ScheduleUnit)}

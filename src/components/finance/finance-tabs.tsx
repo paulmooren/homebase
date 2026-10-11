@@ -6,6 +6,7 @@ export function FinanceTabs({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-5">
       <TabBar
+        label="Finance sections"
         tabs={[
           { href: "/finance/budgets", label: "Budgets" },
           { href: "/finance/transactions", label: "Transactions" },
