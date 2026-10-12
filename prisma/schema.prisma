@@ -54,18 +54,13 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   name            String?
-  password        String?
-  emailVerified   DateTime?
   image           String?
   createdAt       DateTime  @default(now())
   onboardedAt     DateTime?
-  // Better Auth's boolean "email verified" flag. Kept beside the old Auth.js emailVerified timestamp until
-  // that column is dropped in the cleanup migration.
+  // Whether the person has confirmed this email (Google sign-in and the emailed link both set it).
   emailIsVerified Boolean   @default(false)
   updatedAt       DateTime  @default(now()) @updatedAt
 
-  accounts            Account[]
-  sessions            Session[]
   authAccounts        AuthAccount[]
   authSessions        AuthSession[]
   householdMember     HouseholdMember?
@@ -144,49 +139,6 @@ model HouseholdInvite {
 
   @@index([householdId, revokedAt])
   @@map("household_invites")
-}
-
-// Auth.js adapter models (kept to the standard shape @auth/prisma-adapter expects).
-// Must be named Account — @auth/prisma-adapter hard-codes `prisma.account`.
-// Doesn't collide with the finance-domain FinancialAccount: distinct model names.
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("oauth_accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
 }
 
 // Better Auth models (see src/lib/auth.ts). Named Auth* so they sit beside the Auth.js tables above until

@@ -43,7 +43,6 @@ it against a production `DATABASE_URL`.
 `node tests/auth/smoke.mjs` (with the dev server running, `RESEND_API_KEY` unset) checks sign-up with
 email confirmation, sign-out, the signed-out redirect, a wrong password, sign-in and password reset. Google sign-in is checked by hand.
 
-After a schema change to the auth tables, `scripts/verify-auth-migration.ts` checks the copied sign-in data.
 
 ## Deploying
 
