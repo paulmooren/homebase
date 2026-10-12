@@ -15,9 +15,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? "Something went wrong. Please try again.") : null;
 
   return (
@@ -33,6 +33,12 @@ export default async function SignInPage({
           Sign in
         </p>
         <h1 className="mb-6 font-display font-bold tracking-tight text-[26px]">Welcome to Nest</h1>
+
+        {reset && (
+          <p className="mb-4 rounded-lg border border-border bg-surface-hover px-3.5 py-2.5 text-[13px] text-text-muted">
+            Password changed. Sign in with the new one.
+          </p>
+        )}
 
         {errorMessage && (
           <p className="mb-4 rounded-lg border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">
@@ -111,6 +117,9 @@ function SignInOptions() {
           >
             Sign in
           </Button>
+          <Link href="/forgot-password" className="text-center text-[13px] font-medium text-text-muted hover:text-text hover:underline">
+            Forgot your password?
+          </Link>
         </form>
 
         <p className="mt-5 text-center text-[13px] text-text-muted">

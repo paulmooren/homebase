@@ -24,6 +24,8 @@ net worth over time, and household tasks/reminders. Built with Next.js
 | `DATABASE_URL_UNPOOLED` | Direct (unpooled) connection string, used by Prisma migrations |
 | `BETTER_AUTH_SECRET` | Better Auth's signing secret — generate with `openssl rand -base64 32`. Use a different one per environment (prod, Demo, local). |
 | `BETTER_AUTH_URL` | The app's own base URL (`http://localhost:3000` locally, `https://app.getnest.eu` in production, `https://demo.getnest.eu` for the Demo) |
+| `RESEND_API_KEY` | Resend API key for sign-up confirmation and password-reset emails (the sending domain `getnest.eu` must be verified in Resend). Without it, local dev logs emails and writes them to `.email-outbox.jsonl`; production refuses to run without it. |
+| `EMAIL_FROM` | Optional sender, default `Nest <noreply@getnest.eu>` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials, used for "Continue with Google" sign-in |
 
 ### Dev-only tooling
@@ -38,8 +40,8 @@ sign the cookie the same way the app would). It refuses any non-local database
 unless `DEV_LOGIN_ALLOW_REMOTE=1` is set (for the Neon `dev` branch): never run
 it against a production `DATABASE_URL`.
 
-`node tests/auth/smoke.mjs` (with the dev server running) checks sign-up, sign-out,
-the signed-out redirect, a wrong password and sign-in. Google sign-in is checked by hand.
+`node tests/auth/smoke.mjs` (with the dev server running, `RESEND_API_KEY` unset) checks sign-up with
+email confirmation, sign-out, the signed-out redirect, a wrong password, sign-in and password reset. Google sign-in is checked by hand.
 
 After a schema change to the auth tables, `scripts/verify-auth-migration.ts` checks the copied sign-in data.
 

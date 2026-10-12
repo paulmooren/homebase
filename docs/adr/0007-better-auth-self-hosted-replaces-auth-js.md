@@ -8,6 +8,6 @@ The new tables are named `Auth*` and sit beside the old Auth.js ones. Existing p
 
 - Everyone signed in at the cutover is signed out once; the app also moved to `app.getnest.eu`, so push subscriptions and the installed Home Screen app had to be set up again.
 - The passkey relying-party ID will be `getnest.eu`. Prod and the Demo must never share cookies: no cross-subdomain cookies, and each has its own `BETTER_AUTH_SECRET`.
-- Google's account link auto-merges by email only for Google (`trustedProviders`). Password users from before the switch are unverified until email verification ships (phase 2); only new sign-ups will have to verify.
+- Google's account link auto-merges by email only for Google (`trustedProviders`). Email verification and password reset shipped as phase 2 (Resend, sending as noreply@getnest.eu): new password sign-ups must confirm their email before they can sign in, signing in unverified re-sends the link, and a reset signs the account out everywhere else. Everyone who existed beforehand was verified or Google-linked, so nobody was locked out.
 - The Demo's one-click sign-in is a small plugin endpoint that refuses unless `DEMO_MODE` is set.
 - A cleanup migration (after a few stable days) drops `next-auth`, `@auth/*`, the old `Account`, `Session` and `VerificationToken` models and `User.password` / `User.emailVerified`. Until then the previous release still works against the same database.

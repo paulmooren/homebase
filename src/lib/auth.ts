@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { accountEmail, sendEmail } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
 
@@ -73,6 +74,43 @@ export const auth = betterAuth({
       verify: ({ password, hash }) => verifyPassword(password, hash),
     },
     minPasswordLength: 8,
+    // New password sign-ups have to click the emailed link before they can sign in. Google users arrive verified,
+    // and everyone who existed before this shipped was verified or Google-linked (checked on prod, the Demo and dev).
+    requireEmailVerification: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    // A reset signs the account out everywhere else: whoever knew the old password loses their sessions too.
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        ...accountEmail({
+          subject: "Reset your Nest password",
+          heading: "Reset your password",
+          intro: "Someone asked to reset the password for your Nest account. This link works for one hour.",
+          button: "Choose a new password",
+          url,
+        }),
+      });
+    },
+  },
+  emailVerification: {
+    // Sending again on sign-in means an unverified person who lost the first email just tries to sign in.
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60 * 24,
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        ...accountEmail({
+          subject: "Confirm your email for Nest",
+          heading: "Confirm your email",
+          intro: "Welcome to Nest. Confirm that this is your email address to finish creating your account.",
+          button: "Confirm email",
+          url,
+        }),
+      });
+    },
   },
   socialProviders: {
     google: {
