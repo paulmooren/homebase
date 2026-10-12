@@ -4,7 +4,7 @@
 
 ## Problem Statement
 
-Homebase feels slow. When a Member adds a task, deletes a shopping list, ticks off a reminder or changes a transaction's Category, nothing changes on screen until the server has answered, and then the app asks the server again for the whole list before it redraws. That is two round trips in a row before the Member sees what they just did. Only a few actions (ticking and adding shopping items, reordering Budget group rows) show their result at once today, and each of those was written by hand, so the behaviour differs from place to place. The data lives in the United States and the Member is in Europe, so every round trip is noticeably long.
+Nest feels slow. When a Member adds a task, deletes a shopping list, ticks off a reminder or changes a transaction's Category, nothing changes on screen until the server has answered, and then the app asks the server again for the whole list before it redraws. That is two round trips in a row before the Member sees what they just did. Only a few actions (ticking and adding shopping items, reordering Budget group rows) show their result at once today, and each of those was written by hand, so the behaviour differs from place to place. The data lives in the United States and the Member is in Europe, so every round trip is noticeably long.
 
 ## Solution
 

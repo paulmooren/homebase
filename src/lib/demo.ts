@@ -4,7 +4,7 @@
  * that deployment only — the real app never sets these, so none of this
  * shows or applies there.
  */
-export const DEMO_EMAIL_DOMAIN = "demo.homebase.test";
+export const DEMO_EMAIL_DOMAIN = "demo.nest.test";
 
 export const DEMO_PERSONAS = [
   { key: "alex", name: "Alex", email: `alex@${DEMO_EMAIL_DOMAIN}`, blurb: "Has a private savings account" },

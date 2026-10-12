@@ -39,7 +39,7 @@ export const notificationRouter = createTRPCRouter({
   /** Sends one notification to all of your devices, so you can check it works. */
   sendTest: protectedProcedure.mutation(async ({ ctx }) => {
     const sent = await sendToUser(ctx.prisma, ctx.userId, {
-      title: "Homebase",
+      title: "Nest",
       body: "Notifications are working — you'll hear about reminders here.",
       url: "/settings/notifications",
     });

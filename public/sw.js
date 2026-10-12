@@ -24,7 +24,7 @@ self.addEventListener("push", (event) => {
     data = {};
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "Homebase", {
+    self.registration.showNotification(data.title || "Nest", {
       body: data.body || "",
       icon: "/icon-192",
       badge: "/icon-192",

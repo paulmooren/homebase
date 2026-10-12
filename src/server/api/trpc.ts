@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getHouseholdIdForUser } from "@/server/api/household";
 
@@ -15,7 +15,7 @@ type HouseholdIdLookup = (userId: string) => Promise<string | null>;
  * Server components pass their own `lookupHouseholdId` so the layout, the page and the prefetches share one lookup.
  */
 export async function createTRPCContext(opts?: { lookupHouseholdId?: HouseholdIdLookup }) {
-  const session = await auth();
+  const session = await getSession();
   const lookup = opts?.lookupHouseholdId ?? ((userId: string) => getHouseholdIdForUser(prisma, userId));
   const userId = session?.user?.id;
   let pending: Promise<string | null> | undefined;

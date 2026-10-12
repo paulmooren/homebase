@@ -1,11 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AuthError } from "next-auth";
+import { APIError } from "better-auth/api";
 
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/password";
-import { signIn } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { isDemoServer } from "@/lib/demo";
 
 export async function signUpWithPassword(formData: FormData) {
@@ -23,16 +23,14 @@ export async function signUpWithPassword(formData: FormData) {
     redirect("/signup?error=email-taken");
   }
 
-  await prisma.user.create({
-    data: { email, name: name || null, password: await hashPassword(password) },
-  });
-
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    await auth.api.signUpEmail({
+      body: { email, password, name: name || email.split("@")[0] },
+      headers: await headers(),
+    });
   } catch (error) {
-    if (error instanceof AuthError) {
-      redirect(`/signup?error=${error.type}`);
-    }
+    if (error instanceof APIError) redirect("/signup?error=unknown");
     throw error;
   }
+  redirect("/dashboard");
 }

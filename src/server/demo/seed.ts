@@ -464,7 +464,7 @@ export async function seedDemo(prisma: PrismaClient, now: Date = new Date()) {
   await Promise.all([
     vault("Passport — Alex", "ID", alex, true, 40, [["Number", "NX0000000"]], "Renew before the summer trip"),
     vault("Home and liability insurance", "Insurance", null, true, 210, [["Policy number", "GF-0098213"], ["Claims line", "+31 00 000 0000"]]),
-    vault("Wi-Fi at home", "Utility", null, true, null, [["Network", "Homebase-5G"], ["Password", "not-a-real-password"]]),
+    vault("Wi-Fi at home", "Utility", null, true, null, [["Network", "Nest-5G"], ["Password", "not-a-real-password"]]),
     vault("Car registration", "Vehicle", null, true, 320, [["Plate", "00-DEM-0"]]),
     vault("Driving licence — Sam", "ID", sam, false, 900, [["Number", "DL0000000"]]),
   ]);

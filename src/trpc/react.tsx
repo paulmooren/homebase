@@ -15,7 +15,7 @@ export const trpc = createTRPCReact<AppRouter>();
 
 function getBaseUrl() {
   if (typeof window !== "undefined") return "";
-  return process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {

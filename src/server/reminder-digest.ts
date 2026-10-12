@@ -45,5 +45,5 @@ export function digestMessage(entry: { dueToday: string[]; overdue: string[] }):
   else if (entry.dueToday.length > 1) parts.push(`Due today: ${list(entry.dueToday)}`);
   if (entry.overdue.length === 1) parts.push(`${entry.overdue[0]} is 2 days overdue`);
   else if (entry.overdue.length > 1) parts.push(`2 days overdue: ${list(entry.overdue)}`);
-  return { title: "Homebase", body: parts.join(" · "), url: "/tasks" };
+  return { title: "Nest", body: parts.join(" · "), url: "/tasks" };
 }

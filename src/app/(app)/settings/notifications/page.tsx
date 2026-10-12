@@ -58,7 +58,7 @@ export default function NotificationsSettingsPage() {
       const result = await Notification.requestPermission();
       setPermission(result);
       if (result !== "granted") {
-        setMessage("Notifications are blocked for Homebase. Allow them in your phone's settings, then try again.");
+        setMessage("Notifications are blocked for Nest. Allow them in your phone's settings, then try again.");
         return;
       }
       const reg = await navigator.serviceWorker.ready;
@@ -112,11 +112,11 @@ export default function NotificationsSettingsPage() {
 
         {support === "needs-install" && (
           <div className="rounded-2xl border border-border-soft p-4 text-[13.5px]">
-            <p className="mb-2 font-semibold">First add Homebase to your Home Screen</p>
+            <p className="mb-2 font-semibold">First add Nest to your Home Screen</p>
             <ol className="list-decimal space-y-1 pl-5 text-text-muted">
-              <li>Open Homebase in Safari on your iPhone.</li>
+              <li>Open Nest in Safari on your iPhone.</li>
               <li>Tap the Share button, then <b className="text-text">Add to Home Screen</b>.</li>
-              <li>Open Homebase from the Home Screen icon, come back to this page and switch notifications on.</li>
+              <li>Open Nest from the Home Screen icon, come back to this page and switch notifications on.</li>
             </ol>
           </div>
         )}
@@ -131,7 +131,7 @@ export default function NotificationsSettingsPage() {
               <div className="text-[14px] font-medium">Notifications on this device</div>
               <div className="text-[12.5px] text-text-muted">
                 {permission === "denied"
-                  ? "Blocked — allow notifications for Homebase in your device settings."
+                  ? "Blocked — allow notifications for Nest in your device settings."
                   : thisDevice
                     ? "On — this device will get your reminders."
                     : "Off"}

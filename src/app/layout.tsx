@@ -19,10 +19,10 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Homebase",
+  title: "Nest",
   description: "An overview of your accounts, budgets, and spending.",
   // Lets iOS run the saved home-screen app full screen, with the right name.
-  appleWebApp: { capable: true, title: "Homebase", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Nest", statusBarStyle: "default" },
   // The Demo is for showing, not for search results.
   ...(IS_DEMO_CLIENT ? { robots: { index: false, follow: false } } : {}),
 };
