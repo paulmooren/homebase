@@ -32,9 +32,8 @@ are now covered by Tasks' recurrence field rather than a separate domain.
   `.neon` and `neon.ts`). **Do not upgrade to Prisma 7**: its CLI is a
   cloud-platform-only redesign (`prisma deploy`/`prisma project`, no more
   `migrate dev`), incompatible with this self-hosted workflow.
-- Better Auth, self-hosted (was Auth.js v5 until 2026-10) (not Clerk/Supabase Auth — deliberate choice to
-  keep identity out of a third-party vendor), magic-link only via Resend.
-  Database session strategy (required for the email provider).
+- Better Auth, self-hosted (was Auth.js v5 until 2026-10; see docs/adr/0007). Not Clerk/Supabase Auth —
+  deliberate choice to keep identity out of a third-party vendor. Google + email/password; database sessions.
 - Design: **light theme** (switched 2026-09-28 from the original dark
   theme — see "Design system" below), Instrument Sans (UI chrome) +
   Instrument Serif (large numbers/headings only), near-black/white/gray
