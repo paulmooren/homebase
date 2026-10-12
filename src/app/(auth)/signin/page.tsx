@@ -7,8 +7,8 @@ import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
 import { signInAsPersona, signInWithGoogle, signInWithPassword } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  CredentialsSignin: "Incorrect email or password.",
-  OAuthAccountNotLinked:
+  "invalid-credentials": "Incorrect email or password.",
+  account_not_linked:
     "That email is already registered a different way — try signing in with Google or a password, whichever you used before.",
 };
 
@@ -25,7 +25,7 @@ export default async function SignInPage({
       <div>
         <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill md:hidden">
           <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">
-            H
+            N
           </span>
         </div>
 

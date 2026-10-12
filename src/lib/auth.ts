@@ -1,76 +1,91 @@
-import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createAuthEndpoint } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
+import { nextCookies } from "better-auth/next-js";
+import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { verifyPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { DEMO_PERSONAS, isDemoServer } from "@/lib/demo";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/signin",
-  },
-  providers: [
-    // The Demo's one-click sign-in as Alex or Sam. Only exists where DEMO_MODE is set, and only ever
-    // signs in the two made-up people — never a real account.
-    ...(isDemoServer()
-      ? [
-          Credentials({
-            id: "demo",
-            credentials: { persona: {} },
-            async authorize(credentials) {
-              const persona = DEMO_PERSONAS.find((p) => p.key === String(credentials?.persona ?? ""));
-              if (!persona) return null;
-              const user = await prisma.user.findUnique({ where: { email: persona.email } });
-              return user ? { id: user.id, email: user.email, name: user.name, image: user.image } : null;
-            },
-          }),
-        ]
-      : []),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Safe here specifically because Google verifies email ownership itself —
-      // this links a Google sign-in to an existing user row with the same email
-      // (e.g. from the old magic-link days) instead of refusing with
-      // OAuthAccountNotLinked.
-      allowDangerousEmailAccountLinking: true,
-    }),
-    Credentials({
-      credentials: {
-        email: {},
-        password: {},
+/**
+ * The Demo's one-click sign-in as Alex or Sam. It refuses unless DEMO_MODE is set (checked per request), and
+ * only ever signs in the two made-up people — never a real account.
+ */
+const demoSignIn = () => ({
+  id: "demo-sign-in" as const,
+  endpoints: {
+    signInDemo: createAuthEndpoint(
+      "/sign-in/demo",
+      { method: "POST", body: z.object({ persona: z.string() }) },
+      async (ctx) => {
+        if (!isDemoServer()) return ctx.json({ ok: false }, { status: 404 });
+        const persona = DEMO_PERSONAS.find((p) => p.key === ctx.body.persona);
+        if (!persona) return ctx.json({ ok: false }, { status: 400 });
+        const found = await ctx.context.internalAdapter.findUserByEmail(persona.email);
+        if (!found) return ctx.json({ ok: false }, { status: 400 });
+        const session = await ctx.context.internalAdapter.createSession(found.user.id);
+        await setSessionCookie(ctx, { session, user: found.user });
+        return ctx.json({ ok: true });
       },
-      async authorize(credentials) {
-        const email = String(credentials?.email ?? "")
-          .trim()
-          .toLowerCase();
-        const password = String(credentials?.password ?? "");
-        if (!email || !password) return null;
-
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user?.password) return null;
-
-        const valid = await verifyPassword(password, user.password);
-        if (!valid) return null;
-
-        return { id: user.id, email: user.email, name: user.name, image: user.image };
-      },
-    }),
-  ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) token.id = user.id;
-      return token;
-    },
-    session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
+    ),
   },
 });
+
+const appUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+
+export const auth = betterAuth({
+  baseURL: appUrl,
+  secret: process.env.BETTER_AUTH_SECRET,
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // Where a sign-in may come from. The Demo runs on its own host with its own secret and database, so it only
+  // ever needs its own address here.
+  trustedOrigins: [appUrl],
+
+  // The Better Auth tables are named Auth* so they sit beside the old Auth.js ones until those are dropped.
+  user: {
+    modelName: "user",
+    fields: { emailVerified: "emailIsVerified" },
+  },
+  session: {
+    modelName: "authSession",
+    // Re-checking the database on every request is wasteful; a signed 5-minute cookie answers repeat calls.
+    // Signing out elsewhere (or removing a session) takes effect within that window.
+    cookieCache: { enabled: true, maxAge: 5 * 60 },
+  },
+  account: {
+    modelName: "authAccount",
+    accountLinking: {
+      enabled: true,
+      // Google verifies email ownership itself, so a Google sign-in may link to an existing user with the
+      // same email (e.g. one created with a password).
+      trustedProviders: ["google"],
+    },
+  },
+  verification: { modelName: "authVerification" },
+
+  emailAndPassword: {
+    enabled: true,
+    // Existing passwords are bcrypt hashes (copied over by the better_auth_tables migration), so keep bcrypt.
+    password: {
+      hash: (password) => hashPassword(password),
+      verify: ({ password, hash }) => verifyPassword(password, hash),
+    },
+    minPasswordLength: 8,
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    },
+  },
+
+  // Serverless instances don't share memory, so rate limits live in the database.
+  rateLimit: { enabled: true, storage: "database", modelName: "authRateLimit" },
+
+  // nextCookies must stay last: it lets server actions set the session cookie.
+  plugins: [demoSignIn(), nextCookies()],
+});
+
+export type Session = typeof auth.$Infer.Session;

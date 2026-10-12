@@ -17,7 +17,7 @@ export async function GET() {
           borderRadius: 44,
         }}
       >
-        H
+        N
       </div>
     ),
     { width: 192, height: 192 },

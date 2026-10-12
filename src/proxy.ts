@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+// Only checks that a session cookie exists — a fast redirect, not a security boundary. The real session check
+// (against the database) happens in the tRPC context, server actions and pages via getSession().
+export default function proxy(req: NextRequest) {
+  const isLoggedIn = !!getSessionCookie(req);
   const { pathname } = req.nextUrl;
   const isAuthPage =
     pathname.startsWith("/signin") || pathname.startsWith("/signup");
@@ -13,7 +15,7 @@ export default auth((req) => {
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
-});
+}
 
 export const config = {
   matcher: [

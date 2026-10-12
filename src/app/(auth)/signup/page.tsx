@@ -27,7 +27,7 @@ export default async function SignUpPage({
       <div>
         <div className="mb-6 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-accent-fill md:hidden">
           <span className="pl-[2px] font-display text-[21px] font-bold text-accent-ink">
-            H
+            N
           </span>
         </div>
 

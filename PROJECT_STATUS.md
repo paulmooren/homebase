@@ -32,7 +32,7 @@ are now covered by Tasks' recurrence field rather than a separate domain.
   `.neon` and `neon.ts`). **Do not upgrade to Prisma 7**: its CLI is a
   cloud-platform-only redesign (`prisma deploy`/`prisma project`, no more
   `migrate dev`), incompatible with this self-hosted workflow.
-- Auth.js v5, self-hosted (not Clerk/Supabase Auth — deliberate choice to
+- Better Auth, self-hosted (was Auth.js v5 until 2026-10) (not Clerk/Supabase Auth — deliberate choice to
   keep identity out of a third-party vendor), magic-link only via Resend.
   Database session strategy (required for the email provider).
 - Design: **light theme** (switched 2026-09-28 from the original dark
@@ -333,8 +333,8 @@ calendar view.
 
 Env vars live in `.env` (Prisma reads this) and `.env.local` (Neon-managed,
 also read by Next.js — keep both in sync if you ever re-link the Neon
-project). Needed: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`,
-`NEXTAUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`.
+project). Needed: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET`,
+`BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`.
 
 ```bash
 npm run dev     # http://localhost:3000
