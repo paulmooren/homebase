@@ -13,7 +13,6 @@
     "demo:dev": "set -a && . ./.env.demo && set +a && next dev -p 3100"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.3",
     "@base-ui/react": "^1.9.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -28,7 +27,6 @@
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.7.7",
     "next": "16.3.6",
-    "next-auth": "^5.0.0-beta.32",
     "papaparse": "^5.7.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
