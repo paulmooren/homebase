@@ -25,12 +25,13 @@ export async function signUpWithPassword(formData: FormData) {
 
   try {
     await auth.api.signUpEmail({
-      body: { email, password, name: name || email.split("@")[0] },
+      body: { email, password, name: name || email.split("@")[0], callbackURL: "/dashboard" },
       headers: await headers(),
     });
   } catch (error) {
     if (error instanceof APIError) redirect("/signup?error=unknown");
     throw error;
   }
-  redirect("/dashboard");
+  // Not signed in yet: the account is created, and the emailed link confirms it and signs them in.
+  redirect("/verify-email");
 }

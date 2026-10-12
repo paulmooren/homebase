@@ -20,9 +20,13 @@ export async function signInWithPassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
   try {
-    await auth.api.signInEmail({ body: { email, password }, headers: await headers() });
+    await auth.api.signInEmail({ body: { email, password, callbackURL: "/dashboard" }, headers: await headers() });
   } catch (error) {
-    if (error instanceof APIError) redirect("/signin?error=invalid-credentials");
+    if (error instanceof APIError) {
+      // Right password but the email was never confirmed: Better Auth has just emailed a new link.
+      if (error.body?.code === "EMAIL_NOT_VERIFIED") redirect("/verify-email?state=unverified");
+      redirect("/signin?error=invalid-credentials");
+    }
     throw error;
   }
   redirect("/dashboard");

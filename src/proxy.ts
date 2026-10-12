@@ -8,8 +8,10 @@ export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAuthPage =
     pathname.startsWith("/signin") || pathname.startsWith("/signup");
+  // Reachable signed out, but unlike sign-in and sign-up they stay reachable when signed in too.
+  const isOpenPage = ["/verify-email", "/forgot-password", "/reset-password"].some((p) => pathname.startsWith(p));
 
-  if (!isLoggedIn && !isAuthPage) {
+  if (!isLoggedIn && !isAuthPage && !isOpenPage) {
     return NextResponse.redirect(new URL("/signin", req.nextUrl.origin));
   }
   if (isLoggedIn && isAuthPage) {
