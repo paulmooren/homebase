@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { isDemoServer } from "@/lib/demo";
@@ -7,12 +8,16 @@ import { createTRPCRouter, householdProcedure, protectedProcedure } from "@/serv
 
 export const userRouter = createTRPCRouter({
   me: protectedProcedure.query(async ({ ctx }) => {
-    const { password, ...user } = await ctx.prisma.user.findUniqueOrThrow({
+    const user = await ctx.prisma.user.findUniqueOrThrow({
       where: { id: ctx.userId },
-      select: { id: true, email: true, name: true, image: true, password: true },
+      select: { id: true, email: true, name: true, image: true },
     });
     // Never send the hash itself — the UI only needs to know whether one exists.
-    return { ...user, hasPassword: password !== null };
+    const credential = await ctx.prisma.authAccount.findFirst({
+      where: { userId: ctx.userId, providerId: "credential", password: { not: null } },
+      select: { id: true },
+    });
+    return { ...user, hasPassword: credential !== null };
   }),
 
   updateName: protectedProcedure
@@ -57,20 +62,25 @@ export const userRouter = createTRPCRouter({
       if (isDemoServer()) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Passwords can't be changed in the demo." });
       }
-      const user = await ctx.prisma.user.findUniqueOrThrow({
-        where: { id: ctx.userId },
-        select: { password: true },
+      // The password lives on the user's "credential" sign-in account (see src/lib/auth.ts).
+      const credential = await ctx.prisma.authAccount.findFirst({
+        where: { userId: ctx.userId, providerId: "credential" },
+        select: { id: true, password: true },
       });
-      if (user.password) {
+      if (credential?.password) {
         const ok = input.currentPassword
-          ? await verifyPassword(input.currentPassword, user.password)
+          ? await verifyPassword(input.currentPassword, credential.password)
           : false;
         if (!ok) throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
       }
-      await ctx.prisma.user.update({
-        where: { id: ctx.userId },
-        data: { password: await hashPassword(input.newPassword) },
-      });
+      const hash = await hashPassword(input.newPassword);
+      if (credential) {
+        await ctx.prisma.authAccount.update({ where: { id: credential.id }, data: { password: hash } });
+      } else {
+        await ctx.prisma.authAccount.create({
+          data: { id: randomUUID(), accountId: ctx.userId, providerId: "credential", userId: ctx.userId, password: hash },
+        });
+      }
       return { success: true };
     }),
 
