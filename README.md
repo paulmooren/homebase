@@ -1,4 +1,4 @@
-# Homebase
+# Nest
 
 A household finance app: shared and personal accounts, transactions (manual
 entry + CSV import), recurring income/expense tracking, category budgets,
@@ -62,7 +62,7 @@ CLI/GitHub Action step) so the schema is up to date.
 ## The Demo
 
 A separate copy of the app with made-up people and money (Alex and Sam), for
-showing Homebase without showing a real household. It has its own database, its
+showing Nest without showing a real household. It has its own database, its
 own secrets and its own address, and never shares anything with the real app
 (see `docs/adr/0005`). It runs the same code; setting `DEMO_MODE` turns on the
 "Demo — made-up data" marker, one-click sign-in as Alex or Sam, and a "Reset
@@ -79,7 +79,7 @@ change and notifications.
 
 **Hosted** (a second Vercel project from the same repo, so every push updates both):
 
-1. Vercel → Add New Project → import this repo again, name it `homebase-demo`.
+1. Vercel → Add New Project → import this repo again, name it `nest-demo`.
 2. Environment variables, copied from `.env.demo`: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
    `AUTH_SECRET`, `VAULT_KEY`, `DEMO_MODE=true`, `NEXT_PUBLIC_DEMO_MODE=true`. Set them
    **before** the first deploy: `NEXT_PUBLIC_DEMO_MODE` is baked into the build. Leave out

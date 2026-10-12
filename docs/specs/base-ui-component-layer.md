@@ -4,7 +4,7 @@
 
 ## Problem Statement
 
-Homebase hand-builds the behaviour of its interactive controls: its pop-up windows, menus, dropdowns, switch, checkboxes, tooltips and toast messages. Each was written separately, so keyboard and screen-reader support is uneven. Some pop-ups trap focus and some don't, some close on Escape and some don't, and not every control announces itself properly. Deleting something asks for confirmation with the browser's own plain "OK / Cancel" box, which looks nothing like the app. Dropdowns are native on some screens and a custom trick on others, so they look and behave differently from place to place. The Member (Paul) wants the app to be properly accessible and consistent without anything looking different: the same colours, spacing, type and shapes as today.
+Nest hand-builds the behaviour of its interactive controls: its pop-up windows, menus, dropdowns, switch, checkboxes, tooltips and toast messages. Each was written separately, so keyboard and screen-reader support is uneven. Some pop-ups trap focus and some don't, some close on Escape and some don't, and not every control announces itself properly. Deleting something asks for confirmation with the browser's own plain "OK / Cancel" box, which looks nothing like the app. Dropdowns are native on some screens and a custom trick on others, so they look and behave differently from place to place. The Member (Paul) wants the app to be properly accessible and consistent without anything looking different: the same colours, spacing, type and shapes as today.
 
 ## Solution
 

@@ -1,4 +1,4 @@
-# Homebase — project status
+# Nest — project status
 
 A household management app: personal + shared finances, household tasks
 and maintenance reminders, with recipes planned for later. Currently a

@@ -67,7 +67,7 @@ export function AppShell({
           <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-accent-fill">
             <span className="font-display text-[16px] font-bold text-accent-ink">H</span>
           </div>
-          <span className="font-display text-[17px] font-bold tracking-tight">Homebase</span>
+          <span className="font-display text-[17px] font-bold tracking-tight">Nest</span>
         </div>
 
         <div className="flex flex-col gap-0.5">

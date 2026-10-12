@@ -34,7 +34,7 @@ export default async function SignUpPage({
         <p className="mb-2 text-[11px] font-semibold tracking-[0.11em] text-accent uppercase">
           Create account
         </p>
-        <h1 className="mb-6 font-display font-bold tracking-tight text-[26px]">Join Homebase</h1>
+        <h1 className="mb-6 font-display font-bold tracking-tight text-[26px]">Join Nest</h1>
 
         {errorMessage && (
           <p className="mb-4 rounded-lg border border-critical/30 bg-critical/10 px-3.5 py-2.5 text-[13px] text-critical">

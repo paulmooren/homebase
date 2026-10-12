@@ -1,4 +1,4 @@
-# Homebase
+# Nest
 
 A single environment for everything a household needs to run its shared life — money, chores, and (soon) lists and records — built for a couple living together.
 
@@ -7,7 +7,7 @@ A single environment for everything a household needs to run its shared life —
 ### People
 
 **Household**:
-The group of people who share one Homebase environment. Everything in the app belongs to exactly one Household.
+The group of people who share one Nest environment. Everything in the app belongs to exactly one Household.
 _Avoid_: Family, team, workspace
 
 **Member**:
@@ -134,5 +134,5 @@ _Avoid_: Alert, ping
 ### Showing the app
 
 **Demo**:
-A separate copy of Homebase, with its own data, secrets and address, filled with made-up people and money so the app can be shown without showing a real Household. It can be reset to a clean state at any time, and it never shares data or sign-in with the real app.
+A separate copy of Nest, with its own data, secrets and address, filled with made-up people and money so the app can be shown without showing a real Household. It can be reset to a clean state at any time, and it never shares data or sign-in with the real app.
 _Avoid_: Test environment, sandbox, staging (those are places to try out changes, not to show the app)

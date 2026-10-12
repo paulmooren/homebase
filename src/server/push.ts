@@ -9,7 +9,7 @@ function configure() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? "mailto:homebase@example.com", publicKey, privateKey);
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? "mailto:nest@getnest.eu", publicKey, privateKey);
   configured = true;
   return true;
 }
